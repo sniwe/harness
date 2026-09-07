@@ -95,3 +95,11 @@ published a URL under the derived machine key; local `/health`, public `/health`
 and the public worker request all returned success. This closes the original
 new-machine failure where `tunnel` was incorrectly reported as `null` when no
 environment configuration was supplied.
+
+## Dynamic local-port proof
+
+With `PORT=0` and a local relay fixture, the operating system assigned port
+`55872`. The server constructed its local origin from that bound port before
+starting `cloudflared`; the relay received the resulting URL, and both local and
+public `/health` requests returned success. This verifies that a dynamically
+determined relay origin is propagated through the tunnel path.
