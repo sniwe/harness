@@ -80,7 +80,6 @@ export function createPeerRequestHandler({ pool, targetKey, enabled = true, maxI
 }
 
 function clampTimeout(value) { return Math.min(MAX_TIMEOUT_MS, Math.max(1000, Number.isInteger(value) ? value : DEFAULT_TIMEOUT_MS)); }
-function safeTokenEqual(actual, expected) { const left = Buffer.from(String(actual || "")); const right = Buffer.from(String(expected || "")); return left.length === right.length && crypto.timingSafeEqual(left, right); }
 async function readBoundedJson(response) {
   if (typeof response.text !== "function") return response.json();
   const text = await response.text();

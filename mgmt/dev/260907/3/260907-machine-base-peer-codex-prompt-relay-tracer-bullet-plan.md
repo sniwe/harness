@@ -1,7 +1,7 @@
 # Machine-base peer Codex prompt relay
 
 Date: 2026-09-07  
-Status: implementation in progress; public prompt and timeout verified, restart/cleanup gates pending  
+Status: implementation complete; focused, local, public, timeout, restart/rotation, and cleanup evidence recorded
 Target workspace: `C:\harness`  
 Related slices: `C:\harness\mgmt\dev\260907\0`, `C:\harness\mgmt\dev\260907\1`, `C:\harness\mgmt\dev\260907\2`  
 Current peer registry: `https://dev-sitex2082572611.wixdev-sites.org/_functions/tunnels`
@@ -15,9 +15,9 @@ request contract in `src/peerRequest.js`, fixed sender/receiver routes in
 focused tests in `test/peerRequest.test.js`.
 
 Verified now: syntax checks, 28 passing tests plus one non-Windows skip, a
-standalone JSONL worker canary, and a local HTTP sender-to-peer-handler round
-trip. Not yet verified: two distinct machines, live Wix peer discovery plus
-receiver restart and the final no-orphan process scan.
+standalone JSONL worker canary, a local HTTP sender-to-peer-handler round
+trip, live Wix peer discovery, two-machine prompt execution, timeout handling,
+receiver restart with tunnel rotation, and attached process-tree cleanup.
 
 Live preflight on 2026-09-07 found one healthy registered machine-base peer
 running a pre-feature deployment (`/api/machine-base/peer-request` returned
@@ -25,10 +25,10 @@ running a pre-feature deployment (`/api/machine-base/peer-request` returned
 `evidence/implementation-local-20260907.md`; this is an external deployment
 gate, not proof of local implementation failure.
 
-The healthy peer has since been deployed to the current origin through the existing
-commit-sync path, relaunched as generation 4, and verified under a rotated
-tunnel URL. Its new prompt route is present and returns the expected
-disabled response while the canary flag is off.
+The healthy peer has since been deployed to the current origin through the
+existing commit-sync path, relaunched across generations, and verified under
+rotated tunnel URLs. Its new prompt route is enabled by default; either side
+can be disabled with the documented feature flags.
 
 The local service is now also publishing a current tunnel. Live peer-ping
 proof succeeds in both directions and the public prompt canary has completed
@@ -177,8 +177,7 @@ route -> bounded local Codex turn -> correlated response
 
 Record these decisions:
 
-- whether the first release permits prompts from one manually named peer or
-  from a small configured allowlist;
+- the exact stable peer key selected for the first release;
 - the maximum prompt bytes, response bytes, timeout, and concurrent requests;
 - whether the endpoint is operator-only, automation-only, or both;
 - whether the peer route is enabled persistently or disabled for selected
