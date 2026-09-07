@@ -54,6 +54,7 @@ export function syncCheckout({ repoRoot, expectedCommit, branch, execFileSync = 
   verifyTarget({ checkout: { ...before, commit: before.commit }, expectedCommit: before.commit, branch: before.branch });
   if (before.branch !== branch) throw new Error("branch_target_mismatch");
   run(["fetch", "--prune", "origin", branch]);
+  if (fullHash(run(["rev-parse", `refs/remotes/origin/${branch}`])) !== expectedCommit) throw new Error("origin_advanced_during_sync");
   run(["merge", "--ff-only", `origin/${branch}`]);
   const after = readCheckout({ repoRoot, execFileSync });
   if (after.commit !== expectedCommit) throw new Error("pulled_commit_mismatch");

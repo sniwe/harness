@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { captureTrustedLaunch, readCheckout, readRemoteSnapshot, verifyLaunchRevalidation, verifyTarget } from "../src/commit.js";
+import { captureTrustedLaunch, readCheckout, readRemoteSnapshot, syncCheckout, verifyLaunchRevalidation, verifyTarget } from "../src/commit.js";
 import { coordinatePeers, createCommitSyncClient } from "../src/commitSync.js";
 
 test("checkout snapshot is deterministic and target validation is strict", () => {
@@ -72,6 +72,25 @@ test("origin advancement before coordination fails without changing immutable ta
   const launch = { ...captureTrustedLaunch({ checkout: { repoRoot: "C:\\harness", commit: A, branch: "main", origin: "origin", worktreeClean: true }, remote: { branch: "main", commit: A, observedAt: "t0" }, branch: "main" }) };
   assert.throws(() => verifyLaunchRevalidation({ checkout: launch, remote: { branch: "main", commit: B, observedAt: "t1" }, launch, branch: "main" }), /origin_advanced_during_launch/);
   assert.equal(launch.commit, A);
+});
+
+test("peer sync refuses a newer fetched tip before fast-forward merge", () => {
+  const calls = [];
+  const execFileSync = (_command, args) => {
+    const gitArgs = args.slice(2);
+    calls.push(gitArgs.join(" "));
+    switch (gitArgs.join(" ")) {
+      case "rev-parse HEAD": return `${A}\n`;
+      case "branch --show-current": return "main\n";
+      case "remote get-url origin": return "origin\n";
+      case "status --porcelain": return "";
+      case "fetch --prune origin main": return "";
+      case "rev-parse refs/remotes/origin/main": return `${B}\n`;
+      default: throw new Error(gitArgs.join(" "));
+    }
+  };
+  assert.throws(() => syncCheckout({ repoRoot: "C:\\harness", expectedCommit: A, branch: "main", execFileSync }), /origin_advanced_during_sync/);
+  assert.equal(calls.includes("merge --ff-only origin/main"), false);
 });
 
 test("commit sync client lists registry items without auth", async () => {
