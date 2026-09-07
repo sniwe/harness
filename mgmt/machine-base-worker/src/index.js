@@ -62,6 +62,11 @@ function waitEvent(method, id) {
 
 async function handle(payload) {
   await ensureCodex();
+  if (payload.task === "remote-prompt") {
+    if (typeof payload.prompt !== "string" || !payload.prompt.trim()) throw new Error("prompt_invalid");
+    if (fake) return { ok: true, task: "remote-prompt", requestId: payload.requestId, result: "READY" };
+    return { ok: true, task: "remote-prompt", requestId: payload.requestId, result: await turn(payload.prompt) };
+  }
   if (payload.task === "check-project-commit") {
     if (!fake) await turn("Inspect the current project checkout with git and confirm its exact full commit hash, branch, and whether the worktree is clean. Return only the requested commit confirmation.");
     const root = process.env.MACHINE_BASE_REPO_ROOT || process.cwd();

@@ -23,7 +23,10 @@ from the machine's `PATH`.
 
 Routes: `GET /health`, `GET /status`, `GET /setup/status`, and
 `GET /api/machine-base/ping`, `POST /api/machine-base/peer-ping`, and
-`POST /api/machine-base/request`.
+`POST /api/machine-base/request`. Peer prompt execution is exposed through
+`POST /api/machine-base/peer-request` and the local sender operation
+`POST /api/machine-base/peer-request-send` only when explicitly enabled and
+authenticated.
 
 To ping another machine by its exact registry key:
 
@@ -33,6 +36,18 @@ Invoke-RestMethod http://127.0.0.1:3100/api/machine-base/peer-ping -Method Post 
 
 The server resolves the current peer URL through the Wix `tunnels` endpoint and
 contacts only its validated HTTPS quick-tunnel URL.
+
+Remote prompts are deny-by-default. On the receiving machine, provision a
+process-only `MACHINE_BASE_PEER_TOKEN`, set
+`MACHINE_BASE_REMOTE_ALLOWED_CALLERS` to a comma-separated exact machine-base
+key allowlist, and set `MACHINE_BASE_REMOTE_PROMPTS_ENABLED=1` only for an
+approved canary window. The sender uses the same token and its own machine key.
+The token is never stored in Wix, source, Git, logs, or Markdown. The existing
+general worker route is disabled unless
+`MACHINE_BASE_LOCAL_WORKER_REQUEST_ENABLED=1` is explicitly set, and it still
+requires the bearer token plus the local machine key header. The sender route
+also requires `MACHINE_BASE_PEER_REQUEST_SENDER_ENABLED=1` and the same local
+authentication headers.
 
 Commit coordination is automatic at startup and follows tunnel rotation by key, with bounded retries and post-relaunch confirmation.
 

@@ -8,6 +8,7 @@ import { prepareSetup } from "./setup.js";
 import { createPeerPing } from "./peerPing.js";
 import { captureTrustedLaunch, isSafeBranch, readCheckout, readRemoteSnapshot, syncCheckout, verifyLaunchRevalidation } from "./commit.js";
 import { coordinatePeers, createCommitSyncClient } from "./commitSync.js";
+import { createPeerRequestClient, createPeerRequestHandler, isBearerToken, parseAllowedCallerKeys } from "./peerRequest.js";
 import crypto from "node:crypto";
 
 const root = path.resolve(process.env.MACHINE_BASE_DATA_ROOT || "data/machine-base");
@@ -32,8 +33,12 @@ const launchRemote = readRemoteSnapshot({ repoRoot, branch });
 const launchCheckout = readCheckout({ repoRoot });
 const launch = { runId: process.env.MACHINE_BASE_RUN_ID || crypto.randomUUID(), generation: Number(process.env.MACHINE_BASE_LAUNCH_GENERATION || 1), ...captureTrustedLaunch({ checkout: launchCheckout, remote: launchRemote, branch }), capturedAt: new Date().toISOString() };
 const commitSync = createCommitSyncClient({ registryUrl: `${relayBaseUrl}/_functions/tunnels` });
+const machineKey = process.env.TUNNEL_KEY || identity.tunnelKey;
+const peerToken = String(process.env.MACHINE_BASE_PEER_TOKEN || "");
+const peerRequestClient = createPeerRequestClient({ registryUrl: `${relayBaseUrl}/_functions/tunnels`, localKey: machineKey, callerKey: machineKey, token: peerToken });
 
 const pool = createWorkerPool({ env: { ...process.env, MACHINE_BASE_REPO_ROOT: repoRoot }, workerEntry: path.resolve("mgmt/machine-base-worker/src/index.js"), cwd: path.resolve("mgmt/machine-base-worker") });
+const peerRequestHandler = createPeerRequestHandler({ pool, targetKey: machineKey, enabled: process.env.MACHINE_BASE_REMOTE_PROMPTS_ENABLED === "1", token: peerToken, allowedCallers: parseAllowedCallerKeys(process.env.MACHINE_BASE_REMOTE_ALLOWED_CALLERS), maxInFlight: 1 });
 let port = configuredPort;
 let localUrl = "";
 let tunnel = null;
@@ -45,7 +50,7 @@ let syncInProgress = false;
 let stopping = false;
 
 function json(response, status, body) { response.writeHead(status, { "Content-Type": "application/json" }); response.end(JSON.stringify(body)); }
-function readBody(request) { return new Promise((resolve, reject) => { let text = ""; request.on("data", (chunk) => { text += chunk; if (text.length > 1024 * 1024) reject(new Error("body_too_large")); }); request.on("end", () => resolve(text)); request.on("error", reject); }); }
+function readBody(request, maxBytes = 1024 * 1024) { return new Promise((resolve, reject) => { let text = ""; let rejected = false; request.on("data", (chunk) => { if (rejected) return; text += chunk; if (Buffer.byteLength(text, "utf8") > maxBytes) { rejected = true; reject(new Error("body_too_large")); } }); request.on("end", () => { if (!rejected) resolve(text); }); request.on("error", (error) => { if (!rejected) reject(error); }); }); }
 async function commitStatus() { const result = await pool.request({ task: "check-project-commit" }); return { commit: { ...launch, confirmed: result.commit === launch.commit && result.branch === launch.branch && result.confirmed === true }, worker: result, tunnel: tunnel?.state || null, generation: launch.generation }; }
 async function coordinate() {
   let current;
@@ -66,7 +71,7 @@ server = http.createServer(async (request, response) => {
   try {
     const pathname = new URL(request.url, "http://127.0.0.1").pathname;
     if (request.method === "GET" && pathname === "/health") return json(response, 200, { ok: true, pid: process.pid, tunnel: tunnel?.state || null });
-    if (request.method === "GET" && pathname === "/status") return json(response, 200, { ok: true, setup, identity: { source: identity.source, machineBaseId: identity.machineBaseId, tunnelKey: process.env.TUNNEL_KEY || identity.tunnelKey }, launch, startupState, localCommitConfirmation, coordination, tunnel: tunnel?.state || null, workers: pool.slots.map(({ child, reader, stdout, ...slot }) => slot) });
+    if (request.method === "GET" && pathname === "/status") return json(response, 200, { ok: true, setup, identity: { source: identity.source, machineBaseId: identity.machineBaseId, tunnelKey: machineKey }, launch, startupState, localCommitConfirmation, coordination, peerRequest: peerRequestHandler.state, tunnel: tunnel?.state || null, workers: pool.slots.map(({ child, reader, stdout, ...slot }) => slot) });
     if (request.method === "GET" && pathname === "/setup/status") return json(response, 200, setup);
     if (request.method === "GET" && pathname === "/api/machine-base/ping") return json(response, 200, { ok: true, tunnelKey: process.env.TUNNEL_KEY || identity.tunnelKey, serverRole: "machine-base", time: new Date().toISOString() });
     if (request.method === "POST" && pathname === "/api/machine-base/peer-ping") return json(response, 200, await peerPing.ping(JSON.parse(await readBody(request)).tunnelKey));
@@ -92,7 +97,21 @@ server = http.createServer(async (request, response) => {
       setTimeout(() => void stop().then(() => process.exit(75)), 25);
       return;
     }
+    if (request.method === "POST" && pathname === "/api/machine-base/peer-request") {
+      const payload = JSON.parse(await readBody(request, 64 * 1024));
+      const result = await peerRequestHandler.handle({ headers: request.headers, payload });
+      return json(response, result.status, result.body);
+    }
+    if (request.method === "POST" && pathname === "/api/machine-base/peer-request-send") {
+      if (process.env.MACHINE_BASE_PEER_REQUEST_SENDER_ENABLED !== "1" || !isBearerToken(request.headers.authorization, peerToken) || request.headers["x-machine-base-caller-key"] !== machineKey) return json(response, 403, { ok: false, error: "peer_sender_not_authorized" });
+      const payload = JSON.parse(await readBody(request, 64 * 1024));
+      if (!payload || typeof payload !== "object" || Array.isArray(payload) || Object.keys(payload).some((key) => !["tunnelKey", "prompt", "timeoutMs"].includes(key))) return json(response, 400, { ok: false, error: "sender_request_fields_invalid" });
+      const result = await peerRequestClient.send(payload.tunnelKey, payload.prompt, payload.timeoutMs);
+      return json(response, 200, result);
+    }
     if (request.method === "POST" && pathname === "/api/machine-base/request") {
+      if (process.env.MACHINE_BASE_LOCAL_WORKER_REQUEST_ENABLED !== "1") return json(response, 403, { ok: false, error: "local_worker_route_disabled" });
+      if (!isBearerToken(request.headers.authorization, peerToken) || request.headers["x-machine-base-caller-key"] !== machineKey) return json(response, 403, { ok: false, error: "local_worker_not_authorized" });
       const payload = JSON.parse(await readBody(request));
       return json(response, 200, await pool.request(payload));
     }
