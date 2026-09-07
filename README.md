@@ -15,7 +15,7 @@ npm start
 The relay receives `{ tunnelKey, tunnelUrl }`. If `TUNNEL_KEY` is omitted, the
 server derives a stable hashed key from the Windows machine identity and stores
 it in `data/machine-base/identity.json`. Set `MACHINE_BASE_FAKE=1` only for local
-worker tests. The real endpoint contract and authentication must be supplied
+worker tests. The real endpoint contract must be supplied.
 The default relay is the documented Wix `/_functions/tunnelRelay` endpoint;
 override `TUNNEL_RELAY_BASE_URL` and `TUNNEL_RELAY_PATH` when using another
 always-online endpoint. `CLOUDFLARED_PATH` is optional and otherwise resolves
@@ -34,8 +34,7 @@ Invoke-RestMethod http://127.0.0.1:3100/api/machine-base/peer-ping -Method Post 
 The server resolves the current peer URL through the Wix `tunnels` endpoint and
 contacts only its validated HTTPS quick-tunnel URL.
 
-Commit convergence is enabled when `MACHINE_BASE_PEER_TOKEN` is set. `npm start`
-then runs the relaunch supervisor, waits for worker prime and commit
+`npm start` runs the relaunch supervisor, waits for worker prime and commit
 confirmation, checks registered peers, and reports convergence only after a
 peer pull/relaunch has confirmed the target commit and tunnel. Set
 `MACHINE_BASE_COORDINATE_ON_START=0` to run one machine without peer

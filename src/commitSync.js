@@ -1,12 +1,12 @@
 const DEFAULT_TIMEOUT_MS = 10000;
 
-export function createCommitSyncClient({ registryUrl, token, fetchImpl = fetch, timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
+export function createCommitSyncClient({ registryUrl, fetchImpl = fetch, timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
   if (!registryUrl) throw new Error("peer_registry_url_required");
   const request = async (url, init = {}) => {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      return await fetchImpl(url, { ...init, headers: { Accept: "application/json", ...(init.body ? { "Content-Type": "application/json" } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(init.headers || {}) }, redirect: "error", signal: controller.signal });
+      return await fetchImpl(url, { ...init, headers: { Accept: "application/json", ...(init.body ? { "Content-Type": "application/json" } : {}), ...(init.headers || {}) }, redirect: "error", signal: controller.signal });
     } catch (error) { throw Object.assign(new Error(error.name === "AbortError" ? "peer_request_timeout" : "peer_request_failed"), { status: 502 }); }
     finally { clearTimeout(timer); }
   };

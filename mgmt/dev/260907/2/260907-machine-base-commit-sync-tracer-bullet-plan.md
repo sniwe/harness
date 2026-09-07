@@ -14,7 +14,7 @@ coordinate that commit with the other registered machine-base peers:
 ```text
 launcher -> server -> worker initialize/prime -> local commit confirmation
   -> exact Wix peer discovery -> peer Codex commit confirmation
-  -> authenticated pull/relaunch when mismatched -> tunnel-ready confirmation
+  -> pull/relaunch when mismatched -> tunnel-ready confirmation
 ```
 
 The coordinator must never report success from an accepted update request,
@@ -26,7 +26,7 @@ commit confirmation and a ready published tunnel.
 The current server already has startup that waits for the active/standby worker
 pool, the worker's literal startup probe, the rotating tunnel supervisor, Wix
 exact-key discovery, and peer ping routes. It has no launch supervisor, commit
-contract, worker-specific commit task, authenticated update route, or durable
+contract, worker-specific commit task, peer update route, or durable
 relaunch handoff.
 
 Do not overload the public general worker route for this control flow. Do not
@@ -79,8 +79,10 @@ stale or ambiguous code automatically.
 ## Peer control protocol
 
 Keep the existing liveness route public and side-effect free. Add separate,
-authenticated routes using a shared per-deployment secret or equivalent signed
-request scheme supplied through environment configuration:
+bounded peer-control routes; this deployment intentionally does not add token
+authentication. Their safety boundary is exact peer-key discovery, validated
+quick-tunnel URLs, clean-worktree checks, and allowlisted fast-forward git
+operations:
 
 ```text
 POST /api/machine-base/commit-status
@@ -96,8 +98,7 @@ validated confirm/deny result. It must not start a pull.
 
 `commit-sync` is idempotent and bounded:
 
-1. Authenticate and validate run ID, exact commit, configured branch, and
-   caller identity.
+1. Validate run ID, exact commit, and configured branch.
 2. Reject another repository, branch, origin, dirty worktree, detached branch,
    local edits, or an update already targeting a different commit.
 3. Return `already_current` when the exact commit is already running.
@@ -117,7 +118,7 @@ Codex confirms the result but does not control update safety.
 ### Phase 0 — startup and trust contracts
 
 Record repository root, branch, origin allowlist, peer registry URL, peer
-authentication configuration, relaunch exit code, timeouts, and whether
+  peer-control route configuration, relaunch exit code, timeouts, and whether
 coordination is enabled. Define these states:
 
 ```text
@@ -147,23 +148,23 @@ Verification: fake app-server tests prove prime-before-confirmation, malformed
 output rejection, hash mismatch denial, standby retry, and no coordination
 while required worker state is unready. A real Codex launch proves the object.
 
-### Phase 2 — authenticated peer commit status
+### Phase 2 — peer commit status
 
 Implement `POST /api/machine-base/commit-status` and its client. Discover peers
 from Wix using exact `tunnelKey` matching, exclude the local key, validate the
-current HTTPS quick-tunnel URL, authenticate, and ask each peer for status with
-one bounded timeout.
+current HTTPS quick-tunnel URL, and ask each peer for status with one bounded
+timeout.
 
 Normalize each result to `match`, `mismatch`, `unreachable`, or `invalid`. A
 worker denial is not a match even when the deterministic hash matches. Keep the
 check sequential or bounded; add no scheduler or cache.
 
-Verification: fake-peer tests cover authentication, match/deny, malformed
+Verification: fake-peer tests cover public route access, match/deny, malformed
 status, timeout, stale URL, duplicate key, and visible partial failure.
 
 ### Phase 3 — peer pull and relaunch endpoint
 
-Implement authenticated `commit-sync` and an external launcher. Make the
+Implement `commit-sync` and an external launcher. Make the
 production entrypoint the launcher, which owns the server child and restarts it
 only for the dedicated relaunch exit code with bounded backoff. Preserve run ID,
 increment generation, and write startup/exit diagnostics.
@@ -184,9 +185,9 @@ force-reset behavior. A child-process test proves a new generation starts.
 After local worker prime and local commit confirmation:
 
 1. Capture the immutable launch target and verify it remains trusted.
-2. List exact peer records and obtain authenticated peer status.
+2. List exact peer records and obtain peer status.
 3. Mark matching peers confirmed.
-4. Send one authenticated `commit-sync` request to each mismatched peer.
+4. Send one `commit-sync` request to each mismatched peer.
 5. Treat accepted/in-progress as non-success.
 6. Poll the same key after tunnel rotation until its new URL responds.
 7. Require post-relaunch health, commit status, worker confirmation, and a
@@ -216,7 +217,7 @@ Use two distinct machine-base keys and a controlled branch/checkout:
 5. Create and push one fast-forward commit on the configured origin.
 6. Launch coordination on the machine running the previous commit.
 7. Verify the peer denies the old commit.
-8. Verify authenticated sync performs fast-forward pull and relaunch.
+8. Verify sync performs fast-forward pull and relaunch.
 9. Verify the new generation confirms the target through Codex.
 10. Verify the tunnel publishes and success is reported only then.
 11. Stop a peer during convergence and verify visible non-convergence.
@@ -233,8 +234,8 @@ runtime proof, and public two-machine proof.
 - Codex initializes and primes before local confirmation or peer coordination.
 - Local and peer Codex workers explicitly confirm or deny the checkout commit.
 - Discovery uses exact Wix `tunnelKey` semantics and current URLs.
-- Status and sync routes are authenticated and cannot execute arbitrary tasks or
-  commands.
+- Status and sync routes do not execute arbitrary tasks or commands; token
+  authentication is intentionally out of scope for this deployment.
 - Pull is allowlisted, fast-forward-only, clean-worktree-only, and exact-target
   verified; no hard reset or arbitrary ref is accepted.
 - A mismatched peer automatically relaunches through a real supervisor with

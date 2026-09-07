@@ -29,8 +29,7 @@ if (!isSafeBranch(branch) || branch !== launchCheckout.branch) throw new Error("
 const configuredOrigin = process.env.MACHINE_BASE_GIT_ORIGIN || launchCheckout.origin;
 if (configuredOrigin !== launchCheckout.origin) throw new Error("configured_origin_mismatch");
 const launch = { runId: process.env.MACHINE_BASE_RUN_ID || crypto.randomUUID(), generation: Number(process.env.MACHINE_BASE_LAUNCH_GENERATION || 1), ...launchCheckout, capturedAt: new Date().toISOString() };
-const peerToken = String(process.env.MACHINE_BASE_PEER_TOKEN || "");
-const commitSync = createCommitSyncClient({ registryUrl: `${relayBaseUrl}/_functions/tunnels`, token: peerToken });
+const commitSync = createCommitSyncClient({ registryUrl: `${relayBaseUrl}/_functions/tunnels` });
 
 const pool = createWorkerPool({ env: { ...process.env, MACHINE_BASE_REPO_ROOT: repoRoot }, workerEntry: path.resolve("mgmt/machine-base-worker/src/index.js"), cwd: path.resolve("mgmt/machine-base-worker") });
 let port = configuredPort;
@@ -45,11 +44,10 @@ let stopping = false;
 
 function json(response, status, body) { response.writeHead(status, { "Content-Type": "application/json" }); response.end(JSON.stringify(body)); }
 function readBody(request) { return new Promise((resolve, reject) => { let text = ""; request.on("data", (chunk) => { text += chunk; if (text.length > 1024 * 1024) reject(new Error("body_too_large")); }); request.on("end", () => resolve(text)); request.on("error", reject); }); }
-function authorized(request) { return peerToken && request.headers.authorization === `Bearer ${peerToken}`; }
 async function commitStatus() { const result = await pool.request({ task: "check-project-commit" }); return { commit: { ...launch, confirmed: result.commit === launch.commit && result.branch === launch.branch && result.confirmed === true }, worker: result, tunnel: tunnel?.state || null, generation: launch.generation }; }
 async function coordinate() {
   const current = readCheckout({ repoRoot });
-  if (!peerToken || !launch.worktreeClean || current.origin !== configuredOrigin || remoteBranchCommit({ repoRoot, branch }) !== launch.commit) return { ok: false, skipped: "local_commit_target_untrusted", target: launch };
+  if (!launch.worktreeClean || current.origin !== configuredOrigin || remoteBranchCommit({ repoRoot, branch }) !== launch.commit) return { ok: false, skipped: "local_commit_target_untrusted", target: launch };
   const items = await commitSync.list();
   return coordinatePeers({ client: commitSync, peerKeys: items.map((item) => item.tunnelKey).filter((key) => typeof key === "string" && key.startsWith("machine-base-")), localKey: process.env.TUNNEL_KEY || identity.tunnelKey, target: { runId: launch.runId, commit: launch.commit, branch } });
 }
@@ -63,11 +61,9 @@ server = http.createServer(async (request, response) => {
     if (request.method === "GET" && pathname === "/api/machine-base/ping") return json(response, 200, { ok: true, tunnelKey: process.env.TUNNEL_KEY || identity.tunnelKey, serverRole: "machine-base", time: new Date().toISOString() });
     if (request.method === "POST" && pathname === "/api/machine-base/peer-ping") return json(response, 200, await peerPing.ping(JSON.parse(await readBody(request)).tunnelKey));
     if (request.method === "POST" && pathname === "/api/machine-base/commit-status") {
-      if (!authorized(request)) return json(response, peerToken ? 401 : 503, { ok: false, error: peerToken ? "unauthorized" : "peer_token_not_configured" });
       return json(response, 200, { ok: true, ...(await commitStatus()) });
     }
     if (request.method === "POST" && pathname === "/api/machine-base/commit-sync") {
-      if (!authorized(request)) return json(response, peerToken ? 401 : 503, { ok: false, error: peerToken ? "unauthorized" : "peer_token_not_configured" });
       if (syncInProgress) return json(response, 409, { ok: false, error: "sync_in_progress" });
       const payload = JSON.parse(await readBody(request));
       if (!/^[0-9a-f]{40}$/.test(payload.expectedCommit || "") || payload.branch !== branch || !payload.runId) return json(response, 400, { ok: false, error: "sync_request_invalid" });
@@ -114,7 +110,7 @@ async function start() {
   tunnel = relayUrl ? createTunnel({ localUrl, relayUrl, tunnelKey: process.env.TUNNEL_KEY || identity.tunnelKey }) : null;
   if (tunnel) await tunnel.start();
   startupState = "tunnel_ready";
-  if (peerToken && process.env.MACHINE_BASE_COORDINATE_ON_START !== "0") { startupState = "peers_checking"; coordination = await coordinate(); startupState = coordination.ok ? "converged" : "coordination_failed"; }
+  if (process.env.MACHINE_BASE_COORDINATE_ON_START !== "0") { startupState = "peers_checking"; coordination = await coordinate(); startupState = coordination.ok ? "converged" : "coordination_failed"; }
   console.log(JSON.stringify({ ready: true, pid: process.pid, port, tunnelKey: process.env.TUNNEL_KEY || identity.tunnelKey, tunnel: tunnel?.state || null }));
 }
 async function stop() { if (stopping) return; stopping = true; tunnel?.stop(); pool.stop(); await new Promise((resolve) => server?.close(() => resolve())); }

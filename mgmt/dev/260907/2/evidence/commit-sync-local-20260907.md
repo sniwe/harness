@@ -13,15 +13,14 @@ readiness/failover, tunnel publication/rotation, and setup behavior.
 
 ## Real launch proof
 
-With `MACHINE_BASE_FAKE=1`, `MACHINE_BASE_PEER_TOKEN` configured, and peer
-coordination disabled for isolation:
+With `MACHINE_BASE_FAKE=1` and peer coordination disabled for isolation:
 
 - active and standby worker slots initialized and emitted readiness;
 - the launch worker confirmed the exact full commit above;
 - startup reached `tunnel_ready`;
 - quick tunnel publication reached `running` with a non-empty URL;
-- authenticated `POST /api/machine-base/commit-status` returned HTTP 200;
-- the same route without the bearer token returned HTTP 401;
+- `POST /api/machine-base/commit-status` returned HTTP 200 without token
+  authentication;
 - temporary workers and cloudflared were stopped after the probe.
 
 Peer pull/relaunch remains intentionally paused until this commit is manually
