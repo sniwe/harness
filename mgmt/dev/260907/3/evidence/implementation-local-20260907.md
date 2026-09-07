@@ -49,4 +49,20 @@ to deploy this commit to an approved peer, provision a fresh process-only
 the feature for a canary window, run the harmless `READY` prompt, then verify
 rotation, restart, denial, timeout, and cleanup evidence.
 
+## Peer deployment update
+
+Using the existing exact-key commit-sync route, the reachable peer was updated
+to `9dc96cd7d020c6e5bf3679120f1e4e0f901a8e42`. Post-relaunch commit status
+confirmed the target commit, clean worktree, worker confirmation, and
+generation 4. The tunnel URL rotated and was rediscovered under the same peer
+key. The new peer-request route returned `403 peer_route_disabled` without
+credentials, proving the deployed default-deny gate. The peer status reported
+`tokenConfigured=false` and `allowedCallerCount=0`.
+
+The local machine-base identity key is
+`machine-base-73182d23f660c3880e7e`; its currently registered public URL was
+not resolvable during this check. Prompt canary execution therefore remains
+paused until both process environments are manually provisioned and the local
+machine publishes a reachable current tunnel.
+
 No credential, prompt token, or raw model output is stored in this artifact.

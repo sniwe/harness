@@ -26,6 +26,11 @@ running a pre-feature deployment (`/api/machine-base/peer-request` returned
 `evidence/implementation-local-20260907.md`; this is an external deployment
 gate, not proof of local implementation failure.
 
+The healthy peer has since been deployed to `9dc96cd` through the existing
+commit-sync path, relaunched as generation 4, and verified under a rotated
+tunnel URL. Its new prompt route is present and returns the expected
+default-deny response, but it has no process token or caller allowlist yet.
+
 ## Objective
 
 Allow an operator or trusted machine-base process on machine A to deliver one
