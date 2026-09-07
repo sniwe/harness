@@ -1,7 +1,7 @@
 # Machine-base peer Codex prompt relay
 
 Date: 2026-09-07  
-Status: implementation in progress; focused/local/live transport gates verified, public prompt canary pending peer route enablement  
+Status: implementation in progress; public prompt and timeout verified, restart/cleanup gates pending  
 Target workspace: `C:\harness`  
 Related slices: `C:\harness\mgmt\dev\260907\0`, `C:\harness\mgmt\dev\260907\1`, `C:\harness\mgmt\dev\260907\2`  
 Current peer registry: `https://dev-sitex2082572611.wixdev-sites.org/_functions/tunnels`
@@ -17,8 +17,7 @@ focused tests in `test/peerRequest.test.js`.
 Verified now: syntax checks, 28 passing tests plus one non-Windows skip, a
 standalone JSONL worker canary, and a local HTTP sender-to-peer-handler round
 trip. Not yet verified: two distinct machines, live Wix peer discovery plus
-public prompt execution, receiver restart, and the final no-orphan process
-scan.
+receiver restart and the final no-orphan process scan.
 
 Live preflight on 2026-09-07 found one healthy registered machine-base peer
 running a pre-feature deployment (`/api/machine-base/peer-request` returned
@@ -32,9 +31,9 @@ tunnel URL. Its new prompt route is present and returns the expected
 disabled response while the canary flag is off.
 
 The local service is now also publishing a current tunnel. Live peer-ping
-proof succeeds in both directions and both prompt routes return the expected
-default-deny response. The remaining gate is credential provisioning and the
-approved harmless prompt canary.
+proof succeeds in both directions and the public prompt canary has completed
+with a real peer Codex worker. Remaining gates are timeout, receiver restart,
+and final descendant cleanup.
 
 ## Objective
 

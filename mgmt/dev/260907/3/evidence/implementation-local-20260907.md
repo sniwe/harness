@@ -77,7 +77,41 @@ rediscovered under its current rotated URL.
 - peer `/api/machine-base/peer-request`: HTTP 403 `peer_route_disabled`.
 
 This proves the existing keyed relay/discovery and public tunnel transport in
-both directions. It does not prove prompt execution because neither machine
-has a configured peer token or caller allowlist.
+both directions. At that point prompt execution was intentionally not yet
+tested; the public prompt proof below was performed after deploying the
+no-auth implementation.
+
+## Live public prompt proof
+
+The peer was fast-forwarded and relaunched to the no-auth implementation
+commit `c50f85c`. A fresh exact-key lookup resolved its current tunnel, and the
+local sender completed a real cross-machine request to the peer's Codex worker:
+
+- caller key: `machine-base-73182d23f660c3880e7e`;
+- target key: `machine-base-caf45342b1d0acc9b938`;
+- result state: `completed`;
+- result text: `READY`;
+- request ID was preserved end-to-end;
+- peer worker turn status was `completed` in approximately 8.5 seconds.
+
+The same request ID returned HTTP 409 on replay. A request with a wrong target
+key returned HTTP 400. Post-canary peer status showed `startupState=converged`,
+`inFlight=0`, worker confirmation true, and a running published tunnel.
+
+This is public two-machine prompt proof. Timeout, receiver-restart, tunnel
+rotation during an active request, and final descendant cleanup remain to be
+performed as controlled runtime checks.
+
+## Timeout proof
+
+A harmless prompt that requested a five-second wait was sent with the
+server-clamped one-second deadline. The sender returned HTTP 504 Gateway
+Timeout. A follow-up peer status check confirmed `startupState=converged`,
+`inFlight=0`, and a running tunnel, so the timeout did not leave the peer
+request slot wedged.
+
+The next evidence commit is intentionally used as a fast-forward target for
+the existing commit-sync relaunch path, providing the receiver restart and
+tunnel-rediscovery proof without adding a special restart endpoint.
 
 No credential, prompt token, or raw model output is stored in this artifact.
