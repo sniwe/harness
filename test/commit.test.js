@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readCheckout, verifyTarget } from "../src/commit.js";
+import { createCommitSyncClient } from "../src/commitSync.js";
 
 test("checkout snapshot is deterministic and target validation is strict", () => {
   const calls = [];
@@ -18,4 +19,12 @@ test("checkout snapshot is deterministic and target validation is strict", () =>
   assert.equal(verifyTarget({ checkout, expectedCommit: checkout.commit, branch: "main" }), true);
   assert.throws(() => verifyTarget({ checkout, expectedCommit: "bad", branch: "main" }), /commit_target_mismatch/);
   assert.equal(calls.length, 4);
+});
+
+test("commit sync client lists registry items without auth", async () => {
+  const client = createCommitSyncClient({ registryUrl: "https://registry.test/_functions/tunnels", fetchImpl: async (_url, init) => {
+    assert.equal(init.headers.Authorization, undefined);
+    return { ok: true, status: 200, json: async () => ({ items: [{ tunnelKey: "machine-base-peer" }] }) };
+  } });
+  assert.deepEqual(await client.list(), [{ tunnelKey: "machine-base-peer" }]);
 });

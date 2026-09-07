@@ -10,6 +10,13 @@ export function createCommitSyncClient({ registryUrl, fetchImpl = fetch, timeout
     } catch (error) { throw Object.assign(new Error(error.name === "AbortError" ? "peer_request_timeout" : "peer_request_failed"), { status: 502 }); }
     finally { clearTimeout(timer); }
   };
+  async function list() {
+    const response = await request(registryUrl);
+    if (!response.ok) throw Object.assign(new Error(`peer_registry_http_${response.status}`), { status: 502 });
+    const body = await response.json();
+    if (!Array.isArray(body?.items)) throw Object.assign(new Error("peer_registry_invalid_items"), { status: 502 });
+    return body.items;
+  }
   async function lookup(peerKey) {
     const url = new URL(registryUrl);
     url.searchParams.set("tunnelKey", String(peerKey || "").trim());
@@ -31,7 +38,7 @@ export function createCommitSyncClient({ registryUrl, fetchImpl = fetch, timeout
     if (!response.ok) throw Object.assign(new Error(result?.error || `peer_http_${response.status}`), { status: response.status });
     return { peer, result, status: response.status };
   }
-  return { lookup, status: (peerKey) => post(peerKey, "/api/machine-base/commit-status"), sync: (peerKey, body) => post(peerKey, "/api/machine-base/commit-sync", body) };
+  return { list, lookup, status: (peerKey) => post(peerKey, "/api/machine-base/commit-status"), sync: (peerKey, body) => post(peerKey, "/api/machine-base/commit-sync", body) };
 }
 
 export async function coordinatePeers({ client, peerKeys, localKey, target, waitMs = 60000, pollMs = 2000, sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)) } = {}) {
