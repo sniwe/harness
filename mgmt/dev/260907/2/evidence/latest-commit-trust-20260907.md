@@ -27,8 +27,22 @@ Date: 2026-09-07
 - The server and relay were stopped; ports 3197, 3411, and 3100 had no
   listening processes after cleanup.
 
+## Controlled two-checkout proof
+
+- A local bare origin and two clean checkouts were used as machine A and
+  machine B; no GitHub history was changed by this scenario.
+- With machine A at `1c002c3` and origin at `b18ee90`, the real server exited
+  with `local_commit_not_latest` before opening a service port.
+- After machine A fast-forwarded to `b18ee90`, real `/status` reported
+  `worktreeClean: true`, `trust: stable-origin-tip`, and matching launch,
+  remote, and worker commits.
+- A later origin push to `9cb6a5e` occurred after the server had already
+  completed coordination, so it did not prove the launch-window race. It is
+  recorded as an unsuccessful timing attempt, not as a pass.
+
 ## Scope boundary
 
-The controlled two-machine stale-target refusal and fresh-generation
-convergence scenario was not run in this environment. No claim is made for
-that physical cross-machine gate.
+The physical two-machine stale-target refusal and fresh-generation
+convergence scenario was not run in this environment. The controlled
+two-checkout proof above is local-process evidence, not physical
+cross-machine evidence.
