@@ -1,0 +1,4 @@
+node_modules/
+data/machine-base/*.json
+data/machine-base/*.lock
+mgmt/logs/

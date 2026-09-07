@@ -1,0 +1,5 @@
+{
+  "name": "machine-base-worker",
+  "private": true,
+  "type": "module"
+}
