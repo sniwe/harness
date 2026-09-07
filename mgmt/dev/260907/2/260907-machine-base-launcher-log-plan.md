@@ -1,7 +1,7 @@
 # Machine-base launcher diagnostics
 
 Date: 2026-09-07  
-Status: plan only; implementation not authorized by this request  
+Status: implemented locally; peer-side runtime evidence pending  
 Target workspace: `C:\\harness`
 
 ## Objective
