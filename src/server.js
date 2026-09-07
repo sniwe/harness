@@ -6,7 +6,7 @@ import { createTunnel } from "./tunnel.js";
 import { createWorkerPool } from "./pool.js";
 import { prepareSetup } from "./setup.js";
 import { createPeerPing } from "./peerPing.js";
-import { isSafeBranch, readCheckout, remoteBranchCommit, syncCheckout } from "./commit.js";
+import { captureTrustedLaunch, isSafeBranch, readCheckout, readRemoteSnapshot, syncCheckout, verifyLaunchRevalidation } from "./commit.js";
 import { coordinatePeers, createCommitSyncClient } from "./commitSync.js";
 import crypto from "node:crypto";
 
@@ -24,11 +24,13 @@ const identity = deriveMachineIdentity({ env: { ...process.env, MACHINE_BASE_IDE
 if (!fs.existsSync(identityPath)) fs.writeFileSync(identityPath, JSON.stringify(identity, null, 2));
 const setup = prepareSetup({ root, identity, setupPath });
 const peerPing = createPeerPing({ registryUrl: `${relayBaseUrl}/_functions/tunnels`, localKey: process.env.TUNNEL_KEY || identity.tunnelKey });
+const configuredCheckout = readCheckout({ repoRoot });
+if (!isSafeBranch(branch) || branch !== configuredCheckout.branch) throw new Error("configured_branch_mismatch");
+const configuredOrigin = process.env.MACHINE_BASE_GIT_ORIGIN || configuredCheckout.origin;
+if (configuredOrigin !== configuredCheckout.origin) throw new Error("configured_origin_mismatch");
+const launchRemote = readRemoteSnapshot({ repoRoot, branch });
 const launchCheckout = readCheckout({ repoRoot });
-if (!isSafeBranch(branch) || branch !== launchCheckout.branch) throw new Error("configured_branch_mismatch");
-const configuredOrigin = process.env.MACHINE_BASE_GIT_ORIGIN || launchCheckout.origin;
-if (configuredOrigin !== launchCheckout.origin) throw new Error("configured_origin_mismatch");
-const launch = { runId: process.env.MACHINE_BASE_RUN_ID || crypto.randomUUID(), generation: Number(process.env.MACHINE_BASE_LAUNCH_GENERATION || 1), ...launchCheckout, capturedAt: new Date().toISOString() };
+const launch = { runId: process.env.MACHINE_BASE_RUN_ID || crypto.randomUUID(), generation: Number(process.env.MACHINE_BASE_LAUNCH_GENERATION || 1), ...captureTrustedLaunch({ checkout: launchCheckout, remote: launchRemote, branch }), capturedAt: new Date().toISOString() };
 const commitSync = createCommitSyncClient({ registryUrl: `${relayBaseUrl}/_functions/tunnels` });
 
 const pool = createWorkerPool({ env: { ...process.env, MACHINE_BASE_REPO_ROOT: repoRoot }, workerEntry: path.resolve("mgmt/machine-base-worker/src/index.js"), cwd: path.resolve("mgmt/machine-base-worker") });
@@ -46,8 +48,16 @@ function json(response, status, body) { response.writeHead(status, { "Content-Ty
 function readBody(request) { return new Promise((resolve, reject) => { let text = ""; request.on("data", (chunk) => { text += chunk; if (text.length > 1024 * 1024) reject(new Error("body_too_large")); }); request.on("end", () => resolve(text)); request.on("error", reject); }); }
 async function commitStatus() { const result = await pool.request({ task: "check-project-commit" }); return { commit: { ...launch, confirmed: result.commit === launch.commit && result.branch === launch.branch && result.confirmed === true }, worker: result, tunnel: tunnel?.state || null, generation: launch.generation }; }
 async function coordinate() {
-  const current = readCheckout({ repoRoot });
-  if (!launch.worktreeClean || current.origin !== configuredOrigin || remoteBranchCommit({ repoRoot, branch }) !== launch.commit) return { ok: false, skipped: "local_commit_target_untrusted", target: launch };
+  let current;
+  let remote;
+  try {
+    current = readCheckout({ repoRoot });
+    remote = readRemoteSnapshot({ repoRoot, branch });
+  } catch (error) {
+    return { ok: false, skipped: error.message || "local_commit_target_untrusted", target: launch, trustFailure: { error: error.message || "trust_check_failed", launchCommit: launch.commit, remoteCommit: remote?.commit || null } };
+  }
+  try { verifyLaunchRevalidation({ checkout: current, remote, launch, branch }); }
+  catch (error) { return { ok: false, skipped: error.message, target: launch, trustFailure: { error: error.message, launchCommit: launch.commit, remoteCommit: remote.commit, remoteObservedAt: remote.observedAt } }; }
   const items = await commitSync.list();
   return coordinatePeers({ client: commitSync, peerKeys: items.map((item) => item.tunnelKey).filter((key) => typeof key === "string" && key.startsWith("machine-base-")), localKey: process.env.TUNNEL_KEY || identity.tunnelKey, target: { runId: launch.runId, commit: launch.commit, branch } });
 }
@@ -69,7 +79,10 @@ server = http.createServer(async (request, response) => {
       if (!/^[0-9a-f]{40}$/.test(payload.expectedCommit || "") || payload.branch !== branch || !payload.runId) return json(response, 400, { ok: false, error: "sync_request_invalid" });
       if (payload.expectedCommit === launch.commit) return json(response, 200, { ok: true, state: "already_current", ...(await commitStatus()) });
       const current = readCheckout({ repoRoot });
-      if (current.origin !== configuredOrigin || remoteBranchCommit({ repoRoot, branch }) !== payload.expectedCommit) return json(response, 409, { ok: false, error: "commit_not_origin_tip" });
+      if (current.origin !== configuredOrigin) return json(response, 409, { ok: false, error: "configured_origin_mismatch" });
+      let advertised;
+      try { advertised = readRemoteSnapshot({ repoRoot, branch }); } catch (error) { return json(response, 409, { ok: false, error: error.message || "origin_tip_unstable" }); }
+      if (advertised.commit !== payload.expectedCommit) return json(response, 409, { ok: false, error: "commit_not_origin_tip", advertisedCommit: advertised.commit });
       syncInProgress = true;
       const updated = syncCheckout({ repoRoot, expectedCommit: payload.expectedCommit, branch });
       const confirmation = await pool.request({ task: "check-project-commit" });

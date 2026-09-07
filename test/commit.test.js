@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readCheckout, verifyTarget } from "../src/commit.js";
+import { captureTrustedLaunch, readCheckout, readRemoteSnapshot, verifyLaunchRevalidation, verifyTarget } from "../src/commit.js";
 import { coordinatePeers, createCommitSyncClient } from "../src/commitSync.js";
 
 test("checkout snapshot is deterministic and target validation is strict", () => {
@@ -19,6 +19,59 @@ test("checkout snapshot is deterministic and target validation is strict", () =>
   assert.equal(verifyTarget({ checkout, expectedCommit: checkout.commit, branch: "main" }), true);
   assert.throws(() => verifyTarget({ checkout, expectedCommit: "bad", branch: "main" }), /commit_target_mismatch/);
   assert.equal(calls.length, 4);
+});
+
+function fakeGit({ localCommit, remoteCommit, advertisedCommit = remoteCommit, branch = "main", dirty = "", origin = "https://github.com/sniwe/harness.git" }) {
+  const calls = [];
+  const execFileSync = (_command, args) => {
+    const gitArgs = args.slice(2);
+    calls.push(gitArgs);
+    switch (gitArgs.join(" ")) {
+      case "fetch --prune origin main": return "";
+      case "rev-parse refs/remotes/origin/main": return `${remoteCommit}\n`;
+      case "ls-remote origin refs/heads/main": return `${advertisedCommit}\trefs/heads/main\n`;
+      case "rev-parse HEAD": return `${localCommit}\n`;
+      case "branch --show-current": return `${branch}\n`;
+      case "remote get-url origin": return `${origin}\n`;
+      case "status --porcelain": return dirty;
+      default: throw new Error(gitArgs.join(" "));
+    }
+  };
+  return { calls, execFileSync };
+}
+
+const A = "0123456789abcdef0123456789abcdef01234567";
+const B = "fedcba9876543210fedcba9876543210fedcba98";
+
+test("remote snapshot requires fetched and advertised origin tips to agree", () => {
+  const stable = fakeGit({ localCommit: A, remoteCommit: A });
+  const remote = readRemoteSnapshot({ repoRoot: "C:\\harness", branch: "main", execFileSync: stable.execFileSync, observedAt: "2026-09-07T00:00:00.000Z" });
+  assert.deepEqual(remote, { branch: "main", commit: A, observedAt: "2026-09-07T00:00:00.000Z" });
+  assert.deepEqual(stable.calls.slice(0, 3).map((args) => args.join(" ")), ["fetch --prune origin main", "rev-parse refs/remotes/origin/main", "ls-remote origin refs/heads/main"]);
+  const unstable = fakeGit({ localCommit: A, remoteCommit: A, advertisedCommit: B });
+  assert.throws(() => readRemoteSnapshot({ repoRoot: "C:\\harness", branch: "main", execFileSync: unstable.execFileSync }), /origin_tip_unstable/);
+});
+
+test("trusted launch rejects stale, ahead, dirty, detached, and captures immutable remote trust", () => {
+  const remote = { branch: "main", commit: A, observedAt: "2026-09-07T00:00:00.000Z" };
+  const checkout = { repoRoot: "C:\\harness", commit: A, branch: "main", origin: "origin", worktreeClean: true };
+  assert.deepEqual(captureTrustedLaunch({ checkout, remote, branch: "main" }).trust, "stable-origin-tip");
+  for (const candidate of [
+    { ...checkout, commit: B },
+    { ...checkout, worktreeClean: false },
+    { ...checkout, branch: "" },
+  ]) assert.throws(() => captureTrustedLaunch({ checkout: candidate, remote, branch: "main" }), /local_commit_(?:not_latest|target_untrusted)/);
+  const launch = captureTrustedLaunch({ checkout, remote, branch: "main" });
+  const newer = { ...remote, commit: B, observedAt: "2026-09-07T00:01:00.000Z" };
+  assert.equal(launch.commit, A);
+  assert.equal(newer.commit, B);
+  assert.equal(launch.commit, A);
+});
+
+test("origin advancement before coordination fails without changing immutable target", () => {
+  const launch = { ...captureTrustedLaunch({ checkout: { repoRoot: "C:\\harness", commit: A, branch: "main", origin: "origin", worktreeClean: true }, remote: { branch: "main", commit: A, observedAt: "t0" }, branch: "main" }) };
+  assert.throws(() => verifyLaunchRevalidation({ checkout: launch, remote: { branch: "main", commit: B, observedAt: "t1" }, launch, branch: "main" }), /origin_advanced_during_launch/);
+  assert.equal(launch.commit, A);
 });
 
 test("commit sync client lists registry items without auth", async () => {

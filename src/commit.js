@@ -13,6 +13,31 @@ export function readCheckout({ repoRoot, execFileSync = defaultExecFileSync } = 
   return { repoRoot, commit, branch, origin, worktreeClean: !dirty };
 }
 
+function fullHash(value) { return HASH.test(String(value || "").trim().toLowerCase()) ? String(value).trim().toLowerCase() : ""; }
+
+export function readRemoteSnapshot({ repoRoot, branch, execFileSync = defaultExecFileSync, observedAt = new Date().toISOString() } = {}) {
+  if (!isSafeBranch(branch)) throw new Error("configured_branch_invalid");
+  const run = (args) => execFileSync("git", ["-C", repoRoot, ...args], { encoding: "utf8" }).trim();
+  run(["fetch", "--prune", "origin", branch]);
+  const fetchedCommit = fullHash(run(["rev-parse", `refs/remotes/origin/${branch}`]));
+  const advertisedCommit = fullHash(run(["ls-remote", "origin", `refs/heads/${branch}`]).split(/\s+/)[0]);
+  if (!fetchedCommit || !advertisedCommit) throw new Error("origin_tip_invalid");
+  if (fetchedCommit !== advertisedCommit) throw new Error("origin_tip_unstable");
+  return { branch, commit: advertisedCommit, observedAt };
+}
+
+export function captureTrustedLaunch({ checkout, remote, branch }) {
+  if (!checkout?.worktreeClean || checkout.branch !== branch || !HASH.test(checkout.commit || "") || !HASH.test(remote?.commit || "") || remote.branch !== branch) throw new Error("local_commit_target_untrusted");
+  if (checkout.commit !== remote.commit) throw new Error("local_commit_not_latest");
+  return { ...checkout, remoteCommit: remote.commit, remoteObservedAt: remote.observedAt, trust: "stable-origin-tip" };
+}
+
+export function verifyLaunchRevalidation({ checkout, remote, launch, branch }) {
+  if (!checkout?.worktreeClean || checkout.branch !== branch || checkout.origin !== launch.origin || checkout.commit !== launch.commit) throw new Error("local_commit_target_untrusted");
+  if (remote?.commit !== launch.commit) throw new Error("origin_advanced_during_launch");
+  return true;
+}
+
 export function verifyTarget({ checkout, expectedCommit, branch }) {
   if (!HASH.test(expectedCommit || "") || expectedCommit !== checkout.commit) throw new Error("commit_target_mismatch");
   if (branch !== checkout.branch) throw new Error("branch_target_mismatch");
@@ -23,6 +48,7 @@ export function verifyTarget({ checkout, expectedCommit, branch }) {
 export function isSafeBranch(branch) { return BRANCH.test(branch || "") && !branch.includes(".."); }
 
 export function syncCheckout({ repoRoot, expectedCommit, branch, execFileSync = defaultExecFileSync }) {
+  if (!isSafeBranch(branch) || !HASH.test(expectedCommit || "")) throw new Error("sync_target_invalid");
   const run = (args) => execFileSync("git", ["-C", repoRoot, ...args], { encoding: "utf8" }).trim();
   const before = readCheckout({ repoRoot, execFileSync });
   verifyTarget({ checkout: { ...before, commit: before.commit }, expectedCommit: before.commit, branch: before.branch });
