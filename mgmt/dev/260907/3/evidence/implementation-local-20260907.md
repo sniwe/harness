@@ -65,4 +65,19 @@ not resolvable during this check. Prompt canary execution therefore remains
 paused until both process environments are manually provisioned and the local
 machine publishes a reachable current tunnel.
 
+## Live relay transport proof
+
+The local machine was started with the feature disabled and published a fresh
+tunnel under `machine-base-73182d23f660c3880e7e`. The deployed peer was
+rediscovered under its current rotated URL.
+
+- local -> peer `peer-ping`: HTTP 200, exact peer key, `serverRole=machine-base`;
+- peer -> local `peer-ping`: HTTP 200, exact local key, `serverRole=machine-base`;
+- local `/api/machine-base/peer-request`: HTTP 403 `peer_route_disabled`;
+- peer `/api/machine-base/peer-request`: HTTP 403 `peer_route_disabled`.
+
+This proves the existing keyed relay/discovery and public tunnel transport in
+both directions. It does not prove prompt execution because neither machine
+has a configured peer token or caller allowlist.
+
 No credential, prompt token, or raw model output is stored in this artifact.

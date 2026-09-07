@@ -31,6 +31,11 @@ commit-sync path, relaunched as generation 4, and verified under a rotated
 tunnel URL. Its new prompt route is present and returns the expected
 default-deny response, but it has no process token or caller allowlist yet.
 
+The local service is now also publishing a current tunnel. Live peer-ping
+proof succeeds in both directions and both prompt routes return the expected
+default-deny response. The remaining gate is credential provisioning and the
+approved harmless prompt canary.
+
 ## Objective
 
 Allow an operator or trusted machine-base process on machine A to deliver one
