@@ -44,6 +44,7 @@ export function createWorkerPool({ workerEntry = path.resolve("mgmt/machine-base
       try { return await send(slot, payload, timeoutMs); }
       catch (error) {
         failSlot(slot, error);
+        if (payload.task === "remote-prompt") throw error;
         slot = readySlot();
         if (!slot) throw error;
         return send(slot, payload, timeoutMs);

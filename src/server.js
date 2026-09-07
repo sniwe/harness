@@ -35,9 +35,10 @@ const launch = { runId: process.env.MACHINE_BASE_RUN_ID || crypto.randomUUID(), 
 const commitSync = createCommitSyncClient({ registryUrl: `${relayBaseUrl}/_functions/tunnels` });
 const machineKey = process.env.TUNNEL_KEY || identity.tunnelKey;
 const peerRequestClient = createPeerRequestClient({ registryUrl: `${relayBaseUrl}/_functions/tunnels`, localKey: machineKey, callerKey: machineKey });
+const remotePromptTimeoutMs = Number.isInteger(Number(process.env.MACHINE_BASE_REMOTE_PROMPT_TIMEOUT_MS)) ? Math.min(1800000, Math.max(1000, Number(process.env.MACHINE_BASE_REMOTE_PROMPT_TIMEOUT_MS))) : 1800000;
 
 const pool = createWorkerPool({ env: { ...process.env, MACHINE_BASE_REPO_ROOT: repoRoot }, workerEntry: path.resolve("mgmt/machine-base-worker/src/index.js"), cwd: path.resolve("mgmt/machine-base-worker") });
-const peerRequestHandler = createPeerRequestHandler({ pool, targetKey: machineKey, enabled: process.env.MACHINE_BASE_REMOTE_PROMPTS_ENABLED !== "0", maxInFlight: 1 });
+const peerRequestHandler = createPeerRequestHandler({ pool, targetKey: machineKey, enabled: process.env.MACHINE_BASE_REMOTE_PROMPTS_ENABLED !== "0", maxInFlight: 1, timeoutMs: remotePromptTimeoutMs });
 let port = configuredPort;
 let localUrl = "";
 let tunnel = null;
@@ -99,6 +100,11 @@ server = http.createServer(async (request, response) => {
     if (request.method === "POST" && pathname === "/api/machine-base/peer-request") {
       const payload = JSON.parse(await readBody(request, 64 * 1024));
       const result = await peerRequestHandler.handle({ headers: request.headers, payload });
+      return json(response, result.status, result.body);
+    }
+    if (request.method === "GET" && pathname === "/api/machine-base/peer-request-status") {
+      const url = new URL(request.url, "http://127.0.0.1");
+      const result = peerRequestHandler.status({ requestId: url.searchParams.get("requestId"), targetKey: url.searchParams.get("targetTunnelKey") });
       return json(response, result.status, result.body);
     }
     if (request.method === "POST" && pathname === "/api/machine-base/peer-request-send") {

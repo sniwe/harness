@@ -32,8 +32,8 @@ can be disabled with the documented feature flags.
 
 The local service is now also publishing a current tunnel. Live peer-ping
 proof succeeds in both directions and the public prompt canary has completed
-with a real peer Codex worker. Remaining gates are timeout, receiver restart,
-and final descendant cleanup.
+with a real peer Codex worker. The current implementation now uses accepted
+jobs plus persistent status polling so long-running turns are observable.
 
 ## Objective
 
@@ -336,11 +336,11 @@ Use explicit status/error mapping:
 Do not accept a caller-selected callback URL, arbitrary route, shell command,
 environment, working directory, or model. Do not proxy arbitrary headers.
 
-For the first slice, a bounded synchronous response is preferable to inventing
-a durable cross-machine queue. If the worker may exceed the HTTP deadline,
-return `202 accepted` only with a separately designed status/poll contract;
-never return `202` and claim the prompt completed. The preferred first gate is
-to reject prompts that cannot fit within the bounded synchronous deadline.
+Use a bounded in-memory accepted-job record and a fixed status route for
+long-running turns. Return `202 accepted` with the request ID while execution
+is pending; return `200` only after the status poll observes `completed`.
+Bound the job retention, prompt/result sizes, in-flight count, and maximum
+execution window. Never claim completion from `202` or network delivery alone.
 
 Verification: route tests cover disabled route, wrong target key, malformed
 envelope, duplicate ID, oversized body,
@@ -379,22 +379,26 @@ The sender should:
 5. generate a UUID request ID locally;
 6. send the fixed peer route over HTTPS with the caller key as optional
    attribution metadata;
-7. apply one overall deadline and no blind retry for an executing prompt;
-8. validate HTTP status, JSON shape, request ID, caller/target identity, and
+7. treat the initial POST as acceptance only, then persistently poll the fixed
+   status route until completion or the server-owned deadline;
+8. re-resolve the exact peer key before each poll so tunnel rotation is
+   tolerated without replaying the initial POST;
+9. validate HTTP status, JSON shape, request ID, caller/target identity, and
    terminal state;
-9. return normalized evidence with the resolved URL redacted or retained only
+10. return normalized evidence with the resolved URL redacted or retained only
    when the operator explicitly requests it;
-10. on transport failure, report `unknown_execution_state` rather than
-    replaying a potentially completed prompt.
+11. on pre-accept transport failure, report `unknown_execution_state`; after
+    acceptance, keep polling through transient lookup/status failures rather
+    than replaying the prompt.
 
-Re-resolve the peer URL only for a clearly pre-send transport failure. Do not
-retry after the peer may have accepted the request unless the protocol has a
-durable idempotency/status proof. Preserve the existing tunnel-rotation
-behavior: key is stable, URL is ephemeral.
+The initial POST is never blindly retried. After acceptance, poll the fixed
+status route with a tolerant bounded interval and fresh exact-key lookup on
+each attempt. Preserve the existing tunnel-rotation behavior: key is stable,
+URL is ephemeral.
 
 Verification: fake-peer tests prove exact lookup, fixed route selection,
-identity validation,
-timeout, pre-send re-resolution, post-send no-retry, malformed responses, and
+identity validation, accepted-then-polled completion, tolerant transient
+lookup/status failures, timeout, no initial replay, malformed responses, and
 unknown execution state. A local two-instance test proves A -> B -> worker ->
 correlated response without Wix prompt-body storage.
 
@@ -513,7 +517,7 @@ run covers public URL rotation, receiver restart, bounded failure, and cleanup.
 
 Roll out in this order:
 
-1. ship route code with remote prompts disabled for the initial rollout;
+1. ship route code with remote prompts optionally disabled for the initial rollout;
 2. verify local worker and peer transport tests on both machines;
 3. set the route feature flags manually for the canary window;
 4. enable on B only for a short canary window;
@@ -548,7 +552,10 @@ the existing peer-ping and commit-sync clients must continue to operate.
 - Request IDs, caller/target keys, and execution state are validated end to
   end; HTTP 200, 202, or network delivery alone never means completion.
 - Pre-send transport failures may re-resolve once; post-acceptance failures
-  remain `unknown_execution_state` and are not blindly retried.
+  are observed by persistent status polling and are not blindly retried.
+- Long-running prompts return `202 accepted` first and are completed only after
+  a correlated status poll; polling tolerates transient tunnel/registry
+  failures within the bounded execution window.
 - Focused tests, local worker proof, public canary proof, and unperformed
   broad/runtime proof are reported separately.
 - Public canary evidence contains no prompt or raw model output unless approved.
