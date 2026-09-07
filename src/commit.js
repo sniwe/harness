@@ -22,7 +22,7 @@ export function readRemoteSnapshot({ repoRoot, branch, execFileSync = defaultExe
   const fetchedCommit = fullHash(run(["rev-parse", `refs/remotes/origin/${branch}`]));
   const advertisedCommit = fullHash(run(["ls-remote", "origin", `refs/heads/${branch}`]).split(/\s+/)[0]);
   if (!fetchedCommit || !advertisedCommit) throw new Error("origin_tip_invalid");
-  if (fetchedCommit !== advertisedCommit) throw new Error("origin_tip_unstable");
+  if (fetchedCommit !== advertisedCommit) throw Object.assign(new Error("origin_tip_unstable"), { fetchedCommit, advertisedCommit });
   return { branch, commit: advertisedCommit, observedAt };
 }
 

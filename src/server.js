@@ -54,7 +54,7 @@ async function coordinate() {
     current = readCheckout({ repoRoot });
     remote = readRemoteSnapshot({ repoRoot, branch });
   } catch (error) {
-    return { ok: false, skipped: error.message || "local_commit_target_untrusted", target: launch, trustFailure: { error: error.message || "trust_check_failed", launchCommit: launch.commit, remoteCommit: remote?.commit || null } };
+    return { ok: false, skipped: error.message || "local_commit_target_untrusted", target: launch, trustFailure: { error: error.message || "trust_check_failed", launchCommit: launch.commit, remoteCommit: remote?.commit || null, fetchedCommit: error.fetchedCommit || null, advertisedCommit: error.advertisedCommit || null } };
   }
   try { verifyLaunchRevalidation({ checkout: current, remote, launch, branch }); }
   catch (error) { return { ok: false, skipped: error.message, target: launch, trustFailure: { error: error.message, launchCommit: launch.commit, remoteCommit: remote.commit, remoteObservedAt: remote.observedAt } }; }

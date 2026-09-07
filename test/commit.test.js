@@ -49,7 +49,7 @@ test("remote snapshot requires fetched and advertised origin tips to agree", () 
   assert.deepEqual(remote, { branch: "main", commit: A, observedAt: "2026-09-07T00:00:00.000Z" });
   assert.deepEqual(stable.calls.slice(0, 3).map((args) => args.join(" ")), ["fetch --prune origin main", "rev-parse refs/remotes/origin/main", "ls-remote origin refs/heads/main"]);
   const unstable = fakeGit({ localCommit: A, remoteCommit: A, advertisedCommit: B });
-  assert.throws(() => readRemoteSnapshot({ repoRoot: "C:\\harness", branch: "main", execFileSync: unstable.execFileSync }), /origin_tip_unstable/);
+  assert.throws(() => readRemoteSnapshot({ repoRoot: "C:\\harness", branch: "main", execFileSync: unstable.execFileSync }), (error) => error.message === "origin_tip_unstable" && error.fetchedCommit === A && error.advertisedCommit === B);
 });
 
 test("trusted launch rejects stale, ahead, dirty, detached, and captures immutable remote trust", () => {
