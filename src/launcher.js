@@ -60,6 +60,7 @@ export function startLauncher({ env = process.env, spawnImpl = spawn, processImp
     logger.record("spawn", `generation=${generation} pid=${child.pid}`);
     child.stdout?.on("data", (chunk) => { processImpl.stdout.write(chunk); logger.childOutput("stdout", chunk); });
     child.stderr?.on("data", (chunk) => { processImpl.stderr.write(chunk); logger.childOutput("stderr", chunk); });
+    child.on("error", (error) => logger.record("child_error", error.message));
     child.on("exit", (code, signal) => {
       logger.record("exit", `generation=${generation} pid=${child.pid} code=${code} signal=${signal || "none"}`);
       if (code === relaunchCode && !stopping) {
