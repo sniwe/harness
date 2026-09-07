@@ -22,7 +22,17 @@ always-online endpoint. `CLOUDFLARED_PATH` is optional and otherwise resolves
 from the machine's `PATH`.
 
 Routes: `GET /health`, `GET /status`, `GET /setup/status`, and
+`GET /api/machine-base/ping`, `POST /api/machine-base/peer-ping`, and
 `POST /api/machine-base/request`.
+
+To ping another machine by its exact registry key:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:3100/api/machine-base/peer-ping -Method Post -ContentType 'application/json' -Body '{"tunnelKey":"machine-base-..."}'
+```
+
+The server resolves the current peer URL through the Wix `tunnels` endpoint and
+contacts only its validated HTTPS quick-tunnel URL.
 
 Set `PORT=0` when the local relay service must use an OS-assigned free port. The
 server waits for the actual bound port, then constructs the tunnel origin from

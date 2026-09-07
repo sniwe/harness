@@ -5,6 +5,7 @@ import { deriveMachineIdentity } from "./machineIdentity.js";
 import { createTunnel } from "./tunnel.js";
 import { createWorkerPool } from "./pool.js";
 import { prepareSetup } from "./setup.js";
+import { createPeerPing } from "./peerPing.js";
 
 const root = path.resolve(process.env.MACHINE_BASE_DATA_ROOT || "data/machine-base");
 const identityPath = path.join(root, "identity.json");
@@ -17,6 +18,7 @@ fs.mkdirSync(root, { recursive: true });
 const identity = deriveMachineIdentity({ env: { ...process.env, MACHINE_BASE_IDENTITY_PATH: identityPath } });
 if (!fs.existsSync(identityPath)) fs.writeFileSync(identityPath, JSON.stringify(identity, null, 2));
 const setup = prepareSetup({ root, identity, setupPath });
+const peerPing = createPeerPing({ registryUrl: `${relayBaseUrl}/_functions/tunnels`, localKey: process.env.TUNNEL_KEY || identity.tunnelKey });
 
 const pool = createWorkerPool({ env: process.env, workerEntry: path.resolve("mgmt/machine-base-worker/src/index.js"), cwd: path.resolve("mgmt/machine-base-worker") });
 let port = configuredPort;
@@ -29,15 +31,18 @@ function readBody(request) { return new Promise((resolve, reject) => { let text 
 
 server = http.createServer(async (request, response) => {
   try {
-    if (request.method === "GET" && request.url === "/health") return json(response, 200, { ok: true, pid: process.pid, tunnel: tunnel?.state || null });
-    if (request.method === "GET" && request.url === "/status") return json(response, 200, { ok: true, setup, identity: { source: identity.source, machineBaseId: identity.machineBaseId, tunnelKey: process.env.TUNNEL_KEY || identity.tunnelKey }, tunnel: tunnel?.state || null, workers: pool.slots.map(({ child, reader, stdout, ...slot }) => slot) });
-    if (request.method === "GET" && request.url === "/setup/status") return json(response, 200, setup);
-    if (request.method === "POST" && request.url === "/api/machine-base/request") {
+    const pathname = new URL(request.url, "http://127.0.0.1").pathname;
+    if (request.method === "GET" && pathname === "/health") return json(response, 200, { ok: true, pid: process.pid, tunnel: tunnel?.state || null });
+    if (request.method === "GET" && pathname === "/status") return json(response, 200, { ok: true, setup, identity: { source: identity.source, machineBaseId: identity.machineBaseId, tunnelKey: process.env.TUNNEL_KEY || identity.tunnelKey }, tunnel: tunnel?.state || null, workers: pool.slots.map(({ child, reader, stdout, ...slot }) => slot) });
+    if (request.method === "GET" && pathname === "/setup/status") return json(response, 200, setup);
+    if (request.method === "GET" && pathname === "/api/machine-base/ping") return json(response, 200, { ok: true, tunnelKey: process.env.TUNNEL_KEY || identity.tunnelKey, serverRole: "machine-base", time: new Date().toISOString() });
+    if (request.method === "POST" && pathname === "/api/machine-base/peer-ping") return json(response, 200, await peerPing.ping(JSON.parse(await readBody(request)).tunnelKey));
+    if (request.method === "POST" && pathname === "/api/machine-base/request") {
       const payload = JSON.parse(await readBody(request));
       return json(response, 200, await pool.request(payload));
     }
     json(response, 404, { ok: false, error: "not_found" });
-  } catch (error) { json(response, error.message === "body_too_large" ? 413 : 400, { ok: false, error: error.message || String(error) }); }
+  } catch (error) { json(response, error.message === "body_too_large" ? 413 : error.status || 400, { ok: false, error: error.message || String(error) }); }
 });
 
 async function start() {
