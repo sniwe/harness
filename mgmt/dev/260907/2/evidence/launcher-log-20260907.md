@@ -2,7 +2,7 @@
 
 Date: 2026-09-07  
 Workspace: `C:\\harness`  
-Implementation commits: `7bd2ed6`, `e2c3975`
+Implementation commits: `7bd2ed6`, `e2c3975`, `e31db16`
 
 ## Focused verification
 
@@ -42,13 +42,30 @@ The file was present, appendable, and the captured sample contained no
 credentials, prompts, model output, or request bodies. The current log uses a
 5 MiB file limit and keeps one `.1` backup.
 
+## Two-machine acceptance
+
+An intentional README fast-forward was pushed as `e31db16`. The local machine
+restarted with that target and coordinated the peer. The peer tunnel rotated
+from `foo-dramatic-economic-appeals.trycloudflare.com` through a transient
+outage to `chronicles-rebate-hopes-hydrogen.trycloudflare.com`.
+
+Final public status from both exact machine keys:
+
+```text
+local: commit=e31db167... clean=true confirmed=true tunnelReady=true generation=1 startup=converged
+peer:  commit=e31db167... clean=true confirmed=true tunnelReady=true generation=2 startup=converged
+```
+
+The peer generation-2 status was captured after relaunch with the target
+commit and a newly published tunnel. Both public commit-status calls returned
+confirmed target hashes. Local-to-peer and peer-to-local ping checks both
+returned HTTP 200 after rotation.
+
 ## Peer acceptance
 
-The peer previously wrote a relaunch handoff for target `6f2718c` and
-generation `2`, but its launcher log is on the other machine and was not
-available for direct inspection in this run. Peer-side exit-75 consumption,
-generation-2 startup, and automatic convergence therefore remain pending
-manual collection from:
+The peer's launcher log remains on the other machine and was not copied into
+this checkout, but the public generation-2 status and tunnel rotation prove
+the relaunch path. It can be inspected at:
 
 ```text
 <peer checkout>\\data\\machine-base\\logs\\launcher.log

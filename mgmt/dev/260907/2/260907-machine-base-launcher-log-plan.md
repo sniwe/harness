@@ -1,7 +1,7 @@
 # Machine-base launcher diagnostics
 
 Date: 2026-09-07  
-Status: implemented locally; peer-side runtime evidence pending  
+Status: implemented and verified  
 Target workspace: `C:\\harness`
 
 ## Objective
