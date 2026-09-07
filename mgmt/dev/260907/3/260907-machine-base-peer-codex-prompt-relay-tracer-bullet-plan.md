@@ -20,6 +20,12 @@ trip. Not yet verified: two distinct machines, live Wix peer discovery plus
 public tunnel delivery, approved process-only token provisioning, public
 tunnel rotation, receiver restart, and the final no-orphan process scan.
 
+Live preflight on 2026-09-07 found one healthy registered machine-base peer
+running a pre-feature deployment (`/api/machine-base/peer-request` returned
+404) and one registered machine-base URL that was not DNS-resolvable. See
+`evidence/implementation-local-20260907.md`; this is an external deployment
+gate, not proof of local implementation failure.
+
 ## Objective
 
 Allow an operator or trusted machine-base process on machine A to deliver one
