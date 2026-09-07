@@ -8,7 +8,7 @@ const server = http.createServer((request, response) => {
     return;
   }
   response.writeHead(200, { "Content-Type": "application/json" });
-  response.end(JSON.stringify({ ok: true, records: Object.fromEntries(records) }));
+  response.end(JSON.stringify({ ok: true, items: [...records].map(([tunnelKey, title]) => ({ tunnelKey, title })) }));
 });
 server.listen(Number(process.env.RELAY_PORT || 3411), "127.0.0.1", () => console.log("relay-ready"));
 process.once("SIGINT", () => server.close(() => process.exit(0)));
