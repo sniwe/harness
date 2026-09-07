@@ -24,6 +24,20 @@ test("tunnel publishes initial and rotated URLs from either stream", async () =>
   tunnel.stop();
 });
 
+test("tunnel publication strips an accidental URL path", async () => {
+  const child = new EventEmitter();
+  child.stdout = new PassThrough();
+  child.stderr = new PassThrough();
+  child.kill = () => {};
+  const calls = [];
+  const tunnel = createTunnel({ localUrl: "http://127.0.0.1:1", relayUrl: "http://relay", tunnelKey: "key", childProcess: { spawn: () => child }, fetchImpl: async (_url, init) => { calls.push(JSON.parse(init.body)); return { ok: true, status: 200, text: async () => "{}" }; }, logger: { info() {}, error() {} } });
+  const ready = tunnel.start();
+  child.stderr.write("https://path-test.trycloudflare.com/api/machine-base/commit-sync\n");
+  await ready;
+  assert.equal(calls[0].tunnelUrl, "https://path-test.trycloudflare.com");
+  tunnel.stop();
+});
+
 test("healthy tunnel process is relaunched after exit", async () => {
   const children = [];
   const spawnChild = () => { const child = new EventEmitter(); child.stdout = new PassThrough(); child.stderr = new PassThrough(); child.killed = false; child.kill = () => { child.killed = true; }; children.push(child); return child; };

@@ -42,7 +42,7 @@ export function createTunnel({ localUrl, relayUrl, tunnelKey, env = process.env,
 
   function line(text) {
     const match = String(text).match(URL_RE);
-    if (match) void publish(match[0]);
+    if (match) void publish(new URL(match[0]).origin);
   }
 
   function launch() {
