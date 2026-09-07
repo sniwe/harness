@@ -113,7 +113,18 @@ async function start() {
   if (process.env.MACHINE_BASE_COORDINATE_ON_START !== "0") { startupState = "peers_checking"; coordination = await coordinate(); startupState = coordination.ok ? "converged" : "coordination_failed"; }
   console.log(JSON.stringify({ ready: true, pid: process.pid, port, tunnelKey: process.env.TUNNEL_KEY || identity.tunnelKey, tunnel: tunnel?.state || null }));
 }
-async function stop() { if (stopping) return; stopping = true; tunnel?.stop(); pool.stop(); await new Promise((resolve) => server?.close(() => resolve())); }
+async function stop() {
+  if (stopping) return;
+  stopping = true;
+  tunnel?.stop();
+  pool.stop();
+  await new Promise((resolve) => {
+    if (!server?.listening) return resolve();
+    const timer = setTimeout(() => { server.closeAllConnections?.(); resolve(); }, 5000);
+    server.close(() => { clearTimeout(timer); resolve(); });
+    server.closeIdleConnections?.();
+  });
+}
 process.once("SIGINT", () => void stop().then(() => process.exit(0)));
 process.once("SIGTERM", () => void stop().then(() => process.exit(0)));
 if (process.env.MACHINE_BASE_NO_START !== "1") start().catch((error) => { console.error(error.stack || error.message || String(error)); process.exitCode = 1; });
