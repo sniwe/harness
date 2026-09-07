@@ -77,12 +77,12 @@ server = http.createServer(async (request, response) => {
       if (syncInProgress) return json(response, 409, { ok: false, error: "sync_in_progress" });
       const payload = JSON.parse(await readBody(request));
       if (!/^[0-9a-f]{40}$/.test(payload.expectedCommit || "") || payload.branch !== branch || !payload.runId) return json(response, 400, { ok: false, error: "sync_request_invalid" });
-      if (payload.expectedCommit === launch.commit) return json(response, 200, { ok: true, state: "already_current", ...(await commitStatus()) });
       const current = readCheckout({ repoRoot });
       if (current.origin !== configuredOrigin) return json(response, 409, { ok: false, error: "configured_origin_mismatch" });
       let advertised;
       try { advertised = readRemoteSnapshot({ repoRoot, branch }); } catch (error) { return json(response, 409, { ok: false, error: error.message || "origin_tip_unstable" }); }
       if (advertised.commit !== payload.expectedCommit) return json(response, 409, { ok: false, error: "commit_not_origin_tip", advertisedCommit: advertised.commit });
+      if (payload.expectedCommit === launch.commit) return json(response, 200, { ok: true, state: "already_current", ...(await commitStatus()) });
       syncInProgress = true;
       const updated = syncCheckout({ repoRoot, expectedCommit: payload.expectedCommit, branch });
       const confirmation = await pool.request({ task: "check-project-commit" });
