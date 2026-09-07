@@ -1,7 +1,7 @@
 # Machine-base latest-commit trust hardening
 
 Date: 2026-09-07  
-Status: plan only; implementation not authorized by this request  
+Status: implemented; local focused and live verification recorded in `evidence/latest-commit-trust-20260907.md`
 Target workspace: `C:\\harness`
 
 ## Objective
