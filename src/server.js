@@ -10,7 +10,7 @@ const root = path.resolve(process.env.MACHINE_BASE_DATA_ROOT || "data/machine-ba
 const identityPath = path.join(root, "identity.json");
 const setupPath = path.join(root, "setup.json");
 const port = Number(process.env.PORT || 3100);
-const relayBaseUrl = String(process.env.TUNNEL_RELAY_BASE_URL || "").replace(/\/+$/, "");
+const relayBaseUrl = String(process.env.TUNNEL_RELAY_BASE_URL || "https://dev-sitex2082572611.wixdev-sites.org/").replace(/\/+$/, "");
 const relayUrl = relayBaseUrl ? `${relayBaseUrl}${process.env.TUNNEL_RELAY_PATH || "/_functions/tunnelRelay"}` : "";
 const localUrl = process.env.TUNNEL_RELAY_LOCAL_URL || `http://127.0.0.1:${port}`;
 

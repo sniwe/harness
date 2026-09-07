@@ -85,3 +85,13 @@ The user-provided always-online endpoint details were not present in the request
 Production relay authentication, exact lookup/preflight behavior, key length
 rules, and the final machine-base task contract remain unverified. Configure and
 re-run the public-path proof against that exact endpoint before deployment.
+
+## New-machine default configuration proof
+
+With `TUNNEL_RELAY_BASE_URL`, `TUNNEL_RELAY_PATH`, and
+`TUNNEL_RELAY_LOCAL_URL` absent, the server used the documented Wix relay
+defaults and resolved the installed `cloudflared` from `PATH`. The real run
+published a URL under the derived machine key; local `/health`, public `/health`,
+and the public worker request all returned success. This closes the original
+new-machine failure where `tunnel` was incorrectly reported as `null` when no
+environment configuration was supplied.

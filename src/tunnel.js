@@ -1,5 +1,5 @@
 import readline from "node:readline";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 
 const URL_RE = /https:\/\/[a-z0-9-]+\.trycloudflare\.com(?:\/[^^\s"'<>)]*)?/i;
 
@@ -46,7 +46,7 @@ export function createTunnel({ localUrl, relayUrl, tunnelKey, env = process.env,
   }
 
   function launch() {
-    const command = env.CLOUDFLARED_PATH || (process.platform === "win32" ? "C:\\Users\\Admin\\bin\\cloudflared.exe" : "cloudflared");
+    const command = resolveCloudflaredCommand(env);
     child = childProcess.spawn(command, ["tunnel", "--url", localUrl, "--no-autoupdate"], { stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
     readers = [readline.createInterface({ input: child.stdout }), readline.createInterface({ input: child.stderr })];
     readers.forEach((reader) => reader.on("line", line));
@@ -73,4 +73,17 @@ export function createTunnel({ localUrl, relayUrl, tunnelKey, env = process.env,
   }
 
   return { start, stop, ready, get state() { return { observedUrl, publishedUrl, lastError, running: Boolean(child && !child.killed) }; } };
+}
+
+export function resolveCloudflaredCommand(env = process.env, platform = process.platform, lookup = spawnSync) {
+  if (String(env.CLOUDFLARED_PATH || "").trim()) return String(env.CLOUDFLARED_PATH).trim();
+  if (platform === "win32") {
+    try {
+      const result = lookup("where.exe", ["cloudflared.exe"], { encoding: "utf8", windowsHide: true });
+      const path = String(result.stdout || "").split(/\r?\n/).map((line) => line.trim()).find(Boolean);
+      if (path) return path;
+    } catch { /* fall through to PATH lookup */ }
+    return "cloudflared.exe";
+  }
+  return "cloudflared";
 }

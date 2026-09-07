@@ -2,7 +2,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import { PassThrough } from "node:stream";
-import { createTunnel } from "../src/tunnel.js";
+import { createTunnel, resolveCloudflaredCommand } from "../src/tunnel.js";
+
+test("cloudflared resolves from explicit path or PATH", () => {
+  assert.equal(resolveCloudflaredCommand({ CLOUDFLARED_PATH: "C:\\tools\\cloudflared.exe" }, "win32"), "C:\\tools\\cloudflared.exe");
+  assert.equal(resolveCloudflaredCommand({}, "win32", () => ({ stdout: "C:\\bin\\cloudflared.exe\n" })), "C:\\bin\\cloudflared.exe");
+  assert.equal(resolveCloudflaredCommand({}, "linux", () => ({ stdout: "" })), "cloudflared");
+});
 
 test("tunnel publishes initial and rotated URLs from either stream", async () => {
   const child = new EventEmitter();
