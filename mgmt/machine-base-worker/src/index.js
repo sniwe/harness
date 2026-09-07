@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import readline from "node:readline";
+import { execFileSync } from "node:child_process";
 
 const fake = process.env.MACHINE_BASE_FAKE === "1";
 let codex;
@@ -61,6 +62,14 @@ function waitEvent(method, id) {
 
 async function handle(payload) {
   await ensureCodex();
+  if (payload.task === "check-project-commit") {
+    if (!fake) await turn("Inspect the current project checkout with git and confirm its exact full commit hash, branch, and whether the worktree is clean. Return only the requested commit confirmation.");
+    const root = process.env.MACHINE_BASE_REPO_ROOT || process.cwd();
+    const run = (args) => execFileSync("git", ["-C", root, ...args], { encoding: "utf8" }).trim();
+    const commit = run(["rev-parse", "HEAD"]).toLowerCase();
+    const branch = run(["branch", "--show-current"]);
+    return { task: "check-project-commit", commit, branch, confirmed: /^[0-9a-f]{40}$/.test(commit) && Boolean(branch) };
+  }
   return fake ? { ok: true, task: payload.task || "ping", machineBase: true } : turn(JSON.stringify(payload));
 }
 

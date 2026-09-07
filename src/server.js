@@ -6,8 +6,13 @@ import { createTunnel } from "./tunnel.js";
 import { createWorkerPool } from "./pool.js";
 import { prepareSetup } from "./setup.js";
 import { createPeerPing } from "./peerPing.js";
+import { isSafeBranch, readCheckout, remoteBranchCommit, syncCheckout } from "./commit.js";
+import { coordinatePeers, createCommitSyncClient } from "./commitSync.js";
+import crypto from "node:crypto";
 
 const root = path.resolve(process.env.MACHINE_BASE_DATA_ROOT || "data/machine-base");
+const repoRoot = path.resolve(process.env.MACHINE_BASE_REPO_ROOT || process.cwd());
+const branch = process.env.MACHINE_BASE_GIT_BRANCH || "main";
 const identityPath = path.join(root, "identity.json");
 const setupPath = path.join(root, "setup.json");
 const configuredPort = Number.isInteger(Number(process.env.PORT)) ? Math.max(0, Number(process.env.PORT)) : 3100;
@@ -19,24 +24,65 @@ const identity = deriveMachineIdentity({ env: { ...process.env, MACHINE_BASE_IDE
 if (!fs.existsSync(identityPath)) fs.writeFileSync(identityPath, JSON.stringify(identity, null, 2));
 const setup = prepareSetup({ root, identity, setupPath });
 const peerPing = createPeerPing({ registryUrl: `${relayBaseUrl}/_functions/tunnels`, localKey: process.env.TUNNEL_KEY || identity.tunnelKey });
+const launchCheckout = readCheckout({ repoRoot });
+if (!isSafeBranch(branch) || branch !== launchCheckout.branch) throw new Error("configured_branch_mismatch");
+const configuredOrigin = process.env.MACHINE_BASE_GIT_ORIGIN || launchCheckout.origin;
+if (configuredOrigin !== launchCheckout.origin) throw new Error("configured_origin_mismatch");
+const launch = { runId: process.env.MACHINE_BASE_RUN_ID || crypto.randomUUID(), generation: Number(process.env.MACHINE_BASE_LAUNCH_GENERATION || 1), ...launchCheckout, capturedAt: new Date().toISOString() };
+const peerToken = String(process.env.MACHINE_BASE_PEER_TOKEN || "");
+const commitSync = createCommitSyncClient({ registryUrl: `${relayBaseUrl}/_functions/tunnels`, token: peerToken });
 
-const pool = createWorkerPool({ env: process.env, workerEntry: path.resolve("mgmt/machine-base-worker/src/index.js"), cwd: path.resolve("mgmt/machine-base-worker") });
+const pool = createWorkerPool({ env: { ...process.env, MACHINE_BASE_REPO_ROOT: repoRoot }, workerEntry: path.resolve("mgmt/machine-base-worker/src/index.js"), cwd: path.resolve("mgmt/machine-base-worker") });
 let port = configuredPort;
 let localUrl = "";
 let tunnel = null;
 let server;
+let startupState = "starting";
+let localCommitConfirmation = null;
+let coordination = null;
+let syncInProgress = false;
+let stopping = false;
 
 function json(response, status, body) { response.writeHead(status, { "Content-Type": "application/json" }); response.end(JSON.stringify(body)); }
 function readBody(request) { return new Promise((resolve, reject) => { let text = ""; request.on("data", (chunk) => { text += chunk; if (text.length > 1024 * 1024) reject(new Error("body_too_large")); }); request.on("end", () => resolve(text)); request.on("error", reject); }); }
+function authorized(request) { return peerToken && request.headers.authorization === `Bearer ${peerToken}`; }
+async function commitStatus() { const result = await pool.request({ task: "check-project-commit" }); return { commit: { ...launch, confirmed: result.commit === launch.commit && result.branch === launch.branch && result.confirmed === true }, worker: result, tunnel: tunnel?.state || null, generation: launch.generation }; }
+async function coordinate() {
+  const current = readCheckout({ repoRoot });
+  if (!peerToken || !launch.worktreeClean || current.origin !== configuredOrigin || remoteBranchCommit({ repoRoot, branch }) !== launch.commit) return { ok: false, skipped: "local_commit_target_untrusted", target: launch };
+  const items = await commitSync.list();
+  return coordinatePeers({ client: commitSync, peerKeys: items.map((item) => item.tunnelKey).filter((key) => typeof key === "string" && key.startsWith("machine-base-")), localKey: process.env.TUNNEL_KEY || identity.tunnelKey, target: { runId: launch.runId, commit: launch.commit, branch } });
+}
 
 server = http.createServer(async (request, response) => {
   try {
     const pathname = new URL(request.url, "http://127.0.0.1").pathname;
     if (request.method === "GET" && pathname === "/health") return json(response, 200, { ok: true, pid: process.pid, tunnel: tunnel?.state || null });
-    if (request.method === "GET" && pathname === "/status") return json(response, 200, { ok: true, setup, identity: { source: identity.source, machineBaseId: identity.machineBaseId, tunnelKey: process.env.TUNNEL_KEY || identity.tunnelKey }, tunnel: tunnel?.state || null, workers: pool.slots.map(({ child, reader, stdout, ...slot }) => slot) });
+    if (request.method === "GET" && pathname === "/status") return json(response, 200, { ok: true, setup, identity: { source: identity.source, machineBaseId: identity.machineBaseId, tunnelKey: process.env.TUNNEL_KEY || identity.tunnelKey }, launch, startupState, localCommitConfirmation, coordination, tunnel: tunnel?.state || null, workers: pool.slots.map(({ child, reader, stdout, ...slot }) => slot) });
     if (request.method === "GET" && pathname === "/setup/status") return json(response, 200, setup);
     if (request.method === "GET" && pathname === "/api/machine-base/ping") return json(response, 200, { ok: true, tunnelKey: process.env.TUNNEL_KEY || identity.tunnelKey, serverRole: "machine-base", time: new Date().toISOString() });
     if (request.method === "POST" && pathname === "/api/machine-base/peer-ping") return json(response, 200, await peerPing.ping(JSON.parse(await readBody(request)).tunnelKey));
+    if (request.method === "POST" && pathname === "/api/machine-base/commit-status") {
+      if (!authorized(request)) return json(response, peerToken ? 401 : 503, { ok: false, error: peerToken ? "unauthorized" : "peer_token_not_configured" });
+      return json(response, 200, { ok: true, ...(await commitStatus()) });
+    }
+    if (request.method === "POST" && pathname === "/api/machine-base/commit-sync") {
+      if (!authorized(request)) return json(response, peerToken ? 401 : 503, { ok: false, error: peerToken ? "unauthorized" : "peer_token_not_configured" });
+      if (syncInProgress) return json(response, 409, { ok: false, error: "sync_in_progress" });
+      const payload = JSON.parse(await readBody(request));
+      if (!/^[0-9a-f]{40}$/.test(payload.expectedCommit || "") || payload.branch !== branch || !payload.runId) return json(response, 400, { ok: false, error: "sync_request_invalid" });
+      if (payload.expectedCommit === launch.commit) return json(response, 200, { ok: true, state: "already_current", ...(await commitStatus()) });
+      const current = readCheckout({ repoRoot });
+      if (current.origin !== configuredOrigin || remoteBranchCommit({ repoRoot, branch }) !== payload.expectedCommit) return json(response, 409, { ok: false, error: "commit_not_origin_tip" });
+      syncInProgress = true;
+      const updated = syncCheckout({ repoRoot, expectedCommit: payload.expectedCommit, branch });
+      const confirmation = await pool.request({ task: "check-project-commit" });
+      if (confirmation.commit !== updated.commit || confirmation.commit !== payload.expectedCommit || confirmation.confirmed !== true) throw new Error("post_pull_commit_denied");
+      fs.writeFileSync(path.join(root, "relaunch.json"), JSON.stringify({ runId: payload.runId, expectedCommit: payload.expectedCommit, generation: launch.generation + 1, createdAt: new Date().toISOString() }, null, 2));
+      json(response, 202, { ok: true, state: "relaunching", runId: payload.runId, expectedCommit: payload.expectedCommit });
+      setTimeout(() => void stop().then(() => process.exit(75)), 25);
+      return;
+    }
     if (request.method === "POST" && pathname === "/api/machine-base/request") {
       const payload = JSON.parse(await readBody(request));
       return json(response, 200, await pool.request(payload));
@@ -47,6 +93,10 @@ server = http.createServer(async (request, response) => {
 
 async function start() {
   await pool.start();
+  startupState = "workers_ready";
+  localCommitConfirmation = await pool.request({ task: "check-project-commit" });
+  if (localCommitConfirmation.commit !== launch.commit || localCommitConfirmation.branch !== launch.branch || localCommitConfirmation.confirmed !== true) throw new Error("local_commit_confirmation_failed");
+  startupState = "local_commit_confirmed";
   await new Promise((resolve, reject) => {
     server.once("error", reject);
     server.listen(configuredPort, "127.0.0.1", () => {
@@ -63,9 +113,11 @@ async function start() {
   });
   tunnel = relayUrl ? createTunnel({ localUrl, relayUrl, tunnelKey: process.env.TUNNEL_KEY || identity.tunnelKey }) : null;
   if (tunnel) await tunnel.start();
+  startupState = "tunnel_ready";
+  if (peerToken && process.env.MACHINE_BASE_COORDINATE_ON_START !== "0") { startupState = "peers_checking"; coordination = await coordinate(); startupState = coordination.ok ? "converged" : "coordination_failed"; }
   console.log(JSON.stringify({ ready: true, pid: process.pid, port, tunnelKey: process.env.TUNNEL_KEY || identity.tunnelKey, tunnel: tunnel?.state || null }));
 }
-async function stop() { tunnel?.stop(); pool.stop(); await new Promise((resolve) => server?.close(() => resolve())); }
+async function stop() { if (stopping) return; stopping = true; tunnel?.stop(); pool.stop(); await new Promise((resolve) => server?.close(() => resolve())); }
 process.once("SIGINT", () => void stop().then(() => process.exit(0)));
 process.once("SIGTERM", () => void stop().then(() => process.exit(0)));
 if (process.env.MACHINE_BASE_NO_START !== "1") start().catch((error) => { console.error(error.stack || error.message || String(error)); process.exitCode = 1; });
