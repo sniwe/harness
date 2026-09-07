@@ -1,7 +1,7 @@
 # Machine-base peer Codex prompt relay
 
 Date: 2026-09-07  
-Status: implementation complete; focused, local, public, timeout, restart/rotation, and cleanup evidence recorded
+Status: implementation in place; focused, local, public, timeout, and restart/rotation evidence recorded; current peer-worker recheck needs recovery
 Target workspace: `C:\harness`  
 Related slices: `C:\harness\mgmt\dev\260907\0`, `C:\harness\mgmt\dev\260907\1`, `C:\harness\mgmt\dev\260907\2`  
 Current peer registry: `https://dev-sitex2082572611.wixdev-sites.org/_functions/tunnels`

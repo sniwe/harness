@@ -109,3 +109,13 @@ request slot wedged.
 Receiver restart and tunnel rediscovery were exercised during the commit-sync
 deployment and URL rotation; the running peer then reconverged with
 `inFlight=0`. No credential or raw model output is stored in this artifact.
+
+## Current recheck
+
+After the recorded successful canary, a fresh exact-key sender attempt reached
+the enabled peer route but returned HTTP 502 wrapping peer-side
+`worker_timeout`. The peer remained healthy at `/health` and `/status`, with
+`startupState=converged`, `peerRequest.enabled=true`, and `inFlight=0`, but its
+worker status retained timeout/exit diagnostics. The implementation and prior
+two-machine proof remain recorded; peer worker recovery and a repeat canary are
+the remaining runtime gate.
