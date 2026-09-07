@@ -40,6 +40,20 @@ Date: 2026-09-07
   completed coordination, so it did not prove the launch-window race. It is
   recorded as an unsuccessful timing attempt, not as a pass.
 
+## Controlled launch-window race and fresh generation
+
+- A scheduled push advanced the local origin from
+  `fadddba8f6ea16b6dc9d7a2546c7bd69504eb9d6` to
+  `66062671e9f5b903325e7981a9432cf2d9d25026` during server startup.
+- The real server returned `/status` with `startupState: coordination_failed`,
+  `skipped: origin_advanced_during_launch`, and preserved the original
+  `launch.commit` while exposing the newer `trustFailure.remoteCommit`.
+- Machine A then fast-forwarded to `66062671e9f5b903325e7981a9432cf2d9d25026`.
+  A fresh server generation returned `startupState: converged`,
+  `coordination.ok: true`, and matching launch/remote commits.
+- This is controlled two-checkout local-process evidence; it is not physical
+  two-machine evidence.
+
 ## Scope boundary
 
 The physical two-machine stale-target refusal and fresh-generation
