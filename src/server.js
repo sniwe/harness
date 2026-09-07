@@ -8,7 +8,7 @@ import { prepareSetup } from "./setup.js";
 import { createPeerPing } from "./peerPing.js";
 import { captureTrustedLaunch, isSafeBranch, readCheckout, readRemoteSnapshot, syncCheckout, verifyLaunchRevalidation } from "./commit.js";
 import { coordinatePeers, createCommitSyncClient } from "./commitSync.js";
-import { createPeerRequestClient, createPeerRequestHandler, isBearerToken, parseAllowedCallerKeys } from "./peerRequest.js";
+import { createPeerRequestClient, createPeerRequestHandler } from "./peerRequest.js";
 import crypto from "node:crypto";
 
 const root = path.resolve(process.env.MACHINE_BASE_DATA_ROOT || "data/machine-base");
@@ -34,11 +34,10 @@ const launchCheckout = readCheckout({ repoRoot });
 const launch = { runId: process.env.MACHINE_BASE_RUN_ID || crypto.randomUUID(), generation: Number(process.env.MACHINE_BASE_LAUNCH_GENERATION || 1), ...captureTrustedLaunch({ checkout: launchCheckout, remote: launchRemote, branch }), capturedAt: new Date().toISOString() };
 const commitSync = createCommitSyncClient({ registryUrl: `${relayBaseUrl}/_functions/tunnels` });
 const machineKey = process.env.TUNNEL_KEY || identity.tunnelKey;
-const peerToken = String(process.env.MACHINE_BASE_PEER_TOKEN || "");
-const peerRequestClient = createPeerRequestClient({ registryUrl: `${relayBaseUrl}/_functions/tunnels`, localKey: machineKey, callerKey: machineKey, token: peerToken });
+const peerRequestClient = createPeerRequestClient({ registryUrl: `${relayBaseUrl}/_functions/tunnels`, localKey: machineKey, callerKey: machineKey });
 
 const pool = createWorkerPool({ env: { ...process.env, MACHINE_BASE_REPO_ROOT: repoRoot }, workerEntry: path.resolve("mgmt/machine-base-worker/src/index.js"), cwd: path.resolve("mgmt/machine-base-worker") });
-const peerRequestHandler = createPeerRequestHandler({ pool, targetKey: machineKey, enabled: process.env.MACHINE_BASE_REMOTE_PROMPTS_ENABLED === "1", token: peerToken, allowedCallers: parseAllowedCallerKeys(process.env.MACHINE_BASE_REMOTE_ALLOWED_CALLERS), maxInFlight: 1 });
+const peerRequestHandler = createPeerRequestHandler({ pool, targetKey: machineKey, enabled: process.env.MACHINE_BASE_REMOTE_PROMPTS_ENABLED !== "0", maxInFlight: 1 });
 let port = configuredPort;
 let localUrl = "";
 let tunnel = null;
@@ -103,7 +102,7 @@ server = http.createServer(async (request, response) => {
       return json(response, result.status, result.body);
     }
     if (request.method === "POST" && pathname === "/api/machine-base/peer-request-send") {
-      if (process.env.MACHINE_BASE_PEER_REQUEST_SENDER_ENABLED !== "1" || !isBearerToken(request.headers.authorization, peerToken) || request.headers["x-machine-base-caller-key"] !== machineKey) return json(response, 403, { ok: false, error: "peer_sender_not_authorized" });
+      if (process.env.MACHINE_BASE_PEER_REQUEST_SENDER_ENABLED === "0") return json(response, 403, { ok: false, error: "peer_sender_disabled" });
       const payload = JSON.parse(await readBody(request, 64 * 1024));
       if (!payload || typeof payload !== "object" || Array.isArray(payload) || Object.keys(payload).some((key) => !["tunnelKey", "prompt", "timeoutMs"].includes(key))) return json(response, 400, { ok: false, error: "sender_request_fields_invalid" });
       const result = await peerRequestClient.send(payload.tunnelKey, payload.prompt, payload.timeoutMs);
@@ -111,7 +110,6 @@ server = http.createServer(async (request, response) => {
     }
     if (request.method === "POST" && pathname === "/api/machine-base/request") {
       if (process.env.MACHINE_BASE_LOCAL_WORKER_REQUEST_ENABLED !== "1") return json(response, 403, { ok: false, error: "local_worker_route_disabled" });
-      if (!isBearerToken(request.headers.authorization, peerToken) || request.headers["x-machine-base-caller-key"] !== machineKey) return json(response, 403, { ok: false, error: "local_worker_not_authorized" });
       const payload = JSON.parse(await readBody(request));
       return json(response, 200, await pool.request(payload));
     }

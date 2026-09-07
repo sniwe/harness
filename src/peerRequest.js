@@ -7,9 +7,6 @@ const MAX_TIMEOUT_MS = 120000;
 const MAX_PROMPT_CHARS = 32768;
 const MAX_RESULT_BYTES = 256 * 1024;
 
-export function parseAllowedCallerKeys(value = "") { return new Set(String(value).split(",").map((item) => item.trim()).filter(Boolean)); }
-export function isBearerToken(value, token) { return Boolean(token) && safeTokenEqual(value, `Bearer ${token}`); }
-
 export function validateRemotePromptEnvelope(payload, { targetKey, maxPromptChars = MAX_PROMPT_CHARS } = {}) {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) throw peerRequestError(400, "request_schema_invalid");
   if (typeof payload.requestId !== "string" || !UUID.test(payload.requestId)) throw peerRequestError(400, "request_id_invalid");
@@ -21,12 +18,12 @@ export function validateRemotePromptEnvelope(payload, { targetKey, maxPromptChar
   return { ...payload, timeoutMs: clampTimeout(payload.timeoutMs) };
 }
 
-export function createPeerRequestClient({ registryUrl, localKey, callerKey = localKey, token = "", fetchImpl = fetch, timeoutMs = DEFAULT_TIMEOUT_MS, requestId = () => crypto.randomUUID() } = {}) {
+export function createPeerRequestClient({ registryUrl, localKey, callerKey = localKey, fetchImpl = fetch, timeoutMs = DEFAULT_TIMEOUT_MS, requestId = () => crypto.randomUUID() } = {}) {
   const peerPing = createPeerPing({ registryUrl, localKey, fetchImpl, timeoutMs });
-  return { send: (peerKey, prompt, requestedTimeoutMs) => sendPeerRequest({ peerPing, peerKey, prompt, callerKey, token, fetchImpl, timeoutMs: clampTimeout(requestedTimeoutMs || timeoutMs), requestId }) };
+  return { send: (peerKey, prompt, requestedTimeoutMs) => sendPeerRequest({ peerPing, peerKey, prompt, callerKey, fetchImpl, timeoutMs: clampTimeout(requestedTimeoutMs || timeoutMs), requestId }) };
 }
 
-async function sendPeerRequest({ peerPing, peerKey, prompt, callerKey, token, fetchImpl, timeoutMs, requestId }) {
+async function sendPeerRequest({ peerPing, peerKey, prompt, callerKey, fetchImpl, timeoutMs, requestId }) {
   if (typeof prompt !== "string" || prompt.trim() === "" || prompt.length > MAX_PROMPT_CHARS) throw peerRequestError(400, "prompt_invalid");
   const peer = await peerPing.lookup(peerKey);
   const id = requestId();
@@ -34,7 +31,7 @@ async function sendPeerRequest({ peerPing, peerKey, prompt, callerKey, token, fe
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetchImpl(`${peer.tunnelUrl}/api/machine-base/peer-request`, { method: "POST", headers: { Accept: "application/json", "Content-Type": "application/json", Authorization: `Bearer ${token}`, "X-Machine-Base-Caller-Key": callerKey }, body: JSON.stringify(payload), redirect: "error", signal: controller.signal });
+    const response = await fetchImpl(`${peer.tunnelUrl}/api/machine-base/peer-request`, { method: "POST", headers: { Accept: "application/json", "Content-Type": "application/json", "X-Machine-Base-Caller-Key": callerKey }, body: JSON.stringify(payload), redirect: "error", signal: controller.signal });
     let body;
     try { body = await readBoundedJson(response); } catch (error) { throw peerRequestError(502, error.message === "peer_response_too_large" ? error.message : "peer_invalid_json"); }
     if (!response.ok) throw peerRequestError(response.status >= 500 ? 502 : response.status, body?.error || `peer_http_${response.status}`, { requestId: id, state: body?.state || "not_started" });
@@ -47,17 +44,15 @@ async function sendPeerRequest({ peerPing, peerKey, prompt, callerKey, token, fe
   } finally { clearTimeout(timer); }
 }
 
-export function createPeerRequestHandler({ pool, targetKey, enabled = false, token = "", allowedCallers = new Set(), maxInFlight = 1, timeoutMs = DEFAULT_TIMEOUT_MS, maxPromptChars = MAX_PROMPT_CHARS, now = () => new Date().toISOString() } = {}) {
+export function createPeerRequestHandler({ pool, targetKey, enabled = true, maxInFlight = 1, timeoutMs = DEFAULT_TIMEOUT_MS, maxPromptChars = MAX_PROMPT_CHARS, now = () => new Date().toISOString() } = {}) {
   const inFlight = new Set();
   const completed = new Set();
   return {
-    get state() { return { enabled, tokenConfigured: Boolean(token), allowedCallerCount: allowedCallers.size, inFlight: inFlight.size, maxInFlight }; },
+    get state() { return { enabled, inFlight: inFlight.size, maxInFlight }; },
     async handle({ headers = {}, payload } = {}) {
       const requestId = payload?.requestId || "";
       if (!enabled) return failure(403, "peer_route_disabled", requestId, targetKey, "not_started");
-      if (!isBearerToken(headers.authorization, token)) return failure(401, "peer_auth_invalid", requestId, targetKey, "not_started");
-      const callerKey = String(headers["x-machine-base-caller-key"] || "");
-      if (!allowedCallers.has(callerKey)) return failure(403, "peer_caller_not_allowed", requestId, targetKey, "not_started", callerKey);
+      const callerKey = String(headers["x-machine-base-caller-key"] || "unknown");
       let request;
       try { request = validateRemotePromptEnvelope(payload, { targetKey, maxPromptChars }); }
       catch (error) { return failure(error.status || 400, error.message, requestId, targetKey, "not_started", callerKey); }

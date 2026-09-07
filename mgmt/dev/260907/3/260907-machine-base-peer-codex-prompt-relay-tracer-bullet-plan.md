@@ -1,7 +1,7 @@
 # Machine-base peer Codex prompt relay
 
 Date: 2026-09-07  
-Status: implementation in progress; focused/local gates verified, public two-machine gate pending manual peer provisioning  
+Status: implementation in progress; focused/local/live transport gates verified, public prompt canary pending peer route enablement  
 Target workspace: `C:\harness`  
 Related slices: `C:\harness\mgmt\dev\260907\0`, `C:\harness\mgmt\dev\260907\1`, `C:\harness\mgmt\dev\260907\2`  
 Current peer registry: `https://dev-sitex2082572611.wixdev-sites.org/_functions/tunnels`
@@ -17,8 +17,8 @@ focused tests in `test/peerRequest.test.js`.
 Verified now: syntax checks, 28 passing tests plus one non-Windows skip, a
 standalone JSONL worker canary, and a local HTTP sender-to-peer-handler round
 trip. Not yet verified: two distinct machines, live Wix peer discovery plus
-public tunnel delivery, approved process-only token provisioning, public
-tunnel rotation, receiver restart, and the final no-orphan process scan.
+public prompt execution, receiver restart, and the final no-orphan process
+scan.
 
 Live preflight on 2026-09-07 found one healthy registered machine-base peer
 running a pre-feature deployment (`/api/machine-base/peer-request` returned
@@ -26,10 +26,10 @@ running a pre-feature deployment (`/api/machine-base/peer-request` returned
 `evidence/implementation-local-20260907.md`; this is an external deployment
 gate, not proof of local implementation failure.
 
-The healthy peer has since been deployed to `9dc96cd` through the existing
+The healthy peer has since been deployed to the current origin through the existing
 commit-sync path, relaunched as generation 4, and verified under a rotated
 tunnel URL. Its new prompt route is present and returns the expected
-default-deny response, but it has no process token or caller allowlist yet.
+disabled response while the canary flag is off.
 
 The local service is now also publishing a current tunnel. Live peer-ping
 proof succeeds in both directions and both prompt routes return the expected
@@ -46,8 +46,8 @@ receive a bounded, attributable result:
 operator/process A
   -> exact peer tunnelKey lookup through existing Wix tunnels registry
   -> validated current HTTPS quick-tunnel URL
-  -> authenticated peer-request POST to B
-  -> B authorizes and bounds the request
+  -> fixed peer-request POST to B
+  -> B bounds the request
   -> B's existing Codex worker pool executes the prompt
   -> B returns requestId, peer identity, result, and execution state
   -> A verifies identity, requestId, and completion
@@ -89,40 +89,24 @@ plane and the existing direct quick-tunnel transport as the data path. It does
 not send prompt bodies through Wix. The relay stores/discovers the current peer
 URL; machine B receives the prompt directly over its current tunnel.
 
-The current commit-control routes are not sufficient authorization for prompt
-execution. Exact peer identity proves routing, not permission. A separate
-process-only machine-base peer credential and explicit peer allowlist are
-required before the route can execute a Codex turn.
+This deployment intentionally does not add authentication. Exact peer-key
+lookup and validated tunnel URLs provide the existing routing boundary;
+request bounds, fixed route selection, explicit disable flags, and operator
+controlled peer selection contain the prompt operation.
 
 ## Non-negotiable safety contract
 
-### Authentication and authorization
+### Routing and bounded execution
 
-Use two independent checks on machine B:
+No authentication is required by this deployment. The receiver accepts only
+the fixed peer-request route and a strict bounded envelope. The sender accepts
+an exact peer key and resolves the current URL through the existing registry;
+neither side accepts arbitrary URLs, routes, working directories, environments,
+models, or shell commands.
 
-1. `Authorization: Bearer <MACHINE_BASE_PEER_TOKEN>` must match a token
-   provisioned into B's process environment or protected runtime secret store.
-2. The claimed caller machine key must be in B's explicit configured peer
-   allowlist, and the resolved request must be addressed to B's exact current
-   tunnel key.
-
-The token is process-only. Never write it to source, Git, Markdown, test
-artifacts, relay records, URLs, command output, logs, or memory. Do not reuse
-`HANDOFF_TOKEN`, the Qwen bridge token, or a token intended for ASR traffic.
-
-The request must carry the caller's stable machine-base key in a header such as
-`X-Machine-Base-Caller-Key`; B must compare it byte-for-byte with an allowed
-key. The header is an authorization input only after the bearer token passes;
-it is not a substitute for the token.
-
-Default behavior is deny:
-
-- remote prompt route disabled unless
-  `MACHINE_BASE_REMOTE_PROMPTS_ENABLED=1`;
-- no allowed caller keys unless explicitly configured;
-- no default token;
-- no anonymous fallback;
-- no use of the public Qwen relay as a bypass.
+The receiver and sender are enabled by default. Set
+`MACHINE_BASE_REMOTE_PROMPTS_ENABLED=0` or
+`MACHINE_BASE_PEER_REQUEST_SENDER_ENABLED=0` to disable either side.
 
 ### Prompt and response bounds
 
@@ -151,13 +135,12 @@ Required rules:
 - caller-supplied `cwd`, environment variables, model, sandbox policy,
   approval policy, executable, headers, or shell command fields are rejected.
 - response size, execution duration, and in-flight count are bounded.
-- secrets, authorization headers, raw upstream bodies, and unrestricted model
-  event streams are excluded from the response.
+- raw upstream bodies and unrestricted model event streams are excluded from
+  the response.
 
 The prompt is still capable of asking Codex to perform powerful local work on
-machine B. Therefore the route must be treated as remote code execution by
-the operator, even though the route itself does not accept a raw shell
-command. Production enablement requires a human approval pause on B.
+machine B. The operator must therefore select the peer and prompt deliberately
+and retain the explicit disable flag for rollback.
 
 ### Result contract
 
@@ -189,8 +172,8 @@ code, and whether execution started. They must not imply success from HTTP
 Write the protocol decision into the project documentation before code:
 
 ```text
-machine A -> keyed registry lookup -> validated peer URL -> authenticated
-peer-request route -> bounded local Codex turn -> correlated response
+machine A -> keyed registry lookup -> validated peer URL -> fixed peer-request
+route -> bounded local Codex turn -> correlated response
 ```
 
 Record these decisions:
@@ -199,8 +182,8 @@ Record these decisions:
   from a small configured allowlist;
 - the maximum prompt bytes, response bytes, timeout, and concurrent requests;
 - whether the endpoint is operator-only, automation-only, or both;
-- the exact process-only token provisioning mechanism on both machines;
-- whether the peer route is enabled only during a test window or persistently;
+- whether the peer route is enabled persistently or disabled for selected
+  machines with the feature flag;
 - the configured repo/runtime scope in which the peer worker may operate;
 - the retention policy for request IDs and results.
 
@@ -208,22 +191,22 @@ Do not add a new database, message broker, or Wix collection. The existing
 machine identity and Wix `tunnels` registry are sufficient for discovery in
 this slice.
 
-Verification: review the threat model against the current public exposure of
-`/api/machine-base/request`, the unauthenticated commit-control routes, and the
-separate Qwen handoff contract. The review must explicitly state that a
-stable tunnel key is routing identity, not authorization.
+Verification: review the route bounds against the current public exposure of
+`/api/machine-base/request`, the existing peer-control routes, and the separate
+Qwen handoff contract. The review must explicitly state that the exact tunnel
+key selects routing and is not an authorization mechanism.
 
-#### Manual pause 0 - approve the security posture
+#### Manual pause 0 - approve the public route posture
 
 Pause for the operator to choose and record:
 
-1. the exact peer machine keys allowed to send prompts;
+1. the exact peer machine key to target;
 2. the maximum prompt/response/timeout limits;
-3. the secret provisioning method;
-4. the initial test-only enablement window;
-5. the exact checkout/runtime directory on the peer.
+3. the initial test-only enablement window;
+4. the exact checkout/runtime directory on the peer.
 
-No implementation proceeds to a live route until this approval is supplied.
+The operator may disable either route with its environment flag before a live
+run; no credential provisioning pause is required.
 
 ### Phase 1 - extract and harden the shared peer transport seam
 
@@ -289,40 +272,39 @@ local worker test sends a harmless prompt such as `Return exactly the word
 READY.` and checks the bounded response. Separate that proof from any public
 peer proof.
 
-### Phase 3 - protect the local public worker route
+### Phase 3 - contain the local general worker route
 
 Before exposing a peer route, decide how the existing public
 `POST /api/machine-base/request` route is contained. The current route reaches
 the local worker pool and is reachable through the published tunnel; leaving
-it anonymous would create an unintended prompt ingress independent of the new
-peer authorization.
+it anonymous would create an unintended unbounded prompt ingress independent of
+the new bounded peer route.
 
 Apply the minimum safe boundary:
 
-- either make the existing route loopback-only and reserve the public tunnel
-  for fixed machine-base routes;
-- or require the same machine-base authorization and strict envelope on the
-  route, with an explicit compatibility flag only for the existing live test;
+- keep the existing route disabled by default with its explicit compatibility
+  flag;
+- or make it loopback-only and reserve the public tunnel for fixed machine-base
+  routes;
 - or remove the general public route and migrate the local test to a bounded
   local-only route.
 
-Do not silently preserve an anonymous public worker endpoint. Keep `/ping`,
+Do not silently enable an unbounded public worker endpoint. Keep `/ping`,
 commit-status, and commit-sync behavior separate and document their distinct
 security contracts.
 
-Verification: public unauthenticated requests to the general worker path are
-denied; loopback/local tests still prove the worker route intended for local
-use; fixed liveness and commit-control routes remain correctly routed; no
-prompt or credential appears in `/status` or logs.
+Verification: the general worker path remains disabled unless explicitly
+enabled; fixed liveness and commit-control routes remain correctly routed; no
+prompt appears in `/status` or logs.
 
 #### Manual pause 3 - approve compatibility behavior
 
 The operator must choose whether existing callers of
 `/api/machine-base/request` may continue during migration. If yes, provide an
-expiry date and authorization value for that compatibility mode. If no, pause
-until local callers and the existing live-Wix test are migrated.
+expiry date for that compatibility mode. If no, pause until local callers and
+the existing live-Wix test are migrated.
 
-### Phase 4 - implement the authenticated peer-request route
+### Phase 4 - implement the bounded peer-request route
 
 Add a fixed incoming route on machine B:
 
@@ -334,20 +316,17 @@ The handler should execute in this order:
 
 1. reject an oversized body before full accumulation/parsing;
 2. require the route to be enabled;
-3. validate the bearer token without logging it;
-4. validate the caller-key header against the configured exact allowlist;
-5. parse and validate the strict request envelope;
-6. require `targetTunnelKey` to equal B's own stable key;
-7. apply the in-flight/concurrency and timeout limits;
-8. dispatch the allowlisted `remote-prompt` task to the existing worker pool;
-9. normalize the worker result and return the correlated response;
-10. clear transient state without persisting prompt content or credentials.
+3. parse and validate the strict request envelope;
+4. require `targetTunnelKey` to equal B's own stable key;
+5. apply the in-flight/concurrency and timeout limits;
+6. dispatch the bounded `remote-prompt` task to the existing worker pool;
+7. normalize the worker result and return the correlated response;
+8. clear transient state without persisting prompt content.
 
 Use explicit status/error mapping:
 
 ```text
-401 peer_auth_required_or_invalid
-403 peer_caller_not_allowed_or_route_disabled
+403 peer_route_disabled
 400 request_schema_invalid_or_oversized
 409 duplicate_or_in_progress_request
 429 peer_worker_capacity_exhausted
@@ -365,8 +344,8 @@ return `202 accepted` only with a separately designed status/poll contract;
 never return `202` and claim the prompt completed. The preferred first gate is
 to reject prompts that cannot fit within the bounded synchronous deadline.
 
-Verification: route tests cover disabled route, missing/wrong token, disallowed
-caller, wrong target key, malformed envelope, duplicate ID, oversized body,
+Verification: route tests cover disabled route, wrong target key, malformed
+envelope, duplicate ID, oversized body,
 capacity exhaustion, worker timeout, malformed worker result, and successful
 correlated completion. Tests assert no prompt or token is written to logs,
 status, relay records, or files.
@@ -400,8 +379,8 @@ The sender should:
    before sending;
 4. validate the returned URL using the shared peer transport seam;
 5. generate a UUID request ID locally;
-6. send the fixed peer route over HTTPS with the bearer token and caller-key
-   header;
+6. send the fixed peer route over HTTPS with the caller key as optional
+   attribution metadata;
 7. apply one overall deadline and no blind retry for an executing prompt;
 8. validate HTTP status, JSON shape, request ID, caller/target identity, and
    terminal state;
@@ -415,8 +394,8 @@ retry after the peer may have accepted the request unless the protocol has a
 durable idempotency/status proof. Preserve the existing tunnel-rotation
 behavior: key is stable, URL is ephemeral.
 
-Verification: fake-peer tests prove exact lookup, auth header construction
-without exposing the token, fixed route selection, identity validation,
+Verification: fake-peer tests prove exact lookup, fixed route selection,
+identity validation,
 timeout, pre-send re-resolution, post-send no-retry, malformed responses, and
 unknown execution state. A local two-instance test proves A -> B -> worker ->
 correlated response without Wix prompt-body storage.
@@ -432,8 +411,8 @@ Expose only safe metadata in local `/status` and structured diagnostics:
 - worker slot and generation;
 - registry lookup time and tunnel URL generation, if safe for the deployment.
 
-Never expose prompt text, full Codex output, bearer token, environment values,
-authorization headers, model hidden reasoning, or raw upstream response bodies.
+Never expose prompt text, full Codex output, environment values, model hidden
+reasoning, or raw upstream response bodies.
 
 Use request IDs to correlate a live proof. Keep prompt/result capture opt-in
 and local-only for a controlled test, with redaction and explicit retention;
@@ -455,10 +434,10 @@ to public exposure:
 4. two local machine-base instances with distinct fake identities and a fake
    registry/tunnel;
 5. one public tunnel on the receiving machine, with the route disabled first;
-6. authenticated public canary from A to B using a harmless prompt;
+6. public canary from A to B using a harmless prompt;
 7. tunnel rotation and immediate key-based rediscovery;
 8. timeout and receiver shutdown proof;
-9. unauthorized caller/token proof;
+9. disabled-route and wrong-target-key proof;
 10. final cleanup and process-tree scan.
 
 Save evidence under:
@@ -468,33 +447,28 @@ C:\harness\mgmt\dev\260907\3\evidence\
 ```
 
 Separate each artifact into focused tests, local runtime proof, public canary
-proof, and unperformed/broken gates. Redact tokens and do not save raw prompt
-or model output unless the operator explicitly approves a controlled local
-artifact.
+proof, and unperformed/broken gates. Do not save raw prompt or model output
+unless the operator explicitly approves a controlled local artifact.
 
-#### Manual pause 7A - provision the receiving peer
+#### Manual pause 7A - prepare the receiving peer
 
 On machine B, the operator must manually:
 
 - install or verify the same compatible `C:\harness` commit;
 - configure B's repo root, branch, origin, and machine identity;
-- create a fresh machine-base peer token outside the repository;
-- configure B's allowed caller key(s);
 - set the route enable flag for the canary window only;
 - start the machine-base launcher and confirm worker prime;
 - confirm B's exact `machine-base-*` key and current public tunnel URL through
   the registry.
 
 The operator then pauses and supplies only the non-secret peer key and a
-redacted readiness result to the next step. The token stays in B's process
-environment and is never pasted into a prompt or artifact.
+readiness result to the next step. No credential exchange is needed.
 
-#### Manual pause 7B - authorize the sender
+#### Manual pause 7B - prepare the sender
 
 On machine A, the operator must manually:
 
 - configure B's exact peer key, not a URL;
-- provision the same token through the local secret mechanism;
 - confirm the caller key A will present;
 - choose the harmless canary prompt;
 - confirm the deadline and that a duplicate/unknown execution state will not
@@ -518,7 +492,7 @@ peer ping or commit sync:
 - registry returns no peer, duplicate peer, wrong key, stale URL, or invalid
   scheme;
 - tunnel rotates after lookup and before POST;
-- receiver denies token, caller key, route enablement, or target key;
+- receiver denies route enablement or target-key mismatch;
 - request is accepted and the network fails before the response;
 - worker times out, fails over, or exits;
 - receiver restarts while a request is in flight;
@@ -541,16 +515,16 @@ run covers public URL rotation, receiver restart, bounded failure, and cleanup.
 
 Roll out in this order:
 
-1. ship route code with remote prompts disabled;
+1. ship route code with remote prompts disabled for the initial rollout;
 2. verify local worker and peer transport tests on both machines;
-3. provision tokens and allowlists manually;
+3. set the route feature flags manually for the canary window;
 4. enable on B only for a short canary window;
 5. run one harmless prompt from A;
 6. inspect request ID, identity, timing, and no-leak evidence;
 7. enable additional peer keys one at a time;
 8. keep the existing commit-sync and Qwen handoff paths unchanged;
 9. disable the feature flag to roll back prompt execution;
-10. rotate the machine-base peer token if any credential exposure is suspected.
+10. disable the route if unexpected prompt execution is observed.
 
 Rollback is the route-disable flag plus process restart/relaunch. It must not
 require deleting relay records, changing the Qwen tunnel, resetting a checkout,
@@ -563,9 +537,7 @@ the existing peer-ping and commit-sync clients must continue to operate.
   exact-key peer discovery rather than a new peer-address database.
 - Prompt bodies travel directly to the validated current peer tunnel, not
   through Wix storage or the Qwen handoff relay.
-- The receiver is disabled and deny-by-default until manually enabled.
-- A separate process-only token and exact caller-key allowlist protect prompt
-  execution; `qwenHandoff` and `HANDOFF_TOKEN` remain separate.
+- The receiver and sender can be disabled with explicit feature flags.
 - The existing worker pool, Codex app-server session, queue, prime, timeout,
   and failover seams are reused rather than a second Codex runtime being
   invented.
@@ -581,8 +553,8 @@ the existing peer-ping and commit-sync clients must continue to operate.
   remain `unknown_execution_state` and are not blindly retried.
 - Focused tests, local worker proof, public canary proof, and unperformed
   broad/runtime proof are reported separately.
-- Public canary evidence contains no token, prompt, raw model output, or secret.
-- Tunnel rotation, peer restart, unauthorized access, worker timeout, and
+- Public canary evidence contains no prompt or raw model output unless approved.
+- Tunnel rotation, peer restart, disabled-route behavior, worker timeout, and
   process cleanup remain visible and bounded.
 - Disabling the feature restores a state in which no remote prompt can execute;
   existing Qwen handoff and commit coordination remain independently usable.
@@ -593,12 +565,12 @@ Do not add:
 
 - arbitrary remote shell or PowerShell execution;
 - arbitrary HTTP proxying or caller-selected peer URLs/routes;
-- anonymous public Codex worker access;
-- reuse of Qwen ASR or `qwenHandoff` credentials;
-- prompt bodies or secrets in Wix collections, Git, Markdown, logs, or memory;
+- unbounded public Codex worker access;
+- routing prompt bodies through Qwen ASR or `qwenHandoff`;
+- prompt bodies in Wix collections, Git, Markdown, logs, or memory;
 - a durable distributed prompt queue or conversation history;
 - automatic fan-out to every registered peer;
 - automatic retry after a prompt may have started;
 - remote checkout changes, Git operations, force resets, or arbitrary origins;
 - caller-controlled model, cwd, environment, sandbox, approval, or executable;
-- production enablement without the manual security and canary pauses above.
+- production enablement without the manual canary pause above.
