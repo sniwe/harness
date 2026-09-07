@@ -89,13 +89,15 @@ server = http.createServer(async (request, response) => {
       if (advertised.commit !== payload.expectedCommit) return json(response, 409, { ok: false, error: "commit_not_origin_tip", advertisedCommit: advertised.commit });
       if (payload.expectedCommit === launch.commit) return json(response, 200, { ok: true, state: "already_current", ...(await commitStatus()) });
       syncInProgress = true;
-      const updated = syncCheckout({ repoRoot, expectedCommit: payload.expectedCommit, branch });
-      const confirmation = await pool.request({ task: "check-project-commit" });
-      if (confirmation.commit !== updated.commit || confirmation.commit !== payload.expectedCommit || confirmation.confirmed !== true) throw new Error("post_pull_commit_denied");
-      fs.writeFileSync(path.join(root, "relaunch.json"), JSON.stringify({ runId: payload.runId, expectedCommit: payload.expectedCommit, generation: launch.generation + 1, createdAt: new Date().toISOString() }, null, 2));
-      json(response, 202, { ok: true, state: "relaunching", runId: payload.runId, expectedCommit: payload.expectedCommit });
-      setTimeout(() => void stop().then(() => process.exit(75)), 25);
-      return;
+      try {
+        const updated = syncCheckout({ repoRoot, expectedCommit: payload.expectedCommit, branch });
+        const confirmation = await pool.request({ task: "check-project-commit" });
+        if (confirmation.commit !== updated.commit || confirmation.commit !== payload.expectedCommit || confirmation.confirmed !== true) throw new Error("post_pull_commit_denied");
+        fs.writeFileSync(path.join(root, "relaunch.json"), JSON.stringify({ runId: payload.runId, expectedCommit: payload.expectedCommit, generation: launch.generation + 1, createdAt: new Date().toISOString() }, null, 2));
+        json(response, 202, { ok: true, state: "relaunching", runId: payload.runId, expectedCommit: payload.expectedCommit });
+        setTimeout(() => void stop().then(() => process.exit(75)), 25);
+        return;
+      } finally { syncInProgress = false; }
     }
     if (request.method === "POST" && pathname === "/api/machine-base/peer-request") {
       const payload = JSON.parse(await readBody(request, 64 * 1024));
