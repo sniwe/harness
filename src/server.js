@@ -9,10 +9,9 @@ import { prepareSetup } from "./setup.js";
 const root = path.resolve(process.env.MACHINE_BASE_DATA_ROOT || "data/machine-base");
 const identityPath = path.join(root, "identity.json");
 const setupPath = path.join(root, "setup.json");
-const port = Number(process.env.PORT || 3100);
+const configuredPort = Number.isInteger(Number(process.env.PORT)) ? Math.max(0, Number(process.env.PORT)) : 3100;
 const relayBaseUrl = String(process.env.TUNNEL_RELAY_BASE_URL || "https://dev-sitex2082572611.wixdev-sites.org/").replace(/\/+$/, "");
 const relayUrl = relayBaseUrl ? `${relayBaseUrl}${process.env.TUNNEL_RELAY_PATH || "/_functions/tunnelRelay"}` : "";
-const localUrl = process.env.TUNNEL_RELAY_LOCAL_URL || `http://127.0.0.1:${port}`;
 
 fs.mkdirSync(root, { recursive: true });
 const identity = deriveMachineIdentity({ env: { ...process.env, MACHINE_BASE_IDENTITY_PATH: identityPath } });
@@ -20,7 +19,9 @@ if (!fs.existsSync(identityPath)) fs.writeFileSync(identityPath, JSON.stringify(
 const setup = prepareSetup({ root, identity, setupPath });
 
 const pool = createWorkerPool({ env: process.env, workerEntry: path.resolve("mgmt/machine-base-worker/src/index.js"), cwd: path.resolve("mgmt/machine-base-worker") });
-const tunnel = relayUrl ? createTunnel({ localUrl, relayUrl, tunnelKey: process.env.TUNNEL_KEY || identity.tunnelKey }) : null;
+let port = configuredPort;
+let localUrl = "";
+let tunnel = null;
 let server;
 
 function json(response, status, body) { response.writeHead(status, { "Content-Type": "application/json" }); response.end(JSON.stringify(body)); }
@@ -41,7 +42,21 @@ server = http.createServer(async (request, response) => {
 
 async function start() {
   await pool.start();
-  await new Promise((resolve) => server.listen(port, "127.0.0.1", resolve));
+  await new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(configuredPort, "127.0.0.1", () => {
+      server.off("error", reject);
+      port = server.address().port;
+      const configuredLocalUrl = String(process.env.TUNNEL_RELAY_LOCAL_URL || "").trim();
+      if (configuredLocalUrl) {
+        const url = new URL(configuredLocalUrl);
+        if (configuredPort === 0) url.port = String(port);
+        localUrl = url.toString().replace(/\/$/, "");
+      } else localUrl = `http://127.0.0.1:${port}`;
+      resolve();
+    });
+  });
+  tunnel = relayUrl ? createTunnel({ localUrl, relayUrl, tunnelKey: process.env.TUNNEL_KEY || identity.tunnelKey }) : null;
   if (tunnel) await tunnel.start();
   console.log(JSON.stringify({ ready: true, pid: process.pid, port, tunnelKey: process.env.TUNNEL_KEY || identity.tunnelKey, tunnel: tunnel?.state || null }));
 }

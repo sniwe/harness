@@ -23,3 +23,7 @@ from the machine's `PATH`.
 
 Routes: `GET /health`, `GET /status`, `GET /setup/status`, and
 `POST /api/machine-base/request`.
+
+Set `PORT=0` when the local relay service must use an OS-assigned free port. The
+server waits for the actual bound port, then constructs the tunnel origin from
+that port before starting `cloudflared` and publishing the URL.
