@@ -1,4 +1,4 @@
-const DEFAULT_TIMEOUT_MS = 10000;
+const DEFAULT_TIMEOUT_MS = 30000;
 
 export function createCommitSyncClient({ registryUrl, fetchImpl = fetch, timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
   if (!registryUrl) throw new Error("peer_registry_url_required");
