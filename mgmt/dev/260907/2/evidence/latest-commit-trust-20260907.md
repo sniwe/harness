@@ -13,7 +13,10 @@ Date: 2026-09-07
 
 ## Live local proof
 
-- Pushed commit: `5054b02b2154497454bdd7b59b584844e4365f45`.
+- Latest pushed implementation commit: `35256a3`.
+- The recorded live launch ran at implementation commit
+  `5054b02b2154497454bdd7b59b584844e4365f45`; subsequent changes only
+  tightened origin evidence and no-op peer-sync validation.
 - Controlled server process: fake worker, local relay fixture, coordination
   disabled, loopback port 3197.
 - `/status` returned `ok: true`, `worktreeClean: true`,
