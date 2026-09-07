@@ -1,7 +1,7 @@
 # Machine-base peer Codex prompt relay
 
 Date: 2026-09-07  
-Status: implementation in place; focused, local, public, timeout, and restart/rotation evidence recorded; current peer-worker recheck needs recovery
+Status: implementation in place; async public prompt polling verified; peer startup coordination still waits on the local launcher refresh
 Target workspace: `C:\harness`  
 Related slices: `C:\harness\mgmt\dev\260907\0`, `C:\harness\mgmt\dev\260907\1`, `C:\harness\mgmt\dev\260907\2`  
 Current peer registry: `https://dev-sitex2082572611.wixdev-sites.org/_functions/tunnels`
@@ -16,8 +16,9 @@ focused tests in `test/peerRequest.test.js`.
 
 Verified now: syntax checks, 28 passing tests plus one non-Windows skip, a
 standalone JSONL worker canary, a local HTTP sender-to-peer-handler round
-trip, live Wix peer discovery, two-machine prompt execution, timeout handling,
-receiver restart with tunnel rotation, and attached process-tree cleanup.
+trip, live Wix peer discovery, two-machine prompt execution, async status
+polling, timeout handling, receiver restart with tunnel rotation, and attached
+process-tree cleanup.
 
 Live preflight on 2026-09-07 found one healthy registered machine-base peer
 running a pre-feature deployment (`/api/machine-base/peer-request` returned

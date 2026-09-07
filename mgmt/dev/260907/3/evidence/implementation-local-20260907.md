@@ -119,3 +119,23 @@ the enabled peer route but returned HTTP 502 wrapping peer-side
 worker status retained timeout/exit diagnostics. The implementation and prior
 two-machine proof remain recorded; peer worker recovery and a repeat canary are
 the remaining runtime gate.
+
+## Live async persistent-poll proof
+
+After the peer launcher was restarted, it converged to implementation commit
+`81ef030f9f9c33d73e105cd0cce2ef789955bcb4` with both workers ready and
+`peerRequest.enabled=true`. The current sender client completed a real
+cross-machine `READY` request with this observed sequence:
+
+- exact Wix registry lookup: HTTP 200;
+- fixed `/api/machine-base/peer-request`: HTTP 202;
+- three fresh registry lookups and fixed `/api/machine-base/peer-request-status`
+  polls: HTTP 200;
+- terminal state: `completed`, result `READY`;
+- peer tunnel URL: `https://accommodate-discount-gender-driver.trycloudflare.com`.
+
+This confirms that accepted long-running jobs are observed through persistent
+status polling rather than inferred complete from the initial network response.
+The peer's startup coordination remained `peers_checking` because the local
+launcher still reports the pre-refresh commit; that is separate from the
+successful direct prompt relay proof.
