@@ -34,6 +34,8 @@ Invoke-RestMethod http://127.0.0.1:3100/api/machine-base/peer-ping -Method Post 
 The server resolves the current peer URL through the Wix `tunnels` endpoint and
 contacts only its validated HTTPS quick-tunnel URL.
 
+Commit coordination is automatic at startup.
+
 `npm start` runs the relaunch supervisor, waits for worker prime and commit
 confirmation, checks registered peers, and reports convergence only after a
 peer pull/relaunch has confirmed the target commit and tunnel. Set
