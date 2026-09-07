@@ -8,6 +8,7 @@ let threadId;
 let rpcId = 0;
 let rpcWaiters = new Map();
 let eventWaiters = [];
+let completedEvents = new Map();
 let turnQueue = Promise.resolve();
 
 function log(message) { process.stderr.write(`[machine-base-worker] ${message}\n`); }
@@ -23,7 +24,9 @@ async function ensureCodex() {
       const message = JSON.parse(line);
       if (message.id && rpcWaiters.has(message.id)) { rpcWaiters.get(message.id)(message); rpcWaiters.delete(message.id); }
       if (message.method) {
-        for (const waiter of [...eventWaiters]) if (waiter.method === message.method && (!waiter.id || message.params?.turn?.id === waiter.id || message.params?.turnId === waiter.id)) { eventWaiters = eventWaiters.filter((item) => item !== waiter); waiter.resolve(message); }
+        const eventId = message.params?.turn?.id || message.params?.turnId;
+        for (const waiter of [...eventWaiters]) if (waiter.method === message.method && (!waiter.id || eventId === waiter.id)) { eventWaiters = eventWaiters.filter((item) => item !== waiter); waiter.resolve(message); return; }
+        if (message.method === "turn/completed" && eventId) { completedEvents.set(eventId, message); if (completedEvents.size > 32) completedEvents.delete(completedEvents.keys().next().value); }
       }
     } catch { /* diagnostics are not protocol */ }
   });
@@ -55,6 +58,8 @@ async function turn(prompt) {
 
 function waitEvent(method, id) {
   return new Promise((resolve, reject) => {
+    const cached = method === "turn/completed" ? completedEvents.get(id) : null;
+    if (cached) { completedEvents.delete(id); resolve(cached); return; }
     const timer = setTimeout(() => { eventWaiters = eventWaiters.filter((item) => item.resolve !== resolve); reject(new Error(`codex_event_timeout method=${method}`)); }, Number(process.env.CODEX_RPC_TIMEOUT_MS || 300000));
     eventWaiters.push({ method, id, resolve: (value) => { clearTimeout(timer); resolve(value); }, reject });
   });
