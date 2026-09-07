@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
 const relaunchCode = 75;
 const delayMs = Number(process.env.MACHINE_BASE_RELAUNCH_DELAY_MS || 1000);
@@ -7,7 +8,7 @@ let currentChild;
 
 function run() {
   generation += 1;
-  const child = currentChild = spawn(process.execPath, [new URL("./server.js", import.meta.url)], { stdio: "inherit", env: { ...process.env, MACHINE_BASE_LAUNCH_GENERATION: String(generation) }, windowsHide: true });
+  const child = currentChild = spawn(process.execPath, [fileURLToPath(new URL("./server.js", import.meta.url))], { stdio: "inherit", env: { ...process.env, MACHINE_BASE_LAUNCH_GENERATION: String(generation) }, windowsHide: true });
   child.on("exit", (code, signal) => {
     if (code === relaunchCode) return setTimeout(run, delayMs);
     process.exitCode = typeof code === "number" ? code : 1;
