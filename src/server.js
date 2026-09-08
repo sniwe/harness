@@ -85,7 +85,7 @@ function configureTickets() {
   const cleanup = createTicketCleanup({ client, journal });
   const worker = ticketEnv.TICKETS_WORKER_ENABLED === "1" ? createTicketWorker({ client, pool, identity, projectRoot: project.root, log: (event) => log.append(event), journal, lockRoot: path.join(identity.logRoot, "tickets", "locks") }) : null;
   const onReceipt = async (receipt) => { log.append({ event: 'receipt_observed', ticketId: receipt.ticketId, parentTicketId: receipt.parentTicketId, outcomeHash: receipt.outcomeHash }); const source = await client.get(receipt.sourceTicketId); if (!['completed', 'failed'].includes(source.ticket.status) || source.ticket.receiptTicketId !== receipt.ticketId || source.ticket.outcomeHash !== receipt.outcomeHash) throw new Error('receipt_source_not_final'); const current = await client.get(receipt.ticketId); const operationId = `ack:${receipt.ticketId}`; journal.append({ event: 'mutation_intent', action: 'ack', ticketId: receipt.ticketId, operationId, expectedRevision: current.ticket.revision }); try { await client.mutate(receipt.ticketId, { operationId, expectedRevision: current.ticket.revision, previousHash: current.ticket.headHash, actor: identity, action: 'ack', data: { outcomeHash: receipt.outcomeHash } }); journal.append({ event: 'mutation_result', action: 'ack', ticketId: receipt.ticketId, operationId, outcome: 'acknowledged' }); log.append({ event: 'receipt_acked', ticketId: receipt.ticketId, parentTicketId: receipt.parentTicketId }); } catch (error) { journal.append({ event: 'mutation_result', action: 'ack', ticketId: receipt.ticketId, operationId, outcome: 'error', error: error.message }); throw error; } };
-  const reconciler = createTicketReconciler({ client, identity, log: (event) => log.append(event), onTicket: worker ? (ticket) => worker.run(ticket) : undefined, onReceipt });
+  const reconciler = createTicketReconciler({ client, identity, log: (event) => log.append(event), onTicket: worker ? (ticket) => worker.run(ticket) : undefined, onReceipt, onMaintenance: async () => { try { await cleanup.resumePending(); } catch (error) { log.append({ event: 'cleanup_resume_failed', error: error.message }); } } });
   return { identity, reconciler, worker, cleanup, log, enabled: true };
 }
 
@@ -193,7 +193,7 @@ async function start() {
   tunnel = relayUrl ? createTunnel({ localUrl, relayUrl, tunnelKey: process.env.TUNNEL_KEY || identity.tunnelKey }) : null;
   if (tunnel) await tunnel.start();
   ticketRuntime = configureTickets();
-  if (ticketRuntime) { await ticketRuntime.cleanup.resumePending(); await ticketRuntime.reconciler.once(); ticketStop = ticketRuntime.reconciler.start(); }
+  if (ticketRuntime) { await ticketRuntime.reconciler.once(); ticketStop = ticketRuntime.reconciler.start(); }
   startupState = "tunnel_ready";
   if (process.env.MACHINE_BASE_COORDINATE_ON_START !== "0") { startupState = "peers_checking"; coordination = await coordinate(); startupState = coordination.ok ? "converged" : launchTrustFailure ? "started_unverified" : "coordination_failed"; }
   console.log(JSON.stringify({ ready: true, pid: process.pid, port, tunnelKey: process.env.TUNNEL_KEY || identity.tunnelKey, tunnel: tunnel?.state || null }));

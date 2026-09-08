@@ -12,3 +12,8 @@ test('reconciler follows bounded list cursors', async () => {
   const reconciler = createTicketReconciler({ identity: { machineKey: 'machine-b', projectKey: 'main-app' }, client: { list: async (query) => { queries.push(query); return pages.shift(); } }, log: () => {}, onTicket: async (ticket) => seen.push(ticket.ticketId) });
   const result = await reconciler.once(); assert.deepEqual(queries, [{ targetMachineKey: 'machine-b', targetProjectKey: 'main-app', limit: '100' }, { targetMachineKey: 'machine-b', targetProjectKey: 'main-app', limit: '100', cursor: 'cursor-1' }]); assert.deepEqual(seen, ['second']); assert.equal(result.scannedCount, 102); assert.equal(result.hasMore, false);
 });
+
+test('reconciler runs maintenance before scanning', async () => {
+  const order = []; const reconciler = createTicketReconciler({ identity: { machineKey: 'machine-b', projectKey: 'main-app' }, client: { list: async () => { order.push('list'); return { items: [] }; } }, log: () => {}, onMaintenance: async () => order.push('maintenance') });
+  await reconciler.once(); assert.deepEqual(order, ['maintenance', 'list']);
+});
