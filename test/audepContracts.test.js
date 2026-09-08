@@ -28,6 +28,7 @@ test('handoff filenames cannot escape the receiving directory', () => {
 test('benchmark pass requires browser, localization, and measured throughput evidence', () => {
   const result = { schemaVersion: 1, benchmarkId: 'b', runId: 'r', requestArtifactId: 'a'.repeat(64), source: { basename: '987.wav', durationMs: 1000 }, job: { remoteJobId: 'j' }, runtime: { appGeneration: 'a1', qwenGeneration: 'q1' }, verdict: 'pass', browserEvidence: { normalBrowser: true }, localization: { valid: true }, metrics: { committedRealtime: 0.5 } };
   assert.equal(validateBenchmarkResult(result), true); assert.throws(() => validateBenchmarkResult({ ...result, localization: { valid: false } }), /pass_evidence_invalid/);
+  assert.throws(() => validateBenchmarkResult({ ...result, verdict: 'done' }), /benchmark_result_invalid/); assert.throws(() => validateBenchmarkResult({ ...result, source: { ...result.source, durationMs: -1 } }), /benchmark_result_invalid/);
 });
 
 test('benchmark execution identity and running state survive coordinator reconstruction', async () => {
