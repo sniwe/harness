@@ -1,0 +1,7 @@
+{
+  "testRunId": "ticket-acceptance-260908",
+  "local": { "machineKey": "machine-base-73182d23f660c3880e7e", "projectKey": "qwen-asr" },
+  "peer": { "machineKey": "machine-base-caf45342b1d0acc9b938", "projectKey": "main-app" },
+  "baseUrl": "https://dev-sitex2082572611.wixdev-sites.org",
+  "harmlessTask": "Report repository status without editing files."
+}
