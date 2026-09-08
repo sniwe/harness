@@ -7,6 +7,7 @@ export function createTicketWorker({ client, pool, identity, log, lockRoot, jour
   if (!client || !pool || !identity || !log || !lockRoot) throw new Error('ticket_worker_config_invalid');
   if (!projectRoot || path.resolve(projectRoot) !== path.resolve(process.env.MACHINE_BASE_RUNTIME_CWD || projectRoot)) throw new Error('ticket_project_cwd_mismatch');
   async function run(ticket) {
+    if (journal?.read?.().some((entry) => entry.event === 'ticket_retired' && (entry.ticketId === ticket.ticketId || entry.executionId === `ticket:${ticket.ticketId}`))) { log({ event: 'execution_retired', ticketId: ticket.ticketId, executionId: `ticket:${ticket.ticketId}` }); return { skipped: true, retired: true }; }
     const key = crypto.createHash('sha256').update(`${identity.machineKey}/${identity.projectKey}/${ticket.ticketId}`).digest('hex'); const file = path.join(lockRoot, `${key}.lock`); fs.mkdirSync(lockRoot, { recursive: true }); let fd;
     try { fd = fs.openSync(file, 'wx'); fs.writeSync(fd, JSON.stringify({ pid: process.pid, executionId: `ticket:${ticket.ticketId}`, ticketId: ticket.ticketId })); } catch {
       try { const owner = JSON.parse(fs.readFileSync(file, 'utf8')); process.kill(owner.pid, 0); } catch { try { fs.unlinkSync(file); fd = fs.openSync(file, 'wx'); fs.writeSync(fd, JSON.stringify({ pid: process.pid, executionId: `ticket:${ticket.ticketId}`, ticketId: ticket.ticketId })); } catch {} }

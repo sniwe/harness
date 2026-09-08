@@ -34,3 +34,10 @@ test('two worker instances allow one execution owner', async () => {
   const pool = { request: async (payload) => { calls.push(payload); await gate; return { ok: true }; } }; const options = { client, pool, identity: { machineKey: 'machine-b', projectKey: 'project-b' }, lockRoot: root, log: () => {} }; const ticket = { ...state, subject: 'subject', body: 'body', correlationId: 'c' };
   const first = createTicketWorker(options).run(ticket); await new Promise((resolve) => setTimeout(resolve, 10)); const second = await createTicketWorker(options).run(ticket); assert.equal(second.skipped, true); releasePool(); await first; assert.equal(calls.filter((call) => call.action === 'claim').length, 1);
 });
+
+test('retired execution is not replayed', async () => {
+  const calls = []; const journal = { read: () => [{ event: 'ticket_retired', ticketId: 't-retired' }], append: () => {} };
+  const worker = createTicketWorker({ client: { get: async () => { calls.push('get'); } }, pool: { request: async () => { calls.push('pool'); } }, identity: { machineKey: 'machine-b', projectKey: 'project-b' }, lockRoot: mkdtempSync(path.join(tmpdir(), 'ticket-worker-retired-')), journal, log: (event) => calls.push(event) });
+  const result = await worker.run({ ticketId: 't-retired', subject: 'subject', body: 'body', correlationId: 'c' });
+  assert.deepEqual(result, { skipped: true, retired: true }); assert.equal(calls.filter((call) => call === 'get' || call === 'pool').length, 0); assert.equal(calls[0].event, 'execution_retired');
+});
