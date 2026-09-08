@@ -8,7 +8,8 @@ export function createBenchmarkCoordinator({ store, runId, maxConcurrent = 1 } =
   const running = () => durable?.list().filter((item) => item.status === 'running').length || 0;
   async function execute(request, runner, { benchmarkId = crypto.randomUUID() } = {}) {
     const existing = durable?.inspect(benchmarkId);
-    if (existing?.status === 'succeeded' || existing?.status === 'failed') return existing.result;
+    if (existing?.status === 'succeeded') return existing.result;
+    if (existing?.status === 'failed') throw new Error(existing.error || 'benchmark_failed');
     if (local.has(benchmarkId)) throw new Error('benchmark_already_running');
     const active = durable ? running() - (existing?.status === 'running' ? 1 : 0) : local.size;
     if (active >= maxConcurrent) throw new Error('benchmark_capacity_exhausted');

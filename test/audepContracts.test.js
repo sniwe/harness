@@ -38,6 +38,10 @@ test('benchmark capacity is enforced without a durable store', async () => {
   const coordinator = createBenchmarkCoordinator({ runId: 'r', maxConcurrent: 1 }); let release; const pending = new Promise((resolve) => { release = resolve; }); const result = { schemaVersion: 1, benchmarkId: 'b1', runId: 'r', requestArtifactId: 'a'.repeat(64), source: { basename: '987.wav', durationMs: 1000 }, job: { remoteJobId: 'j' }, runtime: { appGeneration: 'a1', qwenGeneration: 'q1' }, verdict: 'pass', browserEvidence: { normalBrowser: true }, localization: { valid: true }, metrics: { committedRealtime: 0.5 } }; const first = coordinator.execute({}, async ({ benchmarkId }) => { await pending; return { ...result, benchmarkId }; }); while (coordinator.active !== 1) await new Promise((resolve) => setTimeout(resolve, 1)); await assert.rejects(() => coordinator.execute({}, async () => result), /capacity_exhausted/); release(); await first; assert.equal(coordinator.active, 0);
 });
 
+test('failed durable benchmark identity cannot replay as success', async () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'benchmark-fail-')); const store = createRunStore({ root, runId: 'r' }); const coordinator = createBenchmarkCoordinator({ store, runId: 'r' }); await assert.rejects(() => coordinator.execute({}, async () => { throw new Error('runner_failed'); }, { benchmarkId: 'failed-1' }), /runner_failed/); await assert.rejects(() => coordinator.execute({}, async () => { throw new Error('should_not_run'); }, { benchmarkId: 'failed-1' }), /runner_failed/);
+});
+
 test('benchmark join rejects mismatched job or runtime identity', () => {
   const base = { schemaVersion: 1, benchmarkId: 'b', runId: 'r', requestArtifactId: 'a'.repeat(64), source: { basename: '987.wav', durationMs: 1000 }, job: { remoteJobId: 'j' }, runtime: { appGeneration: 'a1', qwenGeneration: 'q1' }, verdict: 'pass', browserEvidence: { normalBrowser: true }, localization: { valid: true }, metrics: { committedRealtime: 0.5 } };
   assert.equal(joinBenchmarkResults(base, { ...base }).verdict, 'pass');
