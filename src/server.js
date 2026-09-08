@@ -14,6 +14,7 @@ import { createTicketClient } from "./ticketClient.js";
 import { readTicketIdentity } from "./ticketIdentity.js";
 import { createTicketLog } from "./ticketLog.js";
 import { createTicketReconciler } from "./ticketReconciler.js";
+import { createTicketWorker } from "./ticketWorker.js";
 
 const root = path.resolve(process.env.MACHINE_BASE_DATA_ROOT || "data/machine-base");
 const repoRoot = path.resolve(process.env.MACHINE_BASE_REPO_ROOT || process.cwd());
@@ -74,8 +75,9 @@ function configureTickets() {
   const identity = readTicketIdentity();
   const log = createTicketLog({ root: identity.logRoot, machineKey: identity.machineKey, projectKey: identity.projectKey });
   const client = createTicketClient({ baseUrl: process.env.TICKETS_BASE_URL });
-  const reconciler = createTicketReconciler({ client, identity, log: (event) => log.append(event) });
-  return { identity, reconciler, log, enabled: true };
+  const worker = process.env.TICKETS_WORKER_ENABLED === "1" ? createTicketWorker({ client, pool, identity, log: (event) => log.append(event), lockRoot: path.join(identity.logRoot, "tickets", "locks") }) : null;
+  const reconciler = createTicketReconciler({ client, identity, log: (event) => log.append(event), onTicket: worker ? (ticket) => worker.run(ticket) : undefined });
+  return { identity, reconciler, worker, log, enabled: true };
 }
 
 function json(response, status, body) { response.writeHead(status, { "Content-Type": "application/json" }); response.end(JSON.stringify(body)); }
