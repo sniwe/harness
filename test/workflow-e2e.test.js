@@ -15,3 +15,8 @@ test('rehearsal does not convert a failed verifier into acceptance', async () =>
   const manifest = { schemaVersion: 1, runId: 'rehearsal-fail', planDigest: 'c'.repeat(64), steps: [{ stepId: 'A0', owner: 'app', dependsOn: [], commandProfile: 'test', verifierProfile: 'focused', requiredOutputTypes: ['acceptance'] }] };
   const result = await runRehearsal({ manifest, store: createRunStore({ root: mkdtempSync(path.join(tmpdir(), 'rehearsal-fail-')), runId: manifest.runId }), runner: async () => ({ runId: manifest.runId, stepId: 'A0', planDigest: manifest.planDigest, verdict: 'fail', outputTypes: ['acceptance'], artifactId: 'd'.repeat(64), verifier: { exitCode: 1 } }) }); assert.equal(result.ok, false); assert.equal(result.state.steps.A0.status, 'blocked');
 });
+
+test('rehearsal retains worker exceptions as a durable blocked result', async () => {
+  const manifest = { schemaVersion: 1, runId: 'rehearsal-error', planDigest: 'd'.repeat(64), steps: [{ stepId: 'A0', owner: 'app', dependsOn: [], commandProfile: 'test', verifierProfile: 'focused', requiredOutputTypes: ['acceptance'] }] };
+  const result = await runRehearsal({ manifest, store: createRunStore({ root: mkdtempSync(path.join(tmpdir(), 'rehearsal-error-')), runId: manifest.runId }), runner: async () => { throw new Error('worker_died'); } }); assert.equal(result.ok, false); assert.equal(result.state.steps.A0.status, 'blocked'); assert.equal(result.state.steps.A0.blockReason, 'evidence_missing_or_invalid'); assert.match(renderRunReport({ manifest, result }), /BLOCKED/);
+});
