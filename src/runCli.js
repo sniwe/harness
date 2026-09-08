@@ -3,6 +3,7 @@ import { readRunManifest } from './runManifest.js';
 import { fileURLToPath } from 'node:url';
 import { createWorkflow } from './workflowEngine.js';
 import { runRehearsal, renderRunReport } from './rehearsal.js';
+import { evaluateFinalAcceptance } from './finalAcceptance.js';
 import { writeFileSync } from 'node:fs';
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -27,7 +28,7 @@ export async function runCommand(commandName, manifestFile, { store, outFile, pr
   if (commandName === 'start') return { ok: true, command: commandName, state: workflow.snapshot(), next: workflow.next() };
   if (commandName === 'inspect') return { ok: true, state: workflow.snapshot(), next: workflow.next() };
   if (commandName === 'explain-block') return { ok: true, blocked: Object.values(workflow.snapshot().steps).filter((step) => step.status === 'blocked').map(({ stepId, blockReason }) => ({ stepId, blockReason })) };
-  if (commandName === 'report') { const state = workflow.snapshot(); const report = renderRunReport({ manifest, result: { ok: state.status === 'accepted', runId: manifest.runId, state, trace: workflow.store.events() } }); if (outFile) writeFileSync(outFile, report + '\n', 'utf8'); return { ok: true, runId: manifest.runId, status: state.status, steps: state.steps, report, reportFile: outFile || undefined }; }
+  if (commandName === 'report') { const state = workflow.snapshot(); const acceptanceFile = value('--acceptance'); const finalAcceptance = acceptanceFile ? evaluateFinalAcceptance(JSON.parse(readFileSync(acceptanceFile, 'utf8'))) : undefined; const result = { ok: state.status === 'accepted' && (finalAcceptance ? finalAcceptance.ok : true), runId: manifest.runId, state, trace: workflow.store.events(), finalAcceptance }; const report = renderRunReport({ manifest, result }); if (outFile) writeFileSync(outFile, report + '\n', 'utf8'); return { ok: true, runId: manifest.runId, status: state.status, steps: state.steps, finalAcceptance, report, reportFile: outFile || undefined }; }
   if (commandName === 'cancel') return { ok: true, state: workflow.cancel(value('--reason') || 'operator_cancelled') };
   if (commandName === 'resume') return { ok: true, state: workflow.resume(value('--resolution')) };
   if (commandName === 'rehearse') { if (value('--fixture') !== '1') throw new Error('synthetic_rehearsal_requires_fixture'); return runRehearsal({ manifest }).then((result) => ({ ...result, report: renderRunReport({ manifest, result }) })); }
