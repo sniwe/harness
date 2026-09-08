@@ -27,6 +27,8 @@ const branch = process.env.MACHINE_BASE_GIT_BRANCH || "main";
 const identityPath = path.join(root, "identity.json");
 const setupPath = path.join(root, "setup.json");
 const configuredPort = Number.isInteger(Number(process.env.PORT)) ? Math.max(0, Number(process.env.PORT)) : 3100;
+const peerHost = fs.existsSync("C:\\Users\\Qub\\harness");
+const runtimeCwd = process.env.MACHINE_BASE_RUNTIME_CWD || (peerHost ? "C:\\retry" : "C:\\Users\\rhyse\\Qwen3-ASR");
 const relayBaseUrl = process.env.TUNNEL_DISABLED === "1" ? "" : String(process.env.TUNNEL_RELAY_BASE_URL || "https://dev-sitex2082572611.wixdev-sites.org/").replace(/\/+$/, "");
 const relayUrl = relayBaseUrl ? `${relayBaseUrl}${process.env.TUNNEL_RELAY_PATH || "/_functions/tunnelRelay"}` : "";
 
@@ -60,7 +62,7 @@ const commitSync = createCommitSyncClient({ registryUrl: `${relayBaseUrl}/_funct
 const machineKey = process.env.TUNNEL_KEY || identity.tunnelKey;
 const peerRequestClient = createPeerRequestClient({ registryUrl: `${relayBaseUrl}/_functions/tunnels`, localKey: machineKey, callerKey: machineKey });
 
-const pool = createWorkerPool({ env: { ...process.env, MACHINE_BASE_REPO_ROOT: repoRoot }, workerEntry: path.resolve("mgmt/machine-base-worker/src/index.js"), cwd: path.resolve("mgmt/machine-base-worker") });
+const pool = createWorkerPool({ env: { ...process.env, MACHINE_BASE_REPO_ROOT: repoRoot, MACHINE_BASE_RUNTIME_CWD: runtimeCwd }, workerEntry: path.resolve("mgmt/machine-base-worker/src/index.js"), cwd: path.resolve("mgmt/machine-base-worker") });
 const peerRequestHandler = createPeerRequestHandler({ pool, targetKey: machineKey, enabled: process.env.MACHINE_BASE_REMOTE_PROMPTS_ENABLED !== "0", maxInFlight: 1 });
 let port = configuredPort;
 let localUrl = "";
@@ -76,11 +78,12 @@ let ticketRuntime = null;
 let ticketStop = null;
 
 function configureTickets() {
-  const peerHost = fs.existsSync("C:\\Users\\Qub\\harness");
-  const ticketEnv = { ...process.env, TICKETS_BASE_URL: process.env.TICKETS_BASE_URL || "https://dev-sitex2082572611.wixdev-sites.org", TICKETS_ENABLED: process.env.TICKETS_ENABLED || "0", TICKETS_WORKER_ENABLED: process.env.TICKETS_WORKER_ENABLED || "0", TICKETS_PROJECT_KEY: process.env.TICKETS_PROJECT_KEY || (peerHost ? "main-app" : "qwen-asr"), MACHINE_BASE_RUNTIME_CWD: process.env.MACHINE_BASE_RUNTIME_CWD || (peerHost ? "C:\\retry" : "C:\\Users\\rhyse\\Qwen3-ASR"), TICKETS_LOG_ROOT: process.env.TICKETS_LOG_ROOT || "C:\\trendbase\\mgmt\\logs" };
+  const ticketEnv = { ...process.env, TICKETS_BASE_URL: process.env.TICKETS_BASE_URL || "https://dev-sitex2082572611.wixdev-sites.org", TICKETS_ENABLED: process.env.TICKETS_ENABLED || "0", TICKETS_WORKER_ENABLED: process.env.TICKETS_WORKER_ENABLED || "0", TICKETS_PROJECT_KEY: process.env.TICKETS_PROJECT_KEY || (peerHost ? "main-app" : "qwen-asr"), MACHINE_BASE_RUNTIME_CWD: runtimeCwd, TICKETS_LOG_ROOT: process.env.TICKETS_LOG_ROOT || "C:\\trendbase\\mgmt\\logs" };
   if (ticketEnv.TICKETS_ENABLED !== "1" || !ticketEnv.TICKETS_BASE_URL) return null;
   const identity = readTicketIdentity({ env: ticketEnv });
   const project = readTicketProject(identity.projectKey);
+  const normalizeCwd = (value) => value.toLowerCase().replace(/[\\/]+/g, "\\").replace(/\\+$/, "");
+  if (normalizeCwd(project.root) !== normalizeCwd(runtimeCwd)) throw new Error("ticket_runtime_cwd_mismatch");
   const log = createTicketLog({ root: identity.logRoot, machineKey: identity.machineKey, projectKey: identity.projectKey });
   const client = createTicketClient({ baseUrl: ticketEnv.TICKETS_BASE_URL });
   const journal = createTicketJournal(path.join(identity.logRoot, "tickets", "journal", identity.projectKey, `${identity.machineKey}.jsonl`));
