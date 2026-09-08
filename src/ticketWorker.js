@@ -8,6 +8,26 @@ import { acquireProjectLease } from './projectLease.js';
 export function createTicketWorker({ client, pool, identity, log, lockRoot, journal, projectRoot = process.env.MACHINE_BASE_RUNTIME_CWD || process.cwd(), attemptStore, operationOutbox, leaseRoot }) {
   if (!client || !pool || !identity || !log || !lockRoot) throw new Error('ticket_worker_config_invalid');
   if (!projectRoot || path.resolve(projectRoot) !== path.resolve(process.env.MACHINE_BASE_RUNTIME_CWD || projectRoot)) throw new Error('ticket_project_cwd_mismatch');
+  async function recover() {
+    const recovered = [];
+    for (const record of attemptStore?.recover?.() || []) {
+      if (record.outcome || !record.input?.ticketId) continue;
+      const ticketId = record.input.ticketId;
+      try {
+        const current = (await client.get(ticketId)).ticket;
+        if (['claimed', 'in_progress'].includes(current.status)) {
+          const operationId = `recover-block:${ticketId}:${record.input.attemptId}`;
+          const patch = { operationId, expectedRevision: current.revision, previousHash: current.headHash, actor: identity, action: 'block', data: { reason: 'unknown_after_crash', attemptId: record.input.attemptId } };
+          operationOutbox?.intent(operationId, { ticketId, action: 'block', expectedRevision: current.revision });
+          await client.mutate(ticketId, patch);
+        }
+        attemptStore.finish(record.input.attemptId, { state: 'unknown_after_crash', error: 'unknown_after_crash' });
+        log({ event: 'execution_recovered_unknown', ticketId, attemptId: record.input.attemptId });
+        recovered.push({ ticketId, attemptId: record.input.attemptId, state: 'unknown_after_crash' });
+      } catch (error) { log({ event: 'execution_recovery_failed', ticketId, attemptId: record.input.attemptId, error: error.message }); recovered.push({ ticketId, attemptId: record.input.attemptId, state: 'recovery_failed', error: error.message }); }
+    }
+    return recovered;
+  }
   async function run(ticket) {
     if (journal?.read?.().some((entry) => entry.event === 'ticket_retired' && (entry.ticketId === ticket.ticketId || entry.executionId === `ticket:${ticket.ticketId}`))) { log({ event: 'execution_retired', ticketId: ticket.ticketId, executionId: `ticket:${ticket.ticketId}` }); return { skipped: true, retired: true }; }
     const key = crypto.createHash('sha256').update(`${identity.machineKey}/${identity.projectKey}/${ticket.ticketId}`).digest('hex'); const file = path.join(lockRoot, `${key}.lock`); fs.mkdirSync(lockRoot, { recursive: true }); let fd;
@@ -30,5 +50,5 @@ export function createTicketWorker({ client, pool, identity, log, lockRoot, jour
       const done = await client.get(ticket.ticketId); const completeOperationId = `complete:${ticket.ticketId}`; const final = await mutate(ticket.ticketId, completeOperationId, { operationId: completeOperationId, expectedRevision: done.ticket.revision, previousHash: done.ticket.headHash, actor, action: 'complete', data: { leaseToken, receiptTicketId, outcomeHash } }); log({ event: 'work_completed', ticketId: ticket.ticketId, executionId: `ticket:${ticket.ticketId}` }); return final;
     } catch (error) { try { attemptStore?.finish(attempt?.attemptId, { state: 'failed', error: error.message }); } catch {} log({ event: 'execution_failed', ticketId: ticket.ticketId, error: error.message }); if (started) { try { const current = await client.get(ticket.ticketId); if (['claimed', 'in_progress'].includes(current.ticket.status)) { const blockOperationId = `block:${ticket.ticketId}`; await mutate(ticket.ticketId, blockOperationId, { operationId: blockOperationId, expectedRevision: current.ticket.revision, previousHash: current.ticket.headHash, actor, action: 'block', data: { reason: 'unknown_after_crash', leaseToken } }); } } catch (blockError) { log({ event: 'block_failed', ticketId: ticket.ticketId, error: blockError.message }); } } throw error; } finally { try { projectLease?.release(); } catch (error) { log({ event: 'project_lease_release_failed', ticketId: ticket.ticketId, error: error.message }); } try { fs.closeSync(fd); } catch {} try { fs.unlinkSync(file); } catch {} }
   }
-  return { run };
+  return { run, recover };
 }
