@@ -28,6 +28,8 @@ This is retained evidence from the real normal-browser verifier run. It is not a
 - Qwen received calls: `103`
 - Qwen latest update sequence: `13`
 - Qwen final current operation: none
+- Qwen required suite: `C:\Users\rhyse\.conda\envs\qwen3-asr\python.exe -m unittest discover -s tests -p "test_audep*.py" -v`; `48/48` passed
+- Qwen full suite: same interpreter with `-p "test_*.py" -v`; `80/80` passed
 
 ## Missing H10 gates
 
