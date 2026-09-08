@@ -19,13 +19,19 @@ export function resolveManifestFile({ manifestFile, runId, directory = 'config/r
   return path.join(directory, matches[0]);
 }
 
-export async function runCommand(commandName, manifestFile, { store, outFile, acceptanceFile, fixture = false, preflight = preflightManifest } = {}) {
+export async function runCommand(commandName, manifestFile, { store, outFile, acceptanceFile, fixture = false, execute = false, executorFactory, signal, preflight = preflightManifest } = {}) {
   if (!manifestFile) throw new Error('manifest_required');
   if (commandName === 'validate') return readRunManifest(manifestFile) && { ok: true, command: commandName, manifest: manifestFile };
   if (commandName === 'preflight') return preflight(manifestFile);
   if (commandName === 'start') { const check = await preflight(manifestFile); if (!check.ok) return { ...check, command: commandName }; }
   const manifest = readRunManifest(manifestFile); const readOnly = ['inspect', 'explain-block', 'report', 'resume'].includes(commandName); const workflow = createWorkflow({ manifest, store, initialize: !readOnly });
-  if (commandName === 'start') return { ok: true, command: commandName, state: workflow.snapshot(), next: workflow.next() };
+  if (commandName === 'start') {
+    if (!execute) return { ok: true, command: commandName, state: workflow.snapshot(), next: workflow.next() };
+    if (typeof executorFactory !== 'function') throw new Error('run_executor_factory_required');
+    const executor = executorFactory({ manifest, workflow });
+    if (!executor?.run) throw new Error('run_executor_invalid');
+    return { ok: true, command: commandName, state: await executor.run({ signal }) };
+  }
   if (commandName === 'inspect') return { ok: true, state: workflow.snapshot(), next: workflow.next() };
   if (commandName === 'explain-block') return { ok: true, blocked: Object.values(workflow.snapshot().steps).filter((step) => step.status === 'blocked').map(({ stepId, blockReason }) => ({ stepId, blockReason })) };
   if (commandName === 'report') { const state = workflow.snapshot(); const acceptancePath = acceptanceFile || value('--acceptance'); const finalAcceptance = acceptancePath ? evaluateFinalAcceptance(JSON.parse(readFileSync(acceptancePath, 'utf8'))) : undefined; const result = { ok: state.status === 'accepted' && (finalAcceptance ? finalAcceptance.ok : true), runId: manifest.runId, state, trace: workflow.store.events(), finalAcceptance }; const report = renderRunReport({ manifest, result }); if (outFile) writeFileSync(outFile, report + '\n', 'utf8'); return { ok: result.ok, runId: manifest.runId, status: state.status, steps: state.steps, finalAcceptance, report, reportFile: outFile || undefined }; }
@@ -36,6 +42,6 @@ export async function runCommand(commandName, manifestFile, { store, outFile, ac
 }
 
 if (fileURLToPath(import.meta.url) === process.argv[1]) {
-    try { const result = await runCommand(command, resolveManifestFile({ manifestFile: value('--manifest'), runId: value('--run') }), { outFile: value('--out') || undefined }); console.log(JSON.stringify(result)); if (result.ok === false) process.exitCode = 2; }
+    try { const result = await runCommand(command, resolveManifestFile({ manifestFile: value('--manifest'), runId: value('--run') }), { outFile: value('--out') || undefined, execute: args.includes('--execute') }); console.log(JSON.stringify(result)); if (result.ok === false) process.exitCode = 2; }
   catch (error) { console.log(JSON.stringify({ ok: false, error: error.message })); process.exitCode = 2; }
 }

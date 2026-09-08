@@ -28,6 +28,19 @@ test('start initializes a workflow after successful preflight', async () => {
   const store = createRunStore({ root: mkdtempSync(path.join(tmpdir(), 'run-start-')), runId: 'audep-speed-260908' }); const result = await runCommand('start', 'config/runs/audep-speed.json', { store, preflight: async () => ({ ok: true, state: 'ready' }) }); assert.equal(result.ok, true); assert.equal(result.command, 'start'); assert.equal(result.state.status, 'running'); assert.equal(result.next.stepId, 'A0'); const report = await runCommand('report', 'config/runs/audep-speed.json', { store }); assert.match(report.report, /run_initialized/);
 });
 
+test('start can hand the initialized workflow to a persistent executor', async () => {
+  const store = createRunStore({ root: mkdtempSync(path.join(tmpdir(), 'run-start-execute-')), runId: 'audep-speed-260908' });
+  let received;
+  const result = await runCommand('start', 'config/runs/audep-speed.json', {
+    store,
+    execute: true,
+    preflight: async () => ({ ok: true, state: 'ready' }),
+    executorFactory: ({ manifest, workflow }) => ({ run: async () => { received = { runId: manifest.runId, next: workflow.next().stepId }; return { status: 'accepted' }; } }),
+  });
+  assert.deepEqual(received, { runId: 'audep-speed-260908', next: 'A0' });
+  assert.equal(result.state.status, 'accepted');
+});
+
 test('rehearsal exports its report without changing the workflow contract', async () => {
   const manifestFile = 'config/runs/audep-speed-local.json'; const outFile = path.join(mkdtempSync(path.join(tmpdir(), 'rehearsal-report-')), 'run-report.md'); const store = createRunStore({ root: mkdtempSync(path.join(tmpdir(), 'rehearsal-export-')), runId: 'audep-speed-local-260908' });
   const result = await runCommand('rehearse', manifestFile, { store, outFile, fixture: true });
