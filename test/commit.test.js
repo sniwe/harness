@@ -120,7 +120,7 @@ test("coordination tolerates tunnel outage while peer relaunches", async () => {
     },
     sync: async () => ({ status: 202, result: { state: "relaunching" } }),
   };
-  const result = await coordinatePeers({ client, peerKeys: ["peer"], localKey: "local", target: { runId: "run", commit: "target", branch: "main" }, waitMs: 5, pollMs: 0, sleep: async () => {} });
+  const result = await coordinatePeers({ client, peerKeys: ["peer"], localKey: "local", target: { runId: "run", commit: "target", branch: "main" }, pollMs: 0, sleep: async () => {} });
   assert.equal(result.ok, true);
   assert.equal(result.peers[0].state, "converged");
 });

@@ -41,7 +41,7 @@ export function createCommitSyncClient({ registryUrl, fetchImpl = fetch, timeout
   return { list, lookup, status: (peerKey) => post(peerKey, "/api/machine-base/commit-status"), sync: (peerKey, body) => post(peerKey, "/api/machine-base/commit-sync", body) };
 }
 
-export async function coordinatePeers({ client, peerKeys, localKey, target, waitMs = 60000, pollMs = 2000, sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)) } = {}) {
+export async function coordinatePeers({ client, peerKeys, localKey, target, pollMs = 2000, sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)) } = {}) {
   const results = [];
   for (const peerKey of peerKeys) {
     if (!peerKey || peerKey === localKey) continue;
@@ -49,17 +49,15 @@ export async function coordinatePeers({ client, peerKeys, localKey, target, wait
       let status = await client.status(peerKey);
       if (isMatch(status.result, target)) { results.push({ peerKey, state: "match", status: status.result }); continue; }
       await client.sync(peerKey, { runId: target.runId, expectedCommit: target.commit, branch: target.branch });
-      const deadline = Date.now() + waitMs;
       let lastError = null;
-      do {
+      while (true) {
         await sleep(pollMs);
         try {
           status = await client.status(peerKey);
           lastError = null;
           if (isMatch(status.result, target)) { results.push({ peerKey, state: "converged", status: status.result }); break; }
         } catch (error) { lastError = { error: error.message, status: error.status || 502 }; }
-      } while (Date.now() < deadline);
-      if (results.at(-1)?.peerKey !== peerKey) results.push({ peerKey, state: "timeout", ...(status ? { status: status.result } : lastError || {}) });
+      }
     } catch (error) { results.push({ peerKey, state: "error", error: error.message, status: error.status || 502 }); }
   }
   return { ok: results.every((item) => item.state === "match" || item.state === "converged"), target, peers: results };
