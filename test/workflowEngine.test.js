@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { createWorkflow } from '../src/workflowEngine.js';
@@ -41,5 +41,9 @@ test('resume requires the exact artifact that caused the blocker', () => {
 });
 
 test('reconstructed workflow rejects a state from another manifest revision', () => {
-  const run = workflow(); const mismatched = { ...manifest, planDigest: 'b'.repeat(64) }; assert.throws(() => createWorkflow({ manifest: mismatched, store: run.store }).snapshot(), /run_state_manifest_mismatch/);
+  const run = workflow(); const mismatched = { ...manifest, planDigest: 'b'.repeat(64) }; assert.throws(() => createWorkflow({ manifest: mismatched, store: run.store }).snapshot(), /run_manifest_fence_mismatch/);
+});
+
+test('workflow persists the immutable manifest beside durable state', () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'workflow-manifest-')); const store = createRunStore({ root, runId: manifest.runId }); createWorkflow({ manifest, store }); const saved = JSON.parse(readFileSync(store.manifestFile, 'utf8')); assert.equal(saved.planDigest, manifest.planDigest); assert.throws(() => createWorkflow({ manifest: { ...manifest, planDigest: 'b'.repeat(64) }, store }), /manifest_fence_mismatch/);
 });
