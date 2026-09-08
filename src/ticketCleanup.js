@@ -11,9 +11,8 @@ export function createTicketCleanup({ client, journal, sleep = (ms) => new Promi
   async function begin(ticket, ticketId, receiptTicketId) {
     if (!ticket) return true;
     if (ticket.status === 'deleting') return true;
-    const result = await client.mutate(ticketId, { operationId: `cleanup:${ticketId}`, expectedRevision: ticket.revision, previousHash: ticket.headHash, actor: ticket.target, action: 'begin_delete', data: ticketId === receiptTicketId ? {} : { receiptTicketId, outcomeHash: ticket.outcomeHash } });
-    if (result.ticket?.status !== 'deleting') throw new Error(`cleanup_begin_failed:${ticketId}`);
-    return true;
+    const operationId = `cleanup:${ticketId}`; journal.append({ event: 'mutation_intent', action: 'begin_delete', ticketId, operationId, expectedRevision: ticket.revision });
+    try { const result = await client.mutate(ticketId, { operationId, expectedRevision: ticket.revision, previousHash: ticket.headHash, actor: ticket.target, action: 'begin_delete', data: ticketId === receiptTicketId ? {} : { receiptTicketId, outcomeHash: ticket.outcomeHash } }); if (result.ticket?.status !== 'deleting') throw new Error(`cleanup_begin_failed:${ticketId}`); journal.append({ event: 'mutation_result', action: 'begin_delete', ticketId, operationId, outcome: 'deleting' }); return true; } catch (error) { journal.append({ event: 'mutation_result', action: 'begin_delete', ticketId, operationId, outcome: 'error', error: error.message }); throw error; }
   }
   async function cleanupPair(sourceTicketId, receiptTicketId) {
     journal.append({ event: 'cleanup_intent', ticketId: sourceTicketId, receiptTicketId });
