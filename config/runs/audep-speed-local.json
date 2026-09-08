@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "runId": "audep-speed-local-260908",
-  "planDigest": "b8b079e1d8a867839f41c4b7e8dc6846ed58510ab180a768bbd431c2918aa1a0",
+  "planDigest": "01a77a49a1de94ee176be85e2fd6718748a976fcd3a2acfa4f31e5076dbafd00",
   "controller": { "machineKey": "machine-base-controller" },
   "inputs": [
     { "role": "app-plan", "sha256": "c3ad9059934e84d3f3c55ce11d7fd3e083b0e19ca9947bd8b8aed8ddd7e9b461" },
@@ -9,8 +9,8 @@
   ],
   "handoffMode": "verified-byte-transfer",
   "projects": {
-    "main-app": { "profile": "C:\\retry" },
-    "qwen-asr": { "profile": "C:\\Users\\rhyse\\Qwen3-ASR" }
+    "main-app": { "machineKey": "machine-base-caf45342b1d0acc9b938", "profile": "C:\\retry" },
+    "qwen-asr": { "machineKey": "machine-base-73182d23f660c3880e7e", "profile": "C:\\Users\\rhyse\\Qwen3-ASR" }
   },
   "adapters": {
     "main-app": {

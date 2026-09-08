@@ -18,7 +18,7 @@ export function readRunManifest(file) {
 export function validateRunManifest(manifest, { verifyInputs = true } = {}) {
   if (!manifest || manifest.schemaVersion !== 1 || !KEY.test(manifest.runId || '') || !Array.isArray(manifest.inputs) || !manifest.inputs.length || !Array.isArray(manifest.steps) || !manifest.steps.length) throw new Error('run_manifest_invalid');
   if (manifest.handoffMode !== 'verified-byte-transfer' || manifest.protocolBaseline !== '12.5s-primary-plus-5s-boundary-v1') throw new Error('run_manifest_contract_invalid');
-  if (!manifest.controller?.machineKey || !manifest.projects || !Number.isInteger(manifest.limits?.maxCorrectiveAttemptsPerGate) || !Number.isInteger(manifest.limits?.maxConcurrentBenchmarks)) throw new Error('run_manifest_policy_invalid');
+  if (!manifest.controller?.machineKey || !manifest.projects || !['main-app', 'qwen-asr'].every((key) => manifest.projects[key]?.machineKey && KEY.test(manifest.projects[key].machineKey) && typeof manifest.projects[key].profile === 'string' && (/^[A-Za-z]:[\\/]/.test(manifest.projects[key].profile) || path.isAbsolute(manifest.projects[key].profile))) || !Number.isInteger(manifest.limits?.maxCorrectiveAttemptsPerGate) || !Number.isInteger(manifest.limits?.maxConcurrentBenchmarks)) throw new Error('run_manifest_policy_invalid');
   for (const input of manifest.inputs) {
     if (!KEY.test(input.role || '') || !HASH.test(input.sha256 || '') || (verifyInputs && input.path && sha256File(input.path) !== input.sha256)) throw new Error(`run_manifest_input_invalid:${input.role || 'unknown'}`);
   }

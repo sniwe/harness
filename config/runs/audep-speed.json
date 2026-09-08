@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "runId": "audep-speed-260908",
-  "planDigest": "6574ce4b556b118b664e15f86560c95d2be33ad7649a278c032d9cd3ef6444bc",
+  "planDigest": "0a52a9096dd4b0006253c6c282ebd6bacb6666d9fdb173fd97c136b0c52fee46",
   "controller": { "machineKey": "machine-base-controller" },
   "inputs": [
     { "role": "harness-plan", "path": "C:\\Users\\Admin\\Downloads\\Harness-Unattended-audEp-Implementation-Plan (1).md", "sha256": "5eef5bccad0710df77588cf1a4ee173df773217690ea12613382a20b1960547f" },
@@ -10,8 +10,8 @@
   ],
   "handoffMode": "verified-byte-transfer",
   "projects": {
-    "main-app": { "profile": "C:\\retry" },
-    "qwen-asr": { "profile": "C:\\Users\\rhyse\\Qwen3-ASR" }
+    "main-app": { "machineKey": "machine-base-caf45342b1d0acc9b938", "profile": "C:\\retry" },
+    "qwen-asr": { "machineKey": "machine-base-73182d23f660c3880e7e", "profile": "C:\\Users\\rhyse\\Qwen3-ASR" }
   },
   "adapters": {
     "main-app": {
