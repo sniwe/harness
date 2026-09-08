@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "runId": "audep-speed-260908",
-  "planDigest": "ffc9b74974be37db37464461629f17b246c87f5202258520042582741b28a655",
+  "planDigest": "f4658dbf3b7f0bf8b54469c617b32b0b8fc445f83158c63d390c1e9e97d940c9",
   "controller": { "machineKey": "machine-base-controller" },
   "inputs": [
     { "role": "harness-plan", "path": "C:\\Users\\Admin\\Downloads\\Harness-Unattended-audEp-Implementation-Plan (1).md", "sha256": "5eef5bccad0710df77588cf1a4ee173df773217690ea12613382a20b1960547f" },
@@ -12,6 +12,16 @@
   "projects": {
     "main-app": { "profile": "C:\\retry" },
     "qwen-asr": { "profile": "C:\\Users\\rhyse\\Qwen3-ASR" }
+  },
+  "adapters": {
+    "main-app": {
+      "verifier": "mgmt\\dev\\260906\\verify-upload-987-browser.mjs",
+      "source": "C:\\Users\\Qub\\Desktop\\vsProjects\\DDMP3\\eps\\987 ｜最聪明的护城河，是把一半秘密免费送给世界-mtmo3aqe-c4b8b6ddfda248.mp3"
+    },
+    "qwen-asr": {
+      "python": "C:\\Users\\rhyse\\.conda\\envs\\qwen3-asr\\python.exe",
+      "tracer": "scripts\\audep_http_fixture_tracer.py"
+    }
   },
   "protocolBaseline": "12.5s-primary-plus-5s-boundary-v1",
   "limits": { "maxCorrectiveAttemptsPerGate": 2, "maxConcurrentBenchmarks": 1 },
