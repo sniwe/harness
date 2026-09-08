@@ -19,10 +19,11 @@ export function validateRemotePromptEnvelope(payload, { targetKey, maxPromptChar
 
 export function createPeerRequestClient({ registryUrl, localKey, callerKey = localKey, fetchImpl = fetch, pollMs = 2000, sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)), requestId = () => crypto.randomUUID() } = {}) {
   const peerPing = createPeerPing({ registryUrl, localKey, fetchImpl, timeoutMs: TRANSPORT_TIMEOUT_MS });
-  return { send: (peerKey, prompt) => sendPeerRequest({ peerPing, peerKey, prompt, callerKey, fetchImpl, pollMs, sleep, requestId }) };
+  return { send: (peerKey, prompt, options = {}) => sendPeerRequest({ peerPing, peerKey, prompt, callerKey, fetchImpl, pollMs, sleep, requestId, signal: options.signal }) };
 }
 
-async function sendPeerRequest({ peerPing, peerKey, prompt, callerKey, fetchImpl, pollMs, sleep, requestId }) {
+async function sendPeerRequest({ peerPing, peerKey, prompt, callerKey, fetchImpl, pollMs, sleep, requestId, signal }) {
+  throwIfCancelled(signal);
   if (typeof prompt !== "string" || prompt.trim() === "" || prompt.length > MAX_PROMPT_CHARS) throw peerRequestError(400, "prompt_invalid");
   const peer = await peerPing.lookup(peerKey);
   const id = requestId();
@@ -34,6 +35,7 @@ async function sendPeerRequest({ peerPing, peerKey, prompt, callerKey, fetchImpl
   if (!["accepted", "in_progress"].includes(accepted.body.state)) throw peerRequestError(502, "peer_accept_state_invalid", { requestId: id, state: "unknown_execution_state" });
 
   while (true) {
+    throwIfCancelled(signal);
     await sleep(pollMs);
     let currentPeer;
     try { currentPeer = await peerPing.lookup(peerKey); } catch { continue; }
@@ -118,5 +120,6 @@ async function readBoundedJson(response) {
 }
 function failure(status, error, requestId, targetKey, state, callerKey = "", startedAt = undefined) { return { status, body: { ok: false, requestId, callerKey, targetKey, state, ...(startedAt ? { startedAt } : {}), error } }; }
 function peerRequestError(status, message, extra = {}) { return Object.assign(new Error(message), { status, ...extra }); }
+function throwIfCancelled(signal) { if (signal?.aborted) throw peerRequestError(499, "peer_request_cancelled", { state: "cancelled" }); }
 
 export const peerRequestLimits = { MAX_PROMPT_CHARS, TRANSPORT_TIMEOUT_MS, MAX_BODY_BYTES };

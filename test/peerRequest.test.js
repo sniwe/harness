@@ -49,6 +49,12 @@ test("peer sender survives transient lookup and status failures after acceptance
   assert.equal(statusCalls >= 2, true);
 });
 
+test("peer sender can cancel indefinite status polling", async () => {
+  const controller = new AbortController(); let sleeps = 0;
+  const client = createPeerRequestClient({ registryUrl: "https://registry.test/_functions/tunnels", localKey: "machine-base-local", pollMs: 1, sleep: async () => { sleeps += 1; controller.abort(); }, requestId: () => id, fetchImpl: async (url) => String(url).startsWith("https://registry.test/") ? response({ items: [{ tunnelKey: "machine-base-peer", title: "https://peer.trycloudflare.com" }] }) : response({ ok: true, requestId: id, callerKey: "machine-base-local", targetKey: "machine-base-peer", state: "accepted" }, 202) });
+  await assert.rejects(() => client.send("machine-base-peer", "READY", { signal: controller.signal }), /peer_request_cancelled/); assert.equal(sleeps, 1);
+});
+
 test("peer handler accepts asynchronously, reports status, and rejects replay", async () => {
   const pool = { request: async ({ task, prompt, requestId }) => ({ ok: true, task, requestId, result: `echo:${prompt}` }) };
   const handler = createPeerRequestHandler({ pool, targetKey: "machine-base-peer", enabled: true });
