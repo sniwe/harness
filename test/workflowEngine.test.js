@@ -14,6 +14,7 @@ test('workflow persists independent evidence gates and dependencies', () => {
   assert.equal(run.next().stepId, 'A0');
   assert.throws(() => run.accept('A0', { runId: manifest.runId, stepId: 'A0', planDigest: manifest.planDigest, verdict: 'pass' }), /step_not_verifying/);
   run.begin('A0');
+  assert.equal(run.heartbeat('A0', { phase: 'verify' }).steps.A0.heartbeat.phase, 'verify');
   const blocked = run.accept('A0', { runId: manifest.runId, stepId: 'A0', planDigest: manifest.planDigest, verdict: 'pass' });
   assert.equal(blocked.steps.A0.status, 'blocked');
   const restored = createWorkflow({ manifest, store: run.store });
