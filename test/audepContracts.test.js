@@ -54,4 +54,5 @@ test('final acceptance requires throughput and all six restart tracers', () => {
   const incomplete = evaluateFinalAcceptance({ app: base, qwen: base, restarts: [] }); assert.equal(incomplete.verdict, 'blocked');
   const complete = evaluateFinalAcceptance({ app: base, qwen: base, restarts: REQUIRED_RESTARTS.map((name) => ({ name, verdict: 'pass' })) }); assert.equal(complete.ok, true);
   assert.equal(evaluateFinalAcceptance({ app: { ...base, metrics: { committedRealtime: 0.49 } }, qwen: base, restarts: REQUIRED_RESTARTS.map((name) => ({ name, verdict: 'pass' })) }).verdict, 'failed');
+  assert.equal(evaluateFinalAcceptance({ app: base, qwen: { ...base, metrics: { committedRealtime: 0.49 } }, restarts: REQUIRED_RESTARTS.map((name) => ({ name, verdict: 'pass' })) }).verdict, 'failed');
 });
