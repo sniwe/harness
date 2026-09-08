@@ -5,12 +5,23 @@ export function createTicketCleanup({ client, journal, sleep = (ms) => new Promi
     do { try { result = await client.remove(ticketId); } catch (error) { if (error.status === 404) return { missing: true }; throw error; } if (result.inProgress) await sleep(250); } while (result.inProgress);
     return result;
   }
-  async function cleanupPair(sourceTicketId, receiptTicketId) {
-    const source = await client.get(sourceTicketId); journal.append({ event: 'cleanup_intent', ticketId: sourceTicketId, receiptTicketId });
-    const sourceBegin = await client.mutate(sourceTicketId, { operationId: `cleanup:${sourceTicketId}`, expectedRevision: source.ticket.revision, previousHash: source.ticket.headHash, actor: source.ticket.target, action: 'begin_delete', data: { receiptTicketId, outcomeHash: source.ticket.outcomeHash } });
-    if (sourceBegin.ticket?.status !== 'deleting') throw new Error(`cleanup_begin_failed:${sourceTicketId}`); const sourceRemoved = await remove(sourceTicketId); journal.append({ event: 'source_cleanup_complete', ticketId: sourceTicketId, deleted: sourceRemoved.deleted === true || sourceRemoved.missing === true });
-    const receipt = await client.get(receiptTicketId); const receiptBegin = await client.mutate(receiptTicketId, { operationId: `cleanup:${receiptTicketId}`, expectedRevision: receipt.ticket.revision, previousHash: receipt.ticket.headHash, actor: receipt.ticket.target, action: 'begin_delete', data: {} });
-    if (receiptBegin.ticket?.status !== 'deleting') throw new Error(`cleanup_begin_failed:${receiptTicketId}`); const receiptRemoved = await remove(receiptTicketId); journal.append({ event: 'ticket_retired', ticketId: sourceTicketId, receiptTicketId, receiptDeleted: receiptRemoved.deleted === true || receiptRemoved.missing === true }); return { sourceDeleted: sourceRemoved.deleted === true || sourceRemoved.missing === true, receiptDeleted: receiptRemoved.deleted === true || receiptRemoved.missing === true };
+  async function get(ticketId) {
+    try { return (await client.get(ticketId)).ticket; } catch (error) { if (error.status === 404) return null; throw error; }
   }
-  return { cleanupPair };
+  async function begin(ticket, ticketId, receiptTicketId) {
+    if (!ticket) return true;
+    if (ticket.status === 'deleting') return true;
+    const result = await client.mutate(ticketId, { operationId: `cleanup:${ticketId}`, expectedRevision: ticket.revision, previousHash: ticket.headHash, actor: ticket.target, action: 'begin_delete', data: ticketId === receiptTicketId ? {} : { receiptTicketId, outcomeHash: ticket.outcomeHash } });
+    if (result.ticket?.status !== 'deleting') throw new Error(`cleanup_begin_failed:${ticketId}`);
+    return true;
+  }
+  async function cleanupPair(sourceTicketId, receiptTicketId) {
+    journal.append({ event: 'cleanup_intent', ticketId: sourceTicketId, receiptTicketId });
+    const source = await get(sourceTicketId); await begin(source, sourceTicketId, receiptTicketId); const sourceRemoved = source ? await remove(sourceTicketId) : { missing: true }; journal.append({ event: 'source_cleanup_complete', ticketId: sourceTicketId, deleted: sourceRemoved.deleted === true || sourceRemoved.missing === true });
+    const receipt = await get(receiptTicketId); await begin(receipt, receiptTicketId, receiptTicketId); const receiptRemoved = receipt ? await remove(receiptTicketId) : { missing: true }; journal.append({ event: 'ticket_retired', ticketId: sourceTicketId, receiptTicketId, receiptDeleted: receiptRemoved.deleted === true || receiptRemoved.missing === true }); return { sourceDeleted: sourceRemoved.deleted === true || sourceRemoved.missing === true, receiptDeleted: receiptRemoved.deleted === true || receiptRemoved.missing === true };
+  }
+  async function resumePending(limit = 10) {
+    const entries = journal.read(); const retired = new Set(entries.filter((entry) => entry.event === 'ticket_retired').map((entry) => `${entry.ticketId}:${entry.receiptTicketId}`)); const pending = entries.filter((entry) => entry.event === 'cleanup_intent' && !retired.has(`${entry.ticketId}:${entry.receiptTicketId}`)).slice(-limit); const results = []; for (const entry of pending) results.push(await cleanupPair(entry.ticketId, entry.receiptTicketId)); return { attempted: pending.length, results };
+  }
+  return { cleanupPair, resumePending };
 }
