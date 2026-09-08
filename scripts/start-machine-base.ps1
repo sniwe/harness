@@ -14,5 +14,12 @@ $env:TICKETS_LOG_ROOT = 'C:\trendbase\mgmt\logs'
 $env:TICKETS_ENABLED = '1'
 $env:TICKETS_WORKER_ENABLED = '1'
 Set-Location $harnessRoot
-& node src\launcher.js
-exit $LASTEXITCODE
+$delaySeconds = 1
+while ($true) {
+  if ($env:MACHINE_BASE_MAINTENANCE -eq '1') { exit 0 }
+  & node src\launcher.js
+  $exitCode = $LASTEXITCODE
+  if ($env:MACHINE_BASE_MAINTENANCE -eq '1') { exit $exitCode }
+  Start-Sleep -Seconds $delaySeconds
+  $delaySeconds = [Math]::Min(60, $delaySeconds * 2)
+}
