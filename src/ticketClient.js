@@ -10,5 +10,5 @@ export function createTicketClient({ baseUrl = process.env.TICKETS_BASE_URL, fet
       return body;
     } finally { clearTimeout(timer); }
   }
-  return { create: (ticket) => request('POST', '', ticket), get: (ticketId) => request('GET', `/${encodeURIComponent(ticketId)}`), mutate: (ticketId, patch) => request('PATCH', `/${encodeURIComponent(ticketId)}`, patch), list: (query) => request('GET', `?${new URLSearchParams(query)}`), remove: (ticketId) => request('DELETE', `/${encodeURIComponent(ticketId)}`) };
+  return { create: (ticket) => request('POST', '', ticket), get: (ticketId) => request('GET', `/${encodeURIComponent(ticketId)}`), mutate: (ticketId, patch) => request('PUT', `/${encodeURIComponent(ticketId)}`, patch), list: (query) => request('GET', `?${new URLSearchParams(query)}`), remove: (ticketId) => request('DELETE', `/${encodeURIComponent(ticketId)}`) };
 }
