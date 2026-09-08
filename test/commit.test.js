@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { captureTrustedLaunch, readCheckout, readRemoteSnapshot, syncCheckout, verifyLaunchRevalidation, verifyTarget } from "../src/commit.js";
+import { captureStartupLaunch, captureTrustedLaunch, readCheckout, readRemoteSnapshot, syncCheckout, verifyLaunchRevalidation, verifyTarget } from "../src/commit.js";
 import { coordinatePeers, createCommitSyncClient } from "../src/commitSync.js";
 
 test("checkout snapshot is deterministic and target validation is strict", () => {
@@ -66,6 +66,14 @@ test("trusted launch rejects stale, ahead, dirty, detached, and captures immutab
   assert.equal(launch.commit, A);
   assert.equal(newer.commit, B);
   assert.equal(launch.commit, A);
+});
+
+test("stale checkout is allowed to start as unverified for peer-initiated sync", () => {
+  const launch = captureStartupLaunch({ runId: "run", generation: 1, checkout: { repoRoot: "C:\\harness", commit: A, branch: "main", origin: "origin", worktreeClean: true }, remote: { branch: "main", commit: B, observedAt: "2026-09-08T00:00:00.000Z" }, branch: "main" });
+  assert.equal(launch.trust, "startup-unverified");
+  assert.equal(launch.trustFailure.error, "local_commit_not_latest");
+  assert.equal(launch.commit, A);
+  assert.throws(() => captureStartupLaunch({ runId: "run", generation: 1, checkout: { repoRoot: "C:\\harness", commit: A, branch: "main", origin: "origin", worktreeClean: false }, remote: { branch: "main", commit: B }, branch: "main" }), /local_commit_target_untrusted/);
 });
 
 test("origin advancement before coordination fails without changing immutable target", () => {

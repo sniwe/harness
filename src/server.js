@@ -6,7 +6,7 @@ import { createTunnel } from "./tunnel.js";
 import { createWorkerPool } from "./pool.js";
 import { prepareSetup } from "./setup.js";
 import { createPeerPing } from "./peerPing.js";
-import { captureTrustedLaunch, isSafeBranch, readCheckout, readRemoteSnapshot, syncCheckout, verifyLaunchRevalidation } from "./commit.js";
+import { captureStartupLaunch, isSafeBranch, readCheckout, readRemoteSnapshot, syncCheckout, verifyLaunchRevalidation } from "./commit.js";
 import { coordinatePeers, createCommitSyncClient } from "./commitSync.js";
 import { createPeerRequestClient, createPeerRequestHandler } from "./peerRequest.js";
 import crypto from "node:crypto";
@@ -29,9 +29,23 @@ const configuredCheckout = readCheckout({ repoRoot });
 if (!isSafeBranch(branch) || branch !== configuredCheckout.branch) throw new Error("configured_branch_mismatch");
 const configuredOrigin = process.env.MACHINE_BASE_GIT_ORIGIN || configuredCheckout.origin;
 if (configuredOrigin !== configuredCheckout.origin) throw new Error("configured_origin_mismatch");
-const launchRemote = readRemoteSnapshot({ repoRoot, branch });
-const launchCheckout = readCheckout({ repoRoot });
-const launch = { runId: process.env.MACHINE_BASE_RUN_ID || crypto.randomUUID(), generation: Number(process.env.MACHINE_BASE_LAUNCH_GENERATION || 1), ...captureTrustedLaunch({ checkout: launchCheckout, remote: launchRemote, branch }), capturedAt: new Date().toISOString() };
+const runId = process.env.MACHINE_BASE_RUN_ID || crypto.randomUUID();
+const generation = Number(process.env.MACHINE_BASE_LAUNCH_GENERATION || 1);
+let launchRemote = null;
+let launchTrustFailure = null;
+let launchCheckout = configuredCheckout;
+let launch;
+try {
+  launchRemote = readRemoteSnapshot({ repoRoot, branch });
+  launchCheckout = readCheckout({ repoRoot });
+  launch = { ...captureStartupLaunch({ runId, generation, checkout: launchCheckout, remote: launchRemote, branch }), capturedAt: new Date().toISOString() };
+  launchTrustFailure = launch.trustFailure || null;
+} catch (error) {
+  if (!launchRemote) {
+    launchTrustFailure = { error: error.message || "github_check_failed", launchCommit: launchCheckout.commit, remoteCommit: error.advertisedCommit || null, fetchedCommit: error.fetchedCommit || null };
+  } else throw error;
+  launch = { runId, generation, ...launchCheckout, remoteCommit: launchRemote?.commit || null, remoteObservedAt: launchRemote?.observedAt || null, trust: "startup-unverified", trustFailure: launchTrustFailure, capturedAt: new Date().toISOString() };
+}
 const commitSync = createCommitSyncClient({ registryUrl: `${relayBaseUrl}/_functions/tunnels` });
 const machineKey = process.env.TUNNEL_KEY || identity.tunnelKey;
 const peerRequestClient = createPeerRequestClient({ registryUrl: `${relayBaseUrl}/_functions/tunnels`, localKey: machineKey, callerKey: machineKey });
@@ -53,6 +67,7 @@ function json(response, status, body) { response.writeHead(status, { "Content-Ty
 function readBody(request, maxBytes = 1024 * 1024) { return new Promise((resolve, reject) => { let text = ""; let rejected = false; request.on("data", (chunk) => { if (rejected) return; text += chunk; if (Buffer.byteLength(text, "utf8") > maxBytes) { rejected = true; reject(new Error("body_too_large")); } }); request.on("end", () => { if (!rejected) resolve(text); }); request.on("error", (error) => { if (!rejected) reject(error); }); }); }
 async function commitStatus() { const result = await pool.request({ task: "check-project-commit" }); return { commit: { ...launch, confirmed: result.commit === launch.commit && result.branch === launch.branch && result.confirmed === true }, worker: result, tunnel: tunnel?.state || null, generation: launch.generation }; }
 async function coordinate() {
+  if (launchTrustFailure) return { ok: false, skipped: launchTrustFailure.error, target: launch, trustFailure: launchTrustFailure };
   let current;
   let remote;
   try {
@@ -148,7 +163,7 @@ async function start() {
   tunnel = relayUrl ? createTunnel({ localUrl, relayUrl, tunnelKey: process.env.TUNNEL_KEY || identity.tunnelKey }) : null;
   if (tunnel) await tunnel.start();
   startupState = "tunnel_ready";
-  if (process.env.MACHINE_BASE_COORDINATE_ON_START !== "0") { startupState = "peers_checking"; coordination = await coordinate(); startupState = coordination.ok ? "converged" : "coordination_failed"; }
+  if (process.env.MACHINE_BASE_COORDINATE_ON_START !== "0") { startupState = "peers_checking"; coordination = await coordinate(); startupState = coordination.ok ? "converged" : launchTrustFailure ? "started_unverified" : "coordination_failed"; }
   console.log(JSON.stringify({ ready: true, pid: process.pid, port, tunnelKey: process.env.TUNNEL_KEY || identity.tunnelKey, tunnel: tunnel?.state || null }));
 }
 async function stop() {

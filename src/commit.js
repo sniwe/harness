@@ -32,6 +32,14 @@ export function captureTrustedLaunch({ checkout, remote, branch }) {
   return { ...checkout, remoteCommit: remote.commit, remoteObservedAt: remote.observedAt, trust: "stable-origin-tip" };
 }
 
+export function captureStartupLaunch({ runId, generation, checkout, remote, branch }) {
+  try { return { runId, generation, ...captureTrustedLaunch({ checkout, remote, branch }) }; }
+  catch (error) {
+    if (error.message !== "local_commit_not_latest") throw error;
+    return { runId, generation, ...checkout, remoteCommit: remote.commit, remoteObservedAt: remote.observedAt, trust: "startup-unverified", trustFailure: { error: error.message, launchCommit: checkout.commit, remoteCommit: remote.commit, remoteObservedAt: remote.observedAt } };
+  }
+}
+
 export function verifyLaunchRevalidation({ checkout, remote, launch, branch }) {
   if (!checkout?.worktreeClean || checkout.branch !== branch || checkout.origin !== launch.origin || checkout.commit !== launch.commit) throw new Error("local_commit_target_untrusted");
   if (remote?.commit !== launch.commit) throw new Error("origin_advanced_during_launch");
