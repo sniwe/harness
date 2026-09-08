@@ -44,3 +44,11 @@ Live harness preflight at the time of this evidence returned `ok=true`, `state=r
 - No bilateral app/Qwen benchmark result objects or final acceptance event are attached.
 
 Disposition: real browser and model completion evidence retained; final H10 acceptance remains `BLOCKED` until the missing gates are produced and joined by exact identity.
+
+## Runtime identity integration probe
+
+- App health contract patch: local detached commit `283d741` in `C:\retry`.
+- Fresh app health response: `{"ok":true,"tunnelKey":"chinApp","commit":"2fe8f3c9dd24511f225e6206aad7723a53477b6f","runtimeGeneration":"2fe8f3c9dd24511f225e6206aad7723a53477b6f:20712"}`.
+- Harness `preflight --manifest config/runs/audep-speed-local.json` returned `ok=true`, `state=ready` while that app process and the pre-existing Qwen process were live.
+- App PID `20712` was stopped cleanly after the probe; Qwen PID `38332` was not stopped.
+- The app checkout remains detached with unrelated data modifications and the identity commit has not been pushed from that checkout; no unrelated files were staged.
