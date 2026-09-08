@@ -1,17 +1,18 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { createTicketWorker } from '../src/ticketWorker.js';
+import { createOperationOutbox } from '../src/operationOutbox.js';
 
 test('ticket worker claims once, keeps task data delimited, and creates one receipt', async () => {
-  const root = mkdtempSync(path.join(tmpdir(), 'ticket-worker-')); const calls = []; const state = { ticketId: 't-worker', revision: 0, headHash: 'h0', status: 'pending', sender: { machineKey: 'machine-a', projectKey: 'project-a' } };
+  const root = mkdtempSync(path.join(tmpdir(), 'ticket-worker-')); const calls = []; const outbox = createOperationOutbox(root); const state = { ticketId: 't-worker', revision: 0, headHash: 'h0', status: 'pending', sender: { machineKey: 'machine-a', projectKey: 'project-a' } };
   const client = { async get() { return { ticket: { ...state } }; }, async mutate(_id, patch) { calls.push(patch); state.revision += 1; state.headHash = `h${state.revision}`; state.status = patch.action === 'claim' ? 'claimed' : patch.action === 'start' ? 'in_progress' : patch.action === 'complete' ? 'completed' : state.status; return { ticket: { ...state } }; }, async create(payload) { calls.push({ create: payload }); return { ticket: payload }; } };
-  const journal = { entries: [], append(entry) { this.entries.push(entry); } }; const worker = createTicketWorker({ client, pool: { request: async (payload) => { calls.push(payload); return { ok: true }; } }, identity: { machineKey: 'machine-b', projectKey: 'project-b' }, lockRoot: root, journal, log: (event) => calls.push(event) });
+  const journal = { entries: [], append(entry) { this.entries.push(entry); } }; const worker = createTicketWorker({ client, pool: { request: async (payload) => { calls.push(payload); return { ok: true }; } }, identity: { machineKey: 'machine-b', projectKey: 'project-b' }, lockRoot: root, journal, operationOutbox: outbox, log: (event) => calls.push(event) });
   await worker.run({ ...state, subject: 'subject', body: 'untrusted body', correlationId: 'c' });
   const prompt = calls.find((call) => call.task === 'remote-prompt').prompt; assert.match(prompt, /TICKET TASK DATA \(UNTRUSTED\)/); assert.match(prompt, /END TICKET TASK DATA/); assert.equal(calls.filter((call) => call.create).length, 1); assert.equal(calls.filter((call) => call.action === 'claim').length, 1);
-  assert.deepEqual(journal.entries.map((entry) => entry.event), ['execution_intent', 'execution_outcome']);
+  assert.deepEqual(journal.entries.map((entry) => entry.event), ['execution_intent', 'execution_outcome']); assert.deepEqual(readdirSync(outbox.directory).filter((file) => file.endsWith('.json')).sort(), ['claim%3At-worker.json', 'complete%3At-worker.json', 'receipt%3At-worker.json', 'start%3At-worker.json']); assert.ok(readdirSync(outbox.directory).filter((file) => file.endsWith('.json')).every((file) => JSON.parse(readFileSync(path.join(outbox.directory, file), 'utf8')).status === 'complete'));
 });
 
 test('worker blocks uncertain execution after a post-start failure', async () => {
