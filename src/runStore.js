@@ -16,7 +16,7 @@ export function createRunStore({ root = path.resolve(process.env.TICKETS_LOG_ROO
     fs.renameSync(temporary, stateFile);
     return state;
   }
-  function append(event) { fs.appendFileSync(eventsFile, JSON.stringify({ eventId: `${Date.now()}-${process.pid}`, eventAt: new Date().toISOString(), ...event }) + '\n', 'utf8'); }
+  function append(event) { const fd = fs.openSync(eventsFile, 'a'); try { fs.writeSync(fd, JSON.stringify({ eventId: `${Date.now()}-${process.pid}`, eventAt: new Date().toISOString(), ...event }) + '\n', null, 'utf8'); fs.fsyncSync(fd); } finally { fs.closeSync(fd); } }
   function initialize(state, requestedManifest = manifest) { if (requestedManifest) { if (fs.existsSync(manifestFile)) { const existing = JSON.parse(fs.readFileSync(manifestFile, 'utf8')); if (existing.planDigest !== requestedManifest.planDigest || existing.runId !== requestedManifest.runId) throw new Error('run_manifest_fence_mismatch'); } else fs.writeFileSync(manifestFile, JSON.stringify(requestedManifest, null, 2) + '\n', 'utf8'); } if (fs.existsSync(stateFile)) return read(); append({ type: 'run_initialized', runId }); return write(state); }
   return { dir, manifestFile, read, events, write, append, initialize };
 }
