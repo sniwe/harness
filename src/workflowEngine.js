@@ -3,9 +3,9 @@ import { evaluateEvidence } from './gateEvaluator.js';
 import { reduceRun } from './phaseReducer.js';
 import { createRunStore } from './runStore.js';
 
-export function createWorkflow({ manifest, store = createRunStore({ runId: manifest.runId }) } = {}) {
+export function createWorkflow({ manifest, store = createRunStore({ runId: manifest.runId }), initialize = true } = {}) {
   const initial = { schemaVersion: 1, runId: manifest.runId, planDigest: manifest.planDigest, status: 'waiting_inputs', steps: {}, evidence: {} };
-  store.initialize(reduceRun(initial, manifest));
+  if (initialize) store.initialize(reduceRun(initial, manifest));
   function snapshot() { return reduceRun(store.read(), manifest); }
   function next() { const state = snapshot(); return state.status === 'running' ? Object.values(state.steps).find((step) => step.status === 'runnable') : undefined; }
   function begin(stepId) {
