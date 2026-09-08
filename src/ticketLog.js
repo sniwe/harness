@@ -7,7 +7,7 @@ export function createTicketLog({ root, machineKey, projectKey, now = () => new 
   if (!root || !machineKey || !projectKey) throw new Error('ticket_log_config_invalid');
   function append(event) {
     const date = now().toISOString(); const dir = path.join(root, 'tickets', date.slice(0, 4), date.slice(5, 7), date.slice(8, 10), projectKey); fs.mkdirSync(dir, { recursive: true });
-    const file = path.join(dir, `tickets-${machineKey}-${projectKey}-${date.slice(0, 10)}.jsonl`); const record = { schemaVersion: 1, eventId: event.eventId || crypto.randomUUID(), eventAt: date, machineKey, projectKey, ...event }; const communicationText = record.body; delete record.body; delete record.leaseToken; if (communicationText) { record.communicationText = communicationText; record.bodyHash = ticketBodyHash(communicationText); }
+    const file = path.join(dir, `tickets-${machineKey}-${projectKey}-${date.slice(0, 10)}.jsonl`); const record = { schemaVersion: 1, eventId: event.eventId || crypto.randomUUID(), eventAt: date, machineKey, projectKey, ...event }; const communicationText = record.body; delete record.body; delete record.leaseToken; if (communicationText) record.bodyHash = ticketBodyHash(communicationText);
     const fd = fs.openSync(file, 'a'); try { fs.writeSync(fd, `${JSON.stringify(record)}\n`, null, 'utf8'); fs.fsyncSync(fd); } finally { fs.closeSync(fd); } return { file, eventId: record.eventId, bodyHash: event.body ? ticketBodyHash(event.body) : null };
   }
   return { append };

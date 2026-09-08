@@ -16,7 +16,7 @@ test('ticket client retries transient responses with the same request', async ()
   assert.deepEqual(await client.get('t1'), { ok: true }); assert.equal(calls, 2);
 });
 
-test('ticket log persists metadata without body or lease token', () => {
+test('ticket log persists metadata and a body hash without body or lease token', () => {
   const root = mkdtempSync(path.join(tmpdir(), 'ticket-log-')); const log = createTicketLog({ root, machineKey: 'machine-base-a', projectKey: 'project' }); const result = log.append({ event: 'created', body: 'secret task', leaseToken: 'secret lease' });
-  const line = readFileSync(result.file, 'utf8'); assert.equal(line.includes('secret task'), true); assert.equal(line.includes('secret lease'), false); assert.equal(line.includes(result.bodyHash), true);
+  const line = readFileSync(result.file, 'utf8'); assert.equal(line.includes('secret task'), false); assert.equal(line.includes('secret lease'), false); assert.equal(line.includes(result.bodyHash), true);
 });
