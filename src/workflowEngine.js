@@ -15,7 +15,7 @@ export function createWorkflow({ manifest, store = createRunStore({ runId: manif
     store.append({ type: 'step_started', runId: state.runId, stepId }); return store.write(nextState);
   }
   function accept(stepId, evidence) {
-    const state = snapshot(); const step = manifest.steps.find((item) => item.stepId === stepId); const result = evaluateEvidence({ evidence, step, manifest });
+    const state = snapshot(); const step = manifest.steps.find((item) => item.stepId === stepId); if (!step || !['running', 'verifying'].includes(state.steps[stepId]?.status)) throw new Error(`step_not_verifying:${stepId}`); const result = evaluateEvidence({ evidence, step, manifest });
     if (!result.ok) { store.append({ type: 'step_blocked', runId: state.runId, stepId, reason: result.reason }); return store.write({ ...state, steps: { ...state.steps, [stepId]: { ...state.steps[stepId], status: 'blocked', blockReason: result.reason } } }); }
     const nextState = reduceRun({ ...state, evidence: { ...state.evidence, [stepId]: evidence }, steps: { ...state.steps, [stepId]: { ...state.steps[stepId], status: 'succeeded', gateId: result.gateId } } }, manifest);
     store.append({ type: 'step_accepted', runId: state.runId, stepId, artifactId: evidence.artifactId, gateId: result.gateId }); return store.write(nextState);
