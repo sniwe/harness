@@ -6,4 +6,13 @@ export async function probeRuntime({ baseUrl, requiredPath, required = {}, fetch
   finally { clearTimeout(timer); }
 }
 
+export async function waitForRuntime(config, { probe = probeRuntime, sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)), pollMs = 1000, signal } = {}) {
+  while (true) {
+    if (signal?.aborted) throw new Error('runtime_wait_cancelled');
+    const result = await probe(config);
+    if (result.state === 'ready') return result;
+    await sleep(pollMs);
+  }
+}
+
 function keyPath(value, key) { return key.split('.').reduce((current, part) => current?.[part], value); }
