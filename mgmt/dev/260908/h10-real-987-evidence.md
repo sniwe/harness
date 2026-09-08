@@ -36,6 +36,8 @@ This is retained evidence from the real normal-browser verifier run. It is not a
 
 ## Missing H10 gates
 
+Live harness preflight at the time of this evidence returned `ok=true`, `state=ready`: both exact Windows project roots existed, the app browser adapter and Qwen fixture adapter resolved, both runtime probes returned ready, and the exact v1 Qwen protocol plan was advertised.
+
 - No measured committed-throughput metric or source/candidate comparison is attached.
 - Required source-time probes, canonical hash, beyond-frontier check, and independent correctness verifier output are not attached.
 - No six observed-predicate restart records are attached.
