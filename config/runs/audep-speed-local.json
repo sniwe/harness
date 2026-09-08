@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "runId": "audep-speed-local-260908",
+  "planDigest": "57499d76137be52bfd6d45f9ab3f98c0600635b94a5605189f555ccd1d227316",
+  "controller": { "machineKey": "machine-base-controller" },
+  "inputs": [
+    { "role": "app-plan", "sha256": "c3ad9059934e84d3f3c55ce11d7fd3e083b0e19ca9947bd8b8aed8ddd7e9b461" },
+    { "role": "qwen-plan", "sha256": "d325d9407caf1ff9705cbb3d476255e130907ab4ae4574c506f184bf487ae50a" }
+  ],
+  "handoffMode": "verified-byte-transfer",
+  "projects": {
+    "main-app": { "profile": "C:\\retry" },
+    "qwen-asr": { "profile": "C:\\Users\\rhyse\\Qwen3-ASR" }
+  },
+  "adapters": {
+    "main-app": {
+      "verifier": "mgmt\\dev\\260906\\verify-upload-987-browser.mjs",
+      "source": "C:\\retry\\src\\backend\\data\\media\\1788683394546-ebc52030-3330-4ddb-92dc-b95d9c76a26d-987-mtmo3aqe-c4b8b6ddfda248.mp3"
+    },
+    "qwen-asr": {
+      "python": "C:\\Users\\rhyse\\.conda\\envs\\qwen3-asr\\python.exe",
+      "tracer": "scripts\\audep_http_fixture_tracer.py"
+    }
+  },
+  "runtimes": {
+    "main-app": { "baseUrl": "http://127.0.0.1:3000", "requiredPath": "/health", "required": { "tunnelKey": "chinApp" } },
+    "qwen-asr": { "baseUrl": "http://127.0.0.1:8000", "requiredPath": "/health", "required": { "runtime.server_role": "english" } }
+  },
+  "protocolBaseline": "12.5s-primary-plus-5s-boundary-v1",
+  "limits": { "maxCorrectiveAttemptsPerGate": 2, "maxConcurrentBenchmarks": 1 },
+  "steps": [
+    { "stepId": "A0", "owner": "main-app", "dependsOn": [], "commandProfile": "app-focused", "verifierProfile": "a0-observability", "immutableInputs": [], "resourceBudget": {}, "retryClass": "bounded", "requiredOutputTypes": ["acceptance"], "rollbackProfile": "preserve", "optionalPolicy": "required" },
+    { "stepId": "Q0", "owner": "qwen-asr", "dependsOn": [], "commandProfile": "qwen-focused", "verifierProfile": "q0-baseline", "immutableInputs": [], "resourceBudget": {}, "retryClass": "bounded", "requiredOutputTypes": ["acceptance"], "rollbackProfile": "preserve", "optionalPolicy": "required" },
+    { "stepId": "A1", "owner": "main-app", "dependsOn": ["A0"], "commandProfile": "app-focused", "verifierProfile": "a1-byte-hash", "immutableInputs": ["A0"], "resourceBudget": {}, "retryClass": "bounded", "requiredOutputTypes": ["acceptance"], "rollbackProfile": "preserve", "optionalPolicy": "required" },
+    { "stepId": "Q1", "owner": "qwen-asr", "dependsOn": ["Q0"], "commandProfile": "qwen-focused", "verifierProfile": "q1-long-poll", "immutableInputs": ["Q0"], "resourceBudget": {}, "retryClass": "bounded", "requiredOutputTypes": ["acceptance"], "rollbackProfile": "preserve", "optionalPolicy": "required" },
+    { "stepId": "A2A", "owner": "main-app", "dependsOn": ["A1"], "commandProfile": "app-focused", "verifierProfile": "a2a-partial", "immutableInputs": ["A1"], "resourceBudget": {}, "retryClass": "bounded", "requiredOutputTypes": ["acceptance"], "rollbackProfile": "preserve", "optionalPolicy": "required" },
+    { "stepId": "A2B", "owner": "main-app", "dependsOn": ["A2A", "Q1"], "commandProfile": "app-focused", "verifierProfile": "a2b-adoption", "immutableInputs": ["A2A", "Q1"], "resourceBudget": {}, "retryClass": "bounded", "requiredOutputTypes": ["acceptance"], "rollbackProfile": "preserve", "optionalPolicy": "required" },
+    { "stepId": "A3", "owner": "main-app", "dependsOn": ["A2B"], "commandProfile": "app-focused", "verifierProfile": "a3-concurrency", "immutableInputs": ["A2B"], "resourceBudget": {}, "retryClass": "bounded", "requiredOutputTypes": ["acceptance"], "rollbackProfile": "preserve", "optionalPolicy": "required" },
+    { "stepId": "A4", "owner": "main-app", "dependsOn": ["A3"], "commandProfile": "app-browser", "verifierProfile": "a4-browser", "immutableInputs": ["A3"], "resourceBudget": {}, "retryClass": "bounded", "requiredOutputTypes": ["acceptance"], "rollbackProfile": "preserve", "optionalPolicy": "required" },
+    { "stepId": "Q2", "owner": "qwen-asr", "dependsOn": ["Q1", "A4"], "commandProfile": "qwen-benchmark", "verifierProfile": "q2-987", "immutableInputs": ["Q1", "A4"], "resourceBudget": {}, "retryClass": "bounded", "requiredOutputTypes": ["benchmark", "acceptance"], "rollbackProfile": "preserve", "optionalPolicy": "required" },
+    { "stepId": "Q3", "owner": "qwen-asr", "dependsOn": ["Q2"], "commandProfile": "qwen-benchmark", "verifierProfile": "q3-correction", "immutableInputs": ["Q2"], "resourceBudget": {}, "retryClass": "bounded", "requiredOutputTypes": ["benchmark", "acceptance"], "rollbackProfile": "preserve", "optionalPolicy": "required" },
+    { "stepId": "Q4", "owner": "qwen-asr", "dependsOn": ["Q3"], "commandProfile": "qwen-benchmark", "verifierProfile": "q4-quality-vram", "immutableInputs": ["Q3"], "resourceBudget": {}, "retryClass": "bounded", "requiredOutputTypes": ["benchmark", "acceptance"], "rollbackProfile": "preserve", "optionalPolicy": "conditional" },
+    { "stepId": "Q5", "owner": "qwen-asr", "dependsOn": ["Q4"], "commandProfile": "qwen-benchmark", "verifierProfile": "q5-localization", "immutableInputs": ["Q4"], "resourceBudget": {}, "retryClass": "bounded", "requiredOutputTypes": ["benchmark", "acceptance"], "rollbackProfile": "preserve", "optionalPolicy": "required" },
+    { "stepId": "A5", "owner": "main-app", "dependsOn": ["A4"], "commandProfile": "app-browser", "verifierProfile": "a5-persistence", "immutableInputs": ["A4"], "resourceBudget": {}, "retryClass": "bounded", "requiredOutputTypes": ["acceptance"], "rollbackProfile": "preserve", "optionalPolicy": "conditional" },
+    { "stepId": "Q6", "owner": "qwen-asr", "dependsOn": ["Q5", "A5"], "commandProfile": "qwen-focused", "verifierProfile": "q6-contract", "immutableInputs": ["Q5", "A5"], "resourceBudget": {}, "retryClass": "bounded", "requiredOutputTypes": ["contract", "acceptance"], "rollbackProfile": "preserve", "optionalPolicy": "conditional" },
+    { "stepId": "A6", "owner": "main-app", "dependsOn": ["Q6"], "commandProfile": "app-browser", "verifierProfile": "a6-acceptance", "immutableInputs": ["Q6"], "resourceBudget": {}, "retryClass": "bounded", "requiredOutputTypes": ["acceptance"], "rollbackProfile": "preserve", "optionalPolicy": "conditional" },
+    { "stepId": "Q7", "owner": "qwen-asr", "dependsOn": ["A6"], "commandProfile": "qwen-benchmark", "verifierProfile": "q7-final", "immutableInputs": ["A6"], "resourceBudget": {}, "retryClass": "bounded", "requiredOutputTypes": ["release", "acceptance"], "rollbackProfile": "preserve", "optionalPolicy": "required" },
+    { "stepId": "A7", "owner": "main-app", "dependsOn": ["Q7"], "commandProfile": "app-browser", "verifierProfile": "a7-final", "immutableInputs": ["Q7"], "resourceBudget": {}, "retryClass": "bounded", "requiredOutputTypes": ["acceptance", "benchmark"], "rollbackProfile": "preserve", "optionalPolicy": "required" }
+  ]
+}
