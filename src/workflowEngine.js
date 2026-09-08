@@ -21,5 +21,6 @@ export function createWorkflow({ manifest, store = createRunStore({ runId: manif
     store.append({ type: 'step_accepted', runId: state.runId, stepId, artifactId: evidence.artifactId, gateId: result.gateId }); return store.write(nextState);
   }
   function cancel(reason = 'operator_cancelled') { const state = snapshot(); const nextState = { ...state, status: 'cancelled', cancelReason: reason, cancelledAt: new Date().toISOString() }; store.append({ type: 'run_cancelled', runId: state.runId, reason }); return store.write(nextState); }
-  return { snapshot, next, begin, accept, cancel, store };
+  function retryStep(stepId, reason = 'corrective_attempt') { const state = snapshot(); const current = state.steps[stepId]; const limit = manifest.limits?.maxCorrectiveAttemptsPerGate ?? 0; const correctiveAttempts = current?.correctiveAttempts ?? 0; if (!current || current.status !== 'blocked' || correctiveAttempts >= limit) throw new Error(`step_retry_denied:${stepId}`); const nextState = { ...state, status: 'running', steps: { ...state.steps, [stepId]: { ...current, status: 'runnable', correctiveAttempts: correctiveAttempts + 1, retryReason: reason } } }; store.append({ type: 'step_retried', runId: state.runId, stepId, reason }); return store.write(nextState); }
+  return { snapshot, next, begin, accept, cancel, retryStep, store };
 }

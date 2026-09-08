@@ -8,7 +8,7 @@ import { createRunStore } from '../src/runStore.js';
 
 function workflow() { return createWorkflow({ manifest, store: createRunStore({ root: mkdtempSync(path.join(tmpdir(), 'workflow-')), runId: manifest.runId }) }); }
 
-const manifest = { schemaVersion: 1, runId: 'run-test', planDigest: 'a'.repeat(64), steps: [{ stepId: 'A0', owner: 'app', dependsOn: [], verifierProfile: 'focused', commandProfile: 'test' }, { stepId: 'Q0', owner: 'qwen', dependsOn: ['A0'], verifierProfile: 'focused', commandProfile: 'test' }] };
+const manifest = { schemaVersion: 1, runId: 'run-test', planDigest: 'a'.repeat(64), limits: { maxCorrectiveAttemptsPerGate: 1 }, steps: [{ stepId: 'A0', owner: 'app', dependsOn: [], verifierProfile: 'focused', commandProfile: 'test' }, { stepId: 'Q0', owner: 'qwen', dependsOn: ['A0'], verifierProfile: 'focused', commandProfile: 'test' }] };
 test('workflow persists independent evidence gates and dependencies', () => {
   const run = workflow();
   assert.equal(run.next().stepId, 'A0');
@@ -29,4 +29,8 @@ test('valid evidence unlocks the dependent step after restart', () => {
 
 test('cancellation is durable and prevents further dispatch', () => {
   const run = workflow(); run.cancel('test_cancel'); assert.equal(run.snapshot().status, 'cancelled'); assert.equal(run.next(), undefined); assert.throws(() => run.begin('A0'), /step_not_runnable/);
+});
+
+test('blocked steps can use only bounded corrective retries', () => {
+  const run = workflow(); run.begin('A0'); run.accept('A0', { runId: manifest.runId, stepId: 'A0', planDigest: manifest.planDigest, verdict: 'fail', artifactId: 'd'.repeat(64), verifier: { exitCode: 1 } }); assert.equal(run.retryStep('A0', 'repair').steps.A0.status, 'runnable'); assert.equal(run.snapshot().steps.A0.correctiveAttempts, 1); assert.throws(() => run.retryStep('A0'), /retry_denied/);
 });
