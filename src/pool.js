@@ -19,7 +19,7 @@ export function createWorkerPool({ workerEntry = path.resolve("mgmt/machine-base
     slot.reader.on("line", (line) => { logger.info?.(`[worker:${slot.id}] ${line}`); if (line.includes("[machine-base-worker] ready")) { slot.state = "ready"; slot.resolveReady(); } });
     const stdout = readline.createInterface({ input: slot.child.stdout });
     slot.stdout = stdout;
-    stdout.on("line", (line) => { if (!slot.pending) return; const pending = slot.pending; slot.pending = null; let value; try { if (Buffer.byteLength(line, "utf8") > MAX_WORKER_LINE_BYTES) throw new Error("worker_result_too_large"); value = JSON.parse(line); if (pending.requestId && value?.requestId && value.requestId !== pending.requestId) throw new Error("worker_result_id_mismatch"); } catch (error) { pending.reject(error); failSlot(slot, error); return; } pending.resolve(value); });
+    stdout.on("line", (line) => { if (!slot.pending) return; const pending = slot.pending; slot.pending = null; let value; try { if (Buffer.byteLength(line, "utf8") > MAX_WORKER_LINE_BYTES) throw new Error("worker_result_too_large"); value = JSON.parse(line); if (pending.requestId && value?.requestId !== pending.requestId) throw new Error("worker_result_id_mismatch"); } catch (error) { pending.reject(error); failSlot(slot, error); return; } pending.resolve(value); });
     slot.child.on("error", (error) => failSlot(slot, error));
     slot.child.on("close", (code, signal) => { if (slot.state !== "stopped") failSlot(slot, new Error(`worker_exit slot=${slot.id} code=${code} signal=${signal}`)); });
     return slot.ready;
