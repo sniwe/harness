@@ -4,12 +4,20 @@ import { adaptAudepSteps, canonicalArtifactName, isExactArtifactMatch } from '..
 import { validateBenchmarkResult } from '../src/benchmarkSchema.js';
 import { joinBenchmarkResults } from '../src/benchmarkJoin.js';
 import { evaluateFinalAcceptance, REQUIRED_RESTARTS } from '../src/finalAcceptance.js';
+import { validateHandoff } from '../src/handoffSchemas.js';
 
 test('AudEp filename aliases are exact and canonicalized', () => {
   assert.equal(canonicalArtifactName('main-app-speed-a5-adaptive-boundary-v2-acceptance.md'), 'main-app-speed-a6-adaptive-boundary-v2-acceptance.md');
   assert.equal(isExactArtifactMatch('main-app-speed-a5-adaptive-boundary-v2-acceptance.md', 'main-app-speed-a6-adaptive-boundary-v2-acceptance.md'), true);
   assert.equal(isExactArtifactMatch('bad-a5-adaptive-boundary-v2-acceptance.md', 'main-app-speed-a6-adaptive-boundary-v2-acceptance.md'), false);
   assert.equal(adaptAudepSteps([{ stepId: 'A6' }])[0].gateId, 'a6-adaptive-v2-acceptance');
+});
+
+test('handoff filenames cannot escape the receiving directory', () => {
+  const descriptor = { schemaVersion: 1, runId: 'r', artifactType: 'x', producerPhase: 'Q1', producer: { machineKey: 'q', projectKey: 'qwen-asr' }, consumer: { machineKey: 'a', projectKey: 'main-app' }, filename: 'x.md', requiredAcceptanceType: 'x', artifact: { sha256: 'a'.repeat(64), byteLength: 1 } };
+  assert.equal(validateHandoff(descriptor), true);
+  assert.throws(() => validateHandoff({ ...descriptor, filename: '../x.md' }), /filename_invalid/);
+  assert.throws(() => validateHandoff({ ...descriptor, filename: 'nested/x.md' }), /filename_invalid/);
 });
 
 test('benchmark pass requires browser, localization, and measured throughput evidence', () => {
