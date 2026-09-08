@@ -14,7 +14,7 @@ function evidenceFromCommand(step, result) {
   return evidence;
 }
 
-export function createRunExecutor({ workflow, manifest, attemptStore, commandRunner = runCommand, resolveCommand, runner, pollMs = 1000, sleepImpl = sleep, skipConditional = [] } = {}) {
+export function createRunExecutor({ workflow, manifest, attemptStore, operationOutbox, commandRunner = runCommand, resolveCommand, runner, pollMs = 1000, sleepImpl = sleep, skipConditional = [] } = {}) {
   if (!workflow || !manifest || (!resolveCommand && !runner)) throw new Error('run_executor_invalid');
   const attempts = attemptStore || createAttemptStore(workflow.store.dir);
 
@@ -33,16 +33,19 @@ export function createRunExecutor({ workflow, manifest, attemptStore, commandRun
       immutableInputs: declared.immutableInputs,
     });
     try {
+      operationOutbox?.intent(attempt.operationId, { runId: manifest.runId, stepId: step.stepId, attemptId: attempt.attemptId, action: 'execute_step' });
       const raw = runner
         ? await runner({ manifest, step: declared, attempt })
         : evidenceFromCommand(declared, await commandRunner({ ...resolveCommand({ manifest, step: declared, attempt }), step: declared }));
       const evidence = raw?.state ? evidenceFromCommand(declared, raw) : raw;
       const outcome = attempts.finish(attempt.attemptId, { state: 'succeeded', evidence });
+      operationOutbox?.result(attempt.operationId, { state: 'succeeded', attemptId: attempt.attemptId });
       workflow.accept(step.stepId, evidence);
       return outcome;
     } catch (error) {
       const blockArtifactId = crypto.createHash('sha256').update(`${attempt.attemptId}:${error.message}`).digest('hex');
       const outcome = attempts.finish(attempt.attemptId, { state: 'blocked', reason: 'execution_failed', error: error.message, artifactId: blockArtifactId });
+      try { operationOutbox?.result(attempt.operationId, { state: 'blocked', attemptId: attempt.attemptId, artifactId: blockArtifactId }); } catch { /* missing intent is retained as the blocker */ }
       const state = workflow.snapshot();
       workflow.store.append({ type: 'step_execution_blocked', runId: state.runId, stepId: step.stepId, attemptId: attempt.attemptId, artifactId: blockArtifactId, error: error.message });
       workflow.store.write({ ...state, status: 'blocked', steps: { ...state.steps, [step.stepId]: { ...state.steps[step.stepId], status: 'blocked', blockReason: 'execution_failed', blockArtifactId, failureAttemptId: attempt.attemptId, failure: error.message } } });

@@ -70,3 +70,14 @@ test('run executor exposes command failures as exact resumable blockers', async 
   assert.equal(executor.attempts.recover()[0].outcome.state, 'blocked');
   assert.equal(executor.attempts.recover()[0].outcome.artifactId, state.steps.A0.blockArtifactId);
 });
+
+test('run executor persists an operation intent before invoking the runner', async () => {
+  const manifest = readRunManifest('config/runs/audep-speed-local.json', { verifyInputs: false });
+  const recoveryManifest = { ...manifest, steps: [manifest.steps[0]] };
+  const store = createRunStore({ root: mkdtempSync(path.join(tmpdir(), 'run-executor-operation-')), runId: manifest.runId, manifest: recoveryManifest });
+  const workflow = createWorkflow({ manifest: recoveryManifest, store }); const events = [];
+  const outbox = { intent: (id, value) => { events.push(['intent', id, value]); return value; }, result: (id, value) => events.push(['result', id, value]) };
+  const executor = createRunExecutor({ workflow, manifest: recoveryManifest, operationOutbox: outbox, runner: async ({ attempt }) => { assert.equal(events[0][0], 'intent'); assert.equal(events[0][1], attempt.operationId); return { runId: manifest.runId, stepId: 'A0', planDigest: manifest.planDigest, verdict: 'pass', outputTypes: ['acceptance'], artifactId: 'd'.repeat(64), verifier: { profile: 'a0-observability', exitCode: 0 } }; } });
+  await executor.run();
+  assert.equal(events[1][0], 'result'); assert.equal(events[1][1], events[0][1]);
+});
