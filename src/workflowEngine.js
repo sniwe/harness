@@ -16,11 +16,12 @@ export function createWorkflow({ manifest, store = createRunStore({ runId: manif
   }
   function accept(stepId, evidence) {
     const state = snapshot(); const step = manifest.steps.find((item) => item.stepId === stepId); if (!step || !['running', 'verifying'].includes(state.steps[stepId]?.status)) throw new Error(`step_not_verifying:${stepId}`); const result = evaluateEvidence({ evidence, step, manifest });
-    if (!result.ok) { store.append({ type: 'step_blocked', runId: state.runId, stepId, reason: result.reason }); return store.write({ ...state, steps: { ...state.steps, [stepId]: { ...state.steps[stepId], status: 'blocked', blockReason: result.reason } } }); }
+    if (!result.ok) { store.append({ type: 'step_blocked', runId: state.runId, stepId, reason: result.reason, artifactId: evidence?.artifactId }); return store.write({ ...state, steps: { ...state.steps, [stepId]: { ...state.steps[stepId], status: 'blocked', blockReason: result.reason, blockArtifactId: evidence?.artifactId } } }); }
     const nextState = reduceRun({ ...state, evidence: { ...state.evidence, [stepId]: evidence }, steps: { ...state.steps, [stepId]: { ...state.steps[stepId], status: 'succeeded', gateId: result.gateId } } }, manifest);
     store.append({ type: 'step_accepted', runId: state.runId, stepId, artifactId: evidence.artifactId, gateId: result.gateId }); return store.write(nextState);
   }
   function cancel(reason = 'operator_cancelled') { const state = snapshot(); const nextState = { ...state, status: 'cancelled', cancelReason: reason, cancelledAt: new Date().toISOString() }; store.append({ type: 'run_cancelled', runId: state.runId, reason }); return store.write(nextState); }
   function retryStep(stepId, reason = 'corrective_attempt') { const state = snapshot(); const current = state.steps[stepId]; const limit = manifest.limits?.maxCorrectiveAttemptsPerGate ?? 0; const correctiveAttempts = current?.correctiveAttempts ?? 0; if (!current || current.status !== 'blocked' || correctiveAttempts >= limit) throw new Error(`step_retry_denied:${stepId}`); const nextState = { ...state, status: 'running', steps: { ...state.steps, [stepId]: { ...current, status: 'runnable', correctiveAttempts: correctiveAttempts + 1, retryReason: reason } } }; store.append({ type: 'step_retried', runId: state.runId, stepId, reason }); return store.write(nextState); }
-  return { snapshot, next, begin, accept, cancel, retryStep, store };
+  function resume(resolution) { const state = snapshot(); const step = Object.values(state.steps).find((item) => item.status === 'blocked' && item.blockArtifactId === resolution); if (!step) throw new Error('resolution_not_found'); return retryStep(step.stepId, `resolution:${resolution}`); }
+  return { snapshot, next, begin, accept, cancel, retryStep, resume, store };
 }

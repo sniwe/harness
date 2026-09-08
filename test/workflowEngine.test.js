@@ -34,3 +34,7 @@ test('cancellation is durable and prevents further dispatch', () => {
 test('blocked steps can use only bounded corrective retries', () => {
   const run = workflow(); run.begin('A0'); run.accept('A0', { runId: manifest.runId, stepId: 'A0', planDigest: manifest.planDigest, verdict: 'fail', artifactId: 'd'.repeat(64), verifier: { exitCode: 1 } }); assert.equal(run.retryStep('A0', 'repair').steps.A0.status, 'runnable'); assert.equal(run.snapshot().steps.A0.correctiveAttempts, 1); assert.throws(() => run.retryStep('A0'), /retry_denied/);
 });
+
+test('resume requires the exact artifact that caused the blocker', () => {
+  const run = workflow(); const artifactId = 'e'.repeat(64); run.begin('A0'); run.accept('A0', { runId: manifest.runId, stepId: 'A0', planDigest: manifest.planDigest, verdict: 'fail', artifactId, verifier: { exitCode: 1 } }); assert.throws(() => run.resume('f'.repeat(64)), /resolution_not_found/); assert.equal(run.resume(artifactId).steps.A0.status, 'runnable');
+});
