@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { resolveManifestFile, runCommand } from '../src/runCli.js';
@@ -26,4 +26,13 @@ test('durable run IDs cannot escape the run root', () => {
 
 test('start initializes a workflow after successful preflight', async () => {
   const store = createRunStore({ root: mkdtempSync(path.join(tmpdir(), 'run-start-')), runId: 'audep-speed-260908' }); const result = await runCommand('start', 'config/runs/audep-speed.json', { store, preflight: async () => ({ ok: true, state: 'ready' }) }); assert.equal(result.ok, true); assert.equal(result.command, 'start'); assert.equal(result.state.status, 'running'); assert.equal(result.next.stepId, 'A0'); const report = await runCommand('report', 'config/runs/audep-speed.json', { store }); assert.match(report.report, /run_initialized/);
+});
+
+test('rehearsal exports its report without changing the workflow contract', async () => {
+  const manifestFile = 'config/runs/audep-speed-local.json'; const outFile = path.join(mkdtempSync(path.join(tmpdir(), 'rehearsal-report-')), 'run-report.md'); const store = createRunStore({ root: mkdtempSync(path.join(tmpdir(), 'rehearsal-export-')), runId: 'audep-speed-local-260908' });
+  const result = await runCommand('rehearse', manifestFile, { store, outFile, fixture: true });
+  assert.match(result.report, /PASS/);
+  assert.equal(result.reportFile, outFile);
+  assert.equal(existsSync(outFile), true);
+  assert.match(readFileSync(outFile, 'utf8'), /Evidence index/);
 });

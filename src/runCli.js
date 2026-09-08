@@ -19,7 +19,7 @@ export function resolveManifestFile({ manifestFile, runId, directory = 'config/r
   return path.join(directory, matches[0]);
 }
 
-export async function runCommand(commandName, manifestFile, { store, outFile, preflight = preflightManifest } = {}) {
+export async function runCommand(commandName, manifestFile, { store, outFile, fixture = false, preflight = preflightManifest } = {}) {
   if (!manifestFile) throw new Error('manifest_required');
   if (commandName === 'validate') return readRunManifest(manifestFile) && { ok: true, command: commandName, manifest: manifestFile };
   if (commandName === 'preflight') return preflight(manifestFile);
@@ -31,7 +31,7 @@ export async function runCommand(commandName, manifestFile, { store, outFile, pr
   if (commandName === 'report') { const state = workflow.snapshot(); const acceptanceFile = value('--acceptance'); const finalAcceptance = acceptanceFile ? evaluateFinalAcceptance(JSON.parse(readFileSync(acceptanceFile, 'utf8'))) : undefined; const result = { ok: state.status === 'accepted' && (finalAcceptance ? finalAcceptance.ok : true), runId: manifest.runId, state, trace: workflow.store.events(), finalAcceptance }; const report = renderRunReport({ manifest, result }); if (outFile) writeFileSync(outFile, report + '\n', 'utf8'); return { ok: true, runId: manifest.runId, status: state.status, steps: state.steps, finalAcceptance, report, reportFile: outFile || undefined }; }
   if (commandName === 'cancel') return { ok: true, state: workflow.cancel(value('--reason') || 'operator_cancelled') };
   if (commandName === 'resume') return { ok: true, state: workflow.resume(value('--resolution')) };
-  if (commandName === 'rehearse') { if (value('--fixture') !== '1') throw new Error('synthetic_rehearsal_requires_fixture'); return runRehearsal({ manifest }).then((result) => ({ ...result, report: renderRunReport({ manifest, result }) })); }
+  if (commandName === 'rehearse') { if (value('--fixture') !== '1' && fixture !== true) throw new Error('synthetic_rehearsal_requires_fixture'); return runRehearsal({ manifest }).then((result) => { const report = renderRunReport({ manifest, result }); const file = outFile || value('--out'); if (file) writeFileSync(file, report + '\n', 'utf8'); return { ...result, report, reportFile: file || undefined }; }); }
   throw new Error('run_command_invalid');
 }
 
