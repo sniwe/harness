@@ -3,8 +3,9 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { ticketPrompt } from './ticketPrompt.js';
 
-export function createTicketWorker({ client, pool, identity, log, lockRoot }) {
+export function createTicketWorker({ client, pool, identity, log, lockRoot, projectRoot = process.env.MACHINE_BASE_RUNTIME_CWD || process.cwd() }) {
   if (!client || !pool || !identity || !log || !lockRoot) throw new Error('ticket_worker_config_invalid');
+  if (!projectRoot || path.resolve(projectRoot) !== path.resolve(process.env.MACHINE_BASE_RUNTIME_CWD || projectRoot)) throw new Error('ticket_project_cwd_mismatch');
   async function run(ticket) {
     const key = crypto.createHash('sha256').update(`${identity.machineKey}/${identity.projectKey}/${ticket.ticketId}`).digest('hex'); const file = path.join(lockRoot, `${key}.lock`); fs.mkdirSync(lockRoot, { recursive: true }); let fd;
     try { fd = fs.openSync(file, 'wx'); fs.writeSync(fd, JSON.stringify({ pid: process.pid, executionId: `ticket:${ticket.ticketId}`, ticketId: ticket.ticketId })); } catch {
