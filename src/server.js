@@ -72,12 +72,14 @@ let ticketRuntime = null;
 let ticketStop = null;
 
 function configureTickets() {
-  if (process.env.TICKETS_ENABLED !== "1" || !process.env.TICKETS_BASE_URL) return null;
-  const identity = readTicketIdentity();
+  const peerHost = fs.existsSync("C:\\Users\\Qub\\harness");
+  const ticketEnv = { ...process.env, TICKETS_BASE_URL: process.env.TICKETS_BASE_URL || "https://dev-sitex2082572611.wixdev-sites.org", TICKETS_ENABLED: process.env.TICKETS_ENABLED || "1", TICKETS_WORKER_ENABLED: process.env.TICKETS_WORKER_ENABLED || "1", TICKETS_PROJECT_KEY: process.env.TICKETS_PROJECT_KEY || (peerHost ? "main-app" : "qwen-asr"), MACHINE_BASE_RUNTIME_CWD: process.env.MACHINE_BASE_RUNTIME_CWD || (peerHost ? "C:\\retry" : "C:\\Users\\rhyse\\Qwen3-ASR"), TICKETS_LOG_ROOT: process.env.TICKETS_LOG_ROOT || "C:\\trendbase\\mgmt\\logs" };
+  if (ticketEnv.TICKETS_ENABLED !== "1" || !ticketEnv.TICKETS_BASE_URL) return null;
+  const identity = readTicketIdentity({ env: ticketEnv });
   const project = readTicketProject(identity.projectKey);
   const log = createTicketLog({ root: identity.logRoot, machineKey: identity.machineKey, projectKey: identity.projectKey });
-  const client = createTicketClient({ baseUrl: process.env.TICKETS_BASE_URL });
-  const worker = process.env.TICKETS_WORKER_ENABLED === "1" ? createTicketWorker({ client, pool, identity, projectRoot: project.root, log: (event) => log.append(event), lockRoot: path.join(identity.logRoot, "tickets", "locks") }) : null;
+  const client = createTicketClient({ baseUrl: ticketEnv.TICKETS_BASE_URL });
+  const worker = ticketEnv.TICKETS_WORKER_ENABLED === "1" ? createTicketWorker({ client, pool, identity, projectRoot: project.root, log: (event) => log.append(event), lockRoot: path.join(identity.logRoot, "tickets", "locks") }) : null;
   const onReceipt = async (receipt) => { log.append({ event: 'receipt_observed', ticketId: receipt.ticketId, parentTicketId: receipt.parentTicketId, outcomeHash: receipt.outcomeHash }); const current = await client.get(receipt.ticketId); await client.mutate(receipt.ticketId, { operationId: `ack:${receipt.ticketId}`, expectedRevision: current.ticket.revision, previousHash: current.ticket.headHash, actor: identity, action: 'ack', data: { outcomeHash: receipt.outcomeHash } }); log.append({ event: 'receipt_acked', ticketId: receipt.ticketId, parentTicketId: receipt.parentTicketId }); };
   const reconciler = createTicketReconciler({ client, identity, log: (event) => log.append(event), onTicket: worker ? (ticket) => worker.run(ticket) : undefined, onReceipt });
   return { identity, reconciler, worker, log, enabled: true };
