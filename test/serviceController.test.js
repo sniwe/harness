@@ -10,3 +10,8 @@ test('service controller persists owned process identity and marks missing child
   const root = mkdtempSync(path.join(tmpdir(), 'service-')); let alive = true; const controller = createServiceController({ file: path.join(root, 'service.json'), spawnImpl: () => ({ pid: 41, unref() {} }), probe: () => alive });
   const started = controller.start({ serviceId: 'bench', command: 'node', cwd: root }); assert.equal(started.pid, 41); assert.equal(controller.inspect().state, 'running'); alive = false; assert.equal(controller.inspect().state, 'unknown'); assert.deepEqual(commandProfile('qwen-benchmark'), {});
 });
+
+test('service controller restarts only after its owned child exits', async () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'service-restart-')); let alive = true; let nextPid = 41; const controller = createServiceController({ file: path.join(root, 'service.json'), spawnImpl: () => ({ pid: ++nextPid, unref() {} }), probe: () => alive });
+  controller.start({ serviceId: 'bench', command: 'node', cwd: root }); const restarting = controller.restart({ pollMs: 1 }); await new Promise((resolve) => setTimeout(resolve, 5)); assert.equal(controller.inspect().state, 'stopping'); alive = false; const started = await restarting; assert.equal(started.state, 'running'); assert.equal(started.pid, 43);
+});
