@@ -18,6 +18,7 @@ test('run executor persists outcome before accepting a step and completes the gr
   assert.equal(state.status, 'accepted');
   assert.equal(executor.attempts.recover().length, manifest.steps.length - 4);
   assert.ok(executor.attempts.recover().every(({ outcome }) => outcome?.state === 'succeeded'));
+  assert.equal(store.events().filter((event) => event.type === 'attempt_started').length, manifest.steps.length - 4);
 });
 
 test('run executor keeps polling when no step is currently runnable', async () => {

@@ -33,6 +33,7 @@ export function createRunExecutor({ workflow, manifest, attemptStore, operationO
       commandProfile: declared.commandProfile,
       immutableInputs: declared.immutableInputs,
     });
+    workflow.store.append({ type: 'attempt_started', runId: manifest.runId, stepId: step.stepId, attemptId: attempt.attemptId, operationId: attempt.operationId });
     let heartbeatTimer;
     try {
       operationOutbox?.intent(attempt.operationId, { runId: manifest.runId, stepId: step.stepId, attemptId: attempt.attemptId, action: 'execute_step' });
@@ -46,6 +47,7 @@ export function createRunExecutor({ workflow, manifest, attemptStore, operationO
       if (!gate.ok) throw new Error(`evidence_${gate.reason}`);
       const outcome = attempts.finish(attempt.attemptId, { state: 'succeeded', evidence });
       operationOutbox?.result(attempt.operationId, { state: 'succeeded', attemptId: attempt.attemptId });
+      workflow.store.append({ type: 'attempt_finished', runId: manifest.runId, stepId: step.stepId, attemptId: attempt.attemptId, operationId: attempt.operationId, state: 'succeeded', artifactId: evidence.artifactId });
       workflow.accept(step.stepId, evidence);
       return outcome;
     } catch (error) {
@@ -53,6 +55,7 @@ export function createRunExecutor({ workflow, manifest, attemptStore, operationO
       const outcome = attempts.finish(attempt.attemptId, { state: 'blocked', reason: 'execution_failed', error: error.message, artifactId: blockArtifactId });
       try { operationOutbox?.result(attempt.operationId, { state: 'blocked', attemptId: attempt.attemptId, artifactId: blockArtifactId }); } catch { /* missing intent is retained as the blocker */ }
       const state = workflow.snapshot();
+      workflow.store.append({ type: 'attempt_finished', runId: manifest.runId, stepId: step.stepId, attemptId: attempt.attemptId, operationId: attempt.operationId, state: 'blocked', artifactId: blockArtifactId, reason: 'execution_failed' });
       workflow.store.append({ type: 'step_execution_blocked', runId: state.runId, stepId: step.stepId, attemptId: attempt.attemptId, artifactId: blockArtifactId, error: error.message });
       workflow.store.write({ ...state, status: 'blocked', steps: { ...state.steps, [step.stepId]: { ...state.steps[step.stepId], status: 'blocked', blockReason: 'execution_failed', blockArtifactId, failureAttemptId: attempt.attemptId, failure: error.message } } });
       return outcome;
@@ -70,6 +73,7 @@ export function createRunExecutor({ workflow, manifest, attemptStore, operationO
       if (current?.attemptId !== record.input.attemptId || !['running', 'verifying'].includes(current.status)) continue;
       if (record.outcome?.state === 'succeeded' && record.outcome.evidence) {
         try { operationOutbox?.result(record.input.operationId, { state: 'succeeded', attemptId: record.input.attemptId, recovered: true }); } catch { /* an already-closed or unavailable outbox is not replayed */ }
+        workflow.store.append({ type: 'attempt_recovered', runId: manifest.runId, stepId: record.input.stepId, attemptId: record.input.attemptId, operationId: record.input.operationId, state: 'succeeded' });
         workflow.accept(record.input.stepId, record.outcome.evidence);
         recovered.push(record.outcome);
         continue;
@@ -78,6 +82,7 @@ export function createRunExecutor({ workflow, manifest, attemptStore, operationO
         const artifactId = record.outcome.artifactId || crypto.createHash('sha256').update(`${record.input.attemptId}:${record.outcome.error || 'execution_failed'}`).digest('hex');
         try { operationOutbox?.result(record.input.operationId, { state: 'blocked', attemptId: record.input.attemptId, artifactId, recovered: true }); } catch { /* an already-closed or unavailable outbox is retained */ }
         workflow.store.append({ type: 'step_blocked_after_recovery', runId: state.runId, stepId: record.input.stepId, attemptId: record.input.attemptId, artifactId, reason: record.outcome.reason || 'execution_failed' });
+        workflow.store.append({ type: 'attempt_recovered', runId: manifest.runId, stepId: record.input.stepId, attemptId: record.input.attemptId, operationId: record.input.operationId, state: 'blocked', artifactId });
         workflow.store.write({ ...state, status: 'blocked', steps: { ...state.steps, [record.input.stepId]: { ...current, status: 'blocked', blockReason: record.outcome.reason || 'execution_failed', blockArtifactId: artifactId, failureAttemptId: record.input.attemptId } } });
         recovered.push(record.outcome);
         continue;
@@ -87,6 +92,7 @@ export function createRunExecutor({ workflow, manifest, attemptStore, operationO
       try { operationOutbox?.result(record.input.operationId, { state: 'unknown', attemptId: record.input.attemptId, reason: 'unknown_after_crash' }); } catch { /* retain evidence if the outbox is unavailable */ }
       const refreshed = workflow.snapshot();
       workflow.store.append({ type: 'step_blocked_after_recovery', runId: refreshed.runId, stepId: record.input.stepId, attemptId: record.input.attemptId, reason: 'unknown_after_crash' });
+      workflow.store.append({ type: 'attempt_recovered', runId: manifest.runId, stepId: record.input.stepId, attemptId: record.input.attemptId, operationId: record.input.operationId, state: 'unknown', reason: 'unknown_after_crash' });
       workflow.store.write({ ...refreshed, status: 'blocked', steps: { ...refreshed.steps, [record.input.stepId]: { ...refreshed.steps[record.input.stepId], status: 'blocked', blockReason: 'unknown_after_crash', blockAttemptId: record.input.attemptId } } });
       recovered.push(outcome);
     }
