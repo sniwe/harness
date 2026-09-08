@@ -3,7 +3,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { ticketPrompt } from './ticketPrompt.js';
 
-export function createTicketWorker({ client, pool, identity, log, lockRoot, projectRoot = process.env.MACHINE_BASE_RUNTIME_CWD || process.cwd() }) {
+export function createTicketWorker({ client, pool, identity, log, lockRoot, journal, projectRoot = process.env.MACHINE_BASE_RUNTIME_CWD || process.cwd() }) {
   if (!client || !pool || !identity || !log || !lockRoot) throw new Error('ticket_worker_config_invalid');
   if (!projectRoot || path.resolve(projectRoot) !== path.resolve(process.env.MACHINE_BASE_RUNTIME_CWD || projectRoot)) throw new Error('ticket_project_cwd_mismatch');
   async function run(ticket) {
@@ -16,9 +16,9 @@ export function createTicketWorker({ client, pool, identity, log, lockRoot, proj
     try {
       leaseToken = crypto.randomUUID(); let current = await client.get(ticket.ticketId); const head = current.ticket;
       const claimed = await client.mutate(ticket.ticketId, { operationId: `claim:${ticket.ticketId}`, expectedRevision: head.revision, previousHash: head.headHash, actor, action: 'claim', data: { leaseToken } });
-      await client.mutate(ticket.ticketId, { operationId: `start:${ticket.ticketId}`, expectedRevision: claimed.ticket.revision, previousHash: claimed.ticket.headHash, actor, action: 'start', data: { leaseToken } }); log({ event: 'execution_started', ticketId: ticket.ticketId, executionId: `ticket:${ticket.ticketId}` });
+      await client.mutate(ticket.ticketId, { operationId: `start:${ticket.ticketId}`, expectedRevision: claimed.ticket.revision, previousHash: claimed.ticket.headHash, actor, action: 'start', data: { leaseToken } }); journal?.append({ event: 'execution_intent', ticketId: ticket.ticketId, executionId: `ticket:${ticket.ticketId}` }); log({ event: 'execution_started', ticketId: ticket.ticketId, executionId: `ticket:${ticket.ticketId}` });
       started = true;
-      const result = await pool.request({ task: 'remote-prompt', requestId: `ticket:${ticket.ticketId}`, prompt: ticketPrompt(ticket) }); const outcomeHash = crypto.createHash('sha256').update(JSON.stringify(result)).digest('hex');
+      const result = await pool.request({ task: 'remote-prompt', requestId: `ticket:${ticket.ticketId}`, prompt: ticketPrompt(ticket) }); const outcomeHash = crypto.createHash('sha256').update(JSON.stringify(result)).digest('hex'); journal?.append({ event: 'execution_outcome', ticketId: ticket.ticketId, executionId: `ticket:${ticket.ticketId}`, outcomeHash });
       const receiptTicketId = crypto.createHash('sha256').update(`receipt/${ticket.ticketId}`).digest('hex');
       await client.create({ ticketId: receiptTicketId, operationId: `receipt:${ticket.ticketId}`, kind: 'receipt', sender: actor, target: ticket.sender, conversationId: ticket.conversationId, correlationId: ticket.correlationId, parentTicketId: ticket.ticketId, testRunId: ticket.testRunId, subject: `Receipt ${ticket.ticketId}`, body: 'Ticket completed.', sourceTicketId: ticket.ticketId, resultCode: 'success', resultSummary: 'Worker completed.', outcomeHash });
       const done = await client.get(ticket.ticketId); const final = await client.mutate(ticket.ticketId, { operationId: `complete:${ticket.ticketId}`, expectedRevision: done.ticket.revision, previousHash: done.ticket.headHash, actor, action: 'complete', data: { leaseToken, receiptTicketId, outcomeHash } }); log({ event: 'work_completed', ticketId: ticket.ticketId, executionId: `ticket:${ticket.ticketId}` }); return final;

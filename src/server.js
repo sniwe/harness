@@ -13,6 +13,7 @@ import crypto from "node:crypto";
 import { createTicketClient } from "./ticketClient.js";
 import { readTicketIdentity } from "./ticketIdentity.js";
 import { createTicketLog } from "./ticketLog.js";
+import { createTicketJournal } from "./ticketJournal.js";
 import { createTicketReconciler } from "./ticketReconciler.js";
 import { createTicketWorker } from "./ticketWorker.js";
 import { readTicketProject } from "./ticketProjects.js";
@@ -79,7 +80,8 @@ function configureTickets() {
   const project = readTicketProject(identity.projectKey);
   const log = createTicketLog({ root: identity.logRoot, machineKey: identity.machineKey, projectKey: identity.projectKey });
   const client = createTicketClient({ baseUrl: ticketEnv.TICKETS_BASE_URL });
-  const worker = ticketEnv.TICKETS_WORKER_ENABLED === "1" ? createTicketWorker({ client, pool, identity, projectRoot: project.root, log: (event) => log.append(event), lockRoot: path.join(identity.logRoot, "tickets", "locks") }) : null;
+  const journal = createTicketJournal(path.join(identity.logRoot, "tickets", "journal", identity.projectKey, `${identity.machineKey}.jsonl`));
+  const worker = ticketEnv.TICKETS_WORKER_ENABLED === "1" ? createTicketWorker({ client, pool, identity, projectRoot: project.root, log: (event) => log.append(event), journal, lockRoot: path.join(identity.logRoot, "tickets", "locks") }) : null;
   const onReceipt = async (receipt) => { log.append({ event: 'receipt_observed', ticketId: receipt.ticketId, parentTicketId: receipt.parentTicketId, outcomeHash: receipt.outcomeHash }); const source = await client.get(receipt.sourceTicketId); if (!['completed', 'failed'].includes(source.ticket.status) || source.ticket.receiptTicketId !== receipt.ticketId || source.ticket.outcomeHash !== receipt.outcomeHash) throw new Error('receipt_source_not_final'); const current = await client.get(receipt.ticketId); await client.mutate(receipt.ticketId, { operationId: `ack:${receipt.ticketId}`, expectedRevision: current.ticket.revision, previousHash: current.ticket.headHash, actor: identity, action: 'ack', data: { outcomeHash: receipt.outcomeHash } }); log.append({ event: 'receipt_acked', ticketId: receipt.ticketId, parentTicketId: receipt.parentTicketId }); };
   const reconciler = createTicketReconciler({ client, identity, log: (event) => log.append(event), onTicket: worker ? (ticket) => worker.run(ticket) : undefined, onReceipt });
   return { identity, reconciler, worker, log, enabled: true };
