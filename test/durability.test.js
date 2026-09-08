@@ -14,6 +14,10 @@ test('attempts and operation intents recover after reconstruction', () => {
   const outbox = createOperationOutbox(root); outbox.intent('op-1', { action: 'claim' }); assert.equal(outbox.pending().length, 1); outbox.result('op-1', { status: 200 }); assert.equal(outbox.pending().length, 0); assert.ok(fs.existsSync(path.join(root, 'operations', 'op-1.json')));
 });
 
+test('attempt identities are contained and durable writes are complete JSON records', () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'attempt-safe-')); const attempts = createAttemptStore(root); assert.throws(() => attempts.begin({ attemptId: '../escape' }), /attempt_id_invalid/); const attempt = attempts.begin({ attemptId: 'a-safe' }); const outcome = attempts.finish(attempt.attemptId, { state: 'failed', error: 'worker_failed' }); assert.equal(outcome.attemptId, 'a-safe'); assert.match(fs.readFileSync(path.join(root, 'attempts', 'a-safe', 'outcome.json'), 'utf8'), /worker_failed/);
+});
+
 test('project lease excludes a second owner and releases only its owner', () => {
   const root = mkdtempSync(path.join(tmpdir(), 'lease-')); const lease = acquireProjectLease(root, { projectKey: 'app', pid: 11, now: 22, isAlive: () => true }); assert.throws(() => acquireProjectLease(root, { projectKey: 'app', pid: 12, now: 23, isAlive: () => true }), /lease_busy/); lease.release(); assert.equal(acquireProjectLease(root, { projectKey: 'app', pid: 12, now: 23 }).lease.pid, 12);
 });
