@@ -18,12 +18,13 @@ export function resolveManifestFile({ manifestFile, runId, directory = 'config/r
   return path.join(directory, matches[0]);
 }
 
-export async function runCommand(commandName, manifestFile, { store, outFile } = {}) {
+export async function runCommand(commandName, manifestFile, { store, outFile, preflight = preflightManifest } = {}) {
   if (!manifestFile) throw new Error('manifest_required');
   if (commandName === 'validate') return readRunManifest(manifestFile) && { ok: true, command: commandName, manifest: manifestFile };
-  if (commandName === 'preflight') return preflightManifest(manifestFile);
-  if (commandName === 'start') { const check = await preflightManifest(manifestFile); if (!check.ok) return { ...check, command: commandName }; }
+  if (commandName === 'preflight') return preflight(manifestFile);
+  if (commandName === 'start') { const check = await preflight(manifestFile); if (!check.ok) return { ...check, command: commandName }; }
   const manifest = readRunManifest(manifestFile); const readOnly = ['inspect', 'explain-block', 'report', 'resume'].includes(commandName); const workflow = createWorkflow({ manifest, store, initialize: !readOnly });
+  if (commandName === 'start') return { ok: true, command: commandName, state: workflow.snapshot(), next: workflow.next() };
   if (commandName === 'inspect') return { ok: true, state: workflow.snapshot(), next: workflow.next() };
   if (commandName === 'explain-block') return { ok: true, blocked: Object.values(workflow.snapshot().steps).filter((step) => step.status === 'blocked').map(({ stepId, blockReason }) => ({ stepId, blockReason })) };
   if (commandName === 'report') { const state = workflow.snapshot(); const report = renderRunReport({ manifest, result: { ok: state.status === 'accepted', runId: manifest.runId, state, trace: [] } }); if (outFile) writeFileSync(outFile, report + '\n', 'utf8'); return { ok: true, runId: manifest.runId, status: state.status, steps: state.steps, report, reportFile: outFile || undefined }; }
