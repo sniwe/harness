@@ -16,7 +16,10 @@ export async function runRehearsal({ manifest, store, runner = async ({ step }) 
 }
 
 export function renderRunReport({ manifest, result }) {
-  const lines = [`# Run report: ${result.runId}`, '', `- Verdict: **${result.ok ? 'PASS' : 'BLOCKED'}**`, `- Plan digest: \`${manifest.planDigest}\``, `- Workflow status: \`${result.state.status}\``, '', '## Steps', ''];
+  const lines = [`# Run report: ${result.runId}`, '', `- Verdict: **${result.ok ? 'PASS' : 'BLOCKED'}**`, `- Plan digest: \`${manifest.planDigest}\``, `- Workflow status: \`${result.state.status}\``, '', '## Runtime and configuration', ''];
+  for (const [projectKey, project] of Object.entries(manifest.projects || {})) lines.push(`- ${projectKey}: machine \`${project.machineKey}\`; profile \`${project.profile}\``);
+  for (const [projectKey, runtime] of Object.entries(manifest.runtimes || {})) lines.push(`- ${projectKey} runtime: \`${runtime.baseUrl}${runtime.requiredPath}\`; required capabilities ${Object.keys(runtime.required || {}).join(', ') || 'none'}`);
+  lines.push('', '## Steps', '');
   for (const step of Object.values(result.state.steps)) { const manifestStep = manifest.steps.find((item) => item.stepId === step.stepId); const waiting = manifestStep?.dependsOn?.filter((id) => !['succeeded', 'skipped'].includes(result.state.steps[id]?.status)) || []; lines.push(`- ${step.stepId}: ${step.status}${step.gateId ? ` (${step.gateId})` : ''}${step.owner ? `; owner ${step.owner}` : ''}${step.lastHeartbeatAt ? `; heartbeat ${step.lastHeartbeatAt}` : ''}${waiting.length ? `; waiting on ${waiting.join(', ')}` : ''}`); }
   lines.push('', '## Evidence index', ''); const evidence = result.state.evidence || {}; const evidenceEntries = Object.entries(evidence); if (!evidenceEntries.length) lines.push('- none retained'); else for (const [stepId, item] of evidenceEntries) lines.push(`- ${stepId}: artifact \`${item.artifactId || 'missing'}\`, verdict \`${item.verdict || 'unknown'}\``);
   lines.push('', '## Restart matrix', ''); const restarts = new Map((result.restarts || []).map((item) => [item.name, item])); for (const name of RESTART_TRACERS) { const item = restarts.get(name); lines.push(`- ${name}: ${item?.verdict || 'not_observed'}${item?.artifactId ? `; artifact \`${item.artifactId}\`` : ''}${item?.trigger?.predicate ? `; predicate \`${item.trigger.predicate}\`` : ''}`); }

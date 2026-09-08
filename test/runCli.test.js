@@ -47,6 +47,8 @@ test('rehearsal exports its report without changing the workflow contract', asyn
   assert.match(result.report, /PASS/);
   assert.match(result.report, /app-during-upload: not_observed/);
   assert.match(result.report, /NOT_EVALUATED/);
+  assert.match(result.report, /machine-base-caf45342b1d0acc9b938/);
+  assert.match(result.report, /Runtime and configuration/);
   assert.equal(result.reportFile, outFile);
   assert.equal(existsSync(outFile), true);
   assert.match(readFileSync(outFile, 'utf8'), /Evidence index/);
