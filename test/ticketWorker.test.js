@@ -27,3 +27,10 @@ test('log failure prevents claim and execution launch', async () => {
   const worker = createTicketWorker({ client, pool: { request: async () => { calls.push('pool'); } }, identity: { machineKey: 'machine-b', projectKey: 'project-b' }, lockRoot: root, log: () => { throw new Error('log_unavailable'); } });
   await assert.rejects(() => worker.run({ ticketId: 't-log', subject: 'subject', body: 'body', correlationId: 'c' }), /log_unavailable/); assert.deepEqual(calls, []);
 });
+
+test('two worker instances allow one execution owner', async () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'ticket-worker-concurrent-')); const calls = []; const state = { ticketId: 't-concurrent', revision: 0, headHash: 'h0', status: 'pending', sender: { machineKey: 'machine-a', projectKey: 'project-a' } }; let releasePool; const gate = new Promise((resolve) => { releasePool = resolve; });
+  const client = { async get() { return { ticket: { ...state } }; }, async mutate(_id, patch) { calls.push(patch); state.revision += 1; state.headHash = `h${state.revision}`; state.status = { claim: 'claimed', start: 'in_progress', complete: 'completed' }[patch.action] || state.status; return { ticket: { ...state } }; }, async create(payload) { calls.push({ create: payload }); return { ticket: payload }; } };
+  const pool = { request: async (payload) => { calls.push(payload); await gate; return { ok: true }; } }; const options = { client, pool, identity: { machineKey: 'machine-b', projectKey: 'project-b' }, lockRoot: root, log: () => {} }; const ticket = { ...state, subject: 'subject', body: 'body', correlationId: 'c' };
+  const first = createTicketWorker(options).run(ticket); await new Promise((resolve) => setTimeout(resolve, 10)); const second = await createTicketWorker(options).run(ticket); assert.equal(second.skipped, true); releasePool(); await first; assert.equal(calls.filter((call) => call.action === 'claim').length, 1);
+});
