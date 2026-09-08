@@ -12,15 +12,17 @@ export function createTicketWorker({ client, pool, identity, log, lockRoot, proj
       try { const owner = JSON.parse(fs.readFileSync(file, 'utf8')); process.kill(owner.pid, 0); } catch { try { fs.unlinkSync(file); fd = fs.openSync(file, 'wx'); fs.writeSync(fd, JSON.stringify({ pid: process.pid, executionId: `ticket:${ticket.ticketId}`, ticketId: ticket.ticketId })); } catch {} }
       if (!fd) { log({ event: 'execution_lock_busy', ticketId: ticket.ticketId }); return { skipped: true }; }
     }
+    let started = false; let leaseToken; const actor = identity;
     try {
-      const leaseToken = crypto.randomUUID(); const actor = identity; let current = await client.get(ticket.ticketId); const head = current.ticket;
+      leaseToken = crypto.randomUUID(); let current = await client.get(ticket.ticketId); const head = current.ticket;
       const claimed = await client.mutate(ticket.ticketId, { operationId: `claim:${ticket.ticketId}`, expectedRevision: head.revision, previousHash: head.headHash, actor, action: 'claim', data: { leaseToken } });
       await client.mutate(ticket.ticketId, { operationId: `start:${ticket.ticketId}`, expectedRevision: claimed.ticket.revision, previousHash: claimed.ticket.headHash, actor, action: 'start', data: { leaseToken } }); log({ event: 'execution_started', ticketId: ticket.ticketId, executionId: `ticket:${ticket.ticketId}` });
+      started = true;
       const result = await pool.request({ task: 'remote-prompt', requestId: `ticket:${ticket.ticketId}`, prompt: ticketPrompt(ticket) }); const outcomeHash = crypto.createHash('sha256').update(JSON.stringify(result)).digest('hex');
       const receiptTicketId = crypto.createHash('sha256').update(`receipt/${ticket.ticketId}`).digest('hex');
       await client.create({ ticketId: receiptTicketId, operationId: `receipt:${ticket.ticketId}`, kind: 'receipt', sender: actor, target: ticket.sender, conversationId: ticket.conversationId, correlationId: ticket.correlationId, parentTicketId: ticket.ticketId, testRunId: ticket.testRunId, subject: `Receipt ${ticket.ticketId}`, body: 'Ticket completed.', sourceTicketId: ticket.ticketId, resultCode: 'success', resultSummary: 'Worker completed.', outcomeHash });
       const done = await client.get(ticket.ticketId); const final = await client.mutate(ticket.ticketId, { operationId: `complete:${ticket.ticketId}`, expectedRevision: done.ticket.revision, previousHash: done.ticket.headHash, actor, action: 'complete', data: { leaseToken, receiptTicketId, outcomeHash } }); log({ event: 'work_completed', ticketId: ticket.ticketId, executionId: `ticket:${ticket.ticketId}` }); return final;
-    } catch (error) { log({ event: 'execution_failed', ticketId: ticket.ticketId, error: error.message }); throw error; } finally { try { fs.closeSync(fd); } catch {} try { fs.unlinkSync(file); } catch {} }
+    } catch (error) { log({ event: 'execution_failed', ticketId: ticket.ticketId, error: error.message }); if (started) { try { const current = await client.get(ticket.ticketId); if (['claimed', 'in_progress'].includes(current.ticket.status)) await client.mutate(ticket.ticketId, { operationId: `block:${ticket.ticketId}`, expectedRevision: current.ticket.revision, previousHash: current.ticket.headHash, actor, action: 'block', data: { reason: 'unknown_after_crash', leaseToken } }); } catch (blockError) { log({ event: 'block_failed', ticketId: ticket.ticketId, error: blockError.message }); } } throw error; } finally { try { fs.closeSync(fd); } catch {} try { fs.unlinkSync(file); } catch {} }
   }
   return { run };
 }
