@@ -11,8 +11,8 @@ if ($peerHost) {
   $env:TICKETS_PROJECT_KEY = 'qwen-asr'
 }
 $env:TICKETS_LOG_ROOT = 'C:\trendbase\mgmt\logs'
-$env:TICKETS_ENABLED = $env:TICKETS_ENABLED ?? '0'
-$env:TICKETS_WORKER_ENABLED = $env:TICKETS_WORKER_ENABLED ?? '0'
+$env:TICKETS_ENABLED = $env:TICKETS_ENABLED ?? '1'
+$env:TICKETS_WORKER_ENABLED = $env:TICKETS_WORKER_ENABLED ?? '1'
 Set-Location $harnessRoot
 & node src\launcher.js
 exit $LASTEXITCODE
