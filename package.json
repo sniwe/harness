@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "start": "node src/launcher.js",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "test:tickets": "node --test test/ticket*.test.js"
   }
 }

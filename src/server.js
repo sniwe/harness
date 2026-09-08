@@ -10,6 +10,10 @@ import { captureStartupLaunch, isSafeBranch, readCheckout, readRemoteSnapshot, s
 import { coordinatePeers, createCommitSyncClient } from "./commitSync.js";
 import { createPeerRequestClient, createPeerRequestHandler } from "./peerRequest.js";
 import crypto from "node:crypto";
+import { createTicketClient } from "./ticketClient.js";
+import { readTicketIdentity } from "./ticketIdentity.js";
+import { createTicketLog } from "./ticketLog.js";
+import { createTicketReconciler } from "./ticketReconciler.js";
 
 const root = path.resolve(process.env.MACHINE_BASE_DATA_ROOT || "data/machine-base");
 const repoRoot = path.resolve(process.env.MACHINE_BASE_REPO_ROOT || process.cwd());
@@ -62,6 +66,17 @@ let localCommitConfirmation = null;
 let coordination = null;
 let syncInProgress = false;
 let stopping = false;
+let ticketRuntime = null;
+let ticketStop = null;
+
+function configureTickets() {
+  if (process.env.TICKETS_ENABLED !== "1" || !process.env.TICKETS_BASE_URL) return null;
+  const identity = readTicketIdentity();
+  const log = createTicketLog({ root: identity.logRoot, machineKey: identity.machineKey, projectKey: identity.projectKey });
+  const client = createTicketClient({ baseUrl: process.env.TICKETS_BASE_URL });
+  const reconciler = createTicketReconciler({ client, identity, log: (event) => log.append(event) });
+  return { identity, reconciler, log, enabled: true };
+}
 
 function json(response, status, body) { response.writeHead(status, { "Content-Type": "application/json" }); response.end(JSON.stringify(body)); }
 function readBody(request, maxBytes = 1024 * 1024) { return new Promise((resolve, reject) => { let text = ""; let rejected = false; request.on("data", (chunk) => { if (rejected) return; text += chunk; if (Buffer.byteLength(text, "utf8") > maxBytes) { rejected = true; reject(new Error("body_too_large")); } }); request.on("end", () => { if (!rejected) resolve(text); }); request.on("error", (error) => { if (!rejected) reject(error); }); }); }
@@ -86,7 +101,7 @@ server = http.createServer(async (request, response) => {
   try {
     const pathname = new URL(request.url, "http://127.0.0.1").pathname;
     if (request.method === "GET" && pathname === "/health") return json(response, 200, { ok: true, pid: process.pid, tunnel: tunnel?.state || null });
-    if (request.method === "GET" && pathname === "/status") return json(response, 200, { ok: true, setup, identity: { source: identity.source, machineBaseId: identity.machineBaseId, tunnelKey: machineKey }, launch, startupState, localCommitConfirmation, coordination, peerRequest: peerRequestHandler.state, tunnel: tunnel?.state || null, workers: pool.slots.map(({ child, reader, stdout, ...slot }) => slot) });
+    if (request.method === "GET" && pathname === "/status") return json(response, 200, { ok: true, setup, identity: { source: identity.source, machineBaseId: identity.machineBaseId, tunnelKey: machineKey }, launch, startupState, localCommitConfirmation, coordination, peerRequest: peerRequestHandler.state, ticket: ticketRuntime ? { enabled: true, machineKey: ticketRuntime.identity.machineKey, projectKey: ticketRuntime.identity.projectKey, logRoot: ticketRuntime.identity.logRoot } : { enabled: false }, tunnel: tunnel?.state || null, workers: pool.slots.map(({ child, reader, stdout, ...slot }) => slot) });
     if (request.method === "GET" && pathname === "/setup/status") return json(response, 200, setup);
     if (request.method === "GET" && pathname === "/api/machine-base/ping") return json(response, 200, { ok: true, tunnelKey: process.env.TUNNEL_KEY || identity.tunnelKey, serverRole: "machine-base", time: new Date().toISOString() });
     if (request.method === "POST" && pathname === "/api/machine-base/peer-ping") return json(response, 200, await peerPing.ping(JSON.parse(await readBody(request)).tunnelKey));
@@ -136,6 +151,10 @@ server = http.createServer(async (request, response) => {
       const payload = JSON.parse(await readBody(request));
       return json(response, 200, await pool.request(payload));
     }
+    if (request.method === "POST" && pathname === "/api/machine-base/tickets/reconcile") {
+      if (!ticketRuntime) return json(response, 403, { ok: false, error: "tickets_disabled" });
+      return json(response, 200, await ticketRuntime.reconciler.once());
+    }
     json(response, 404, { ok: false, error: "not_found" });
   } catch (error) { json(response, error.message === "body_too_large" ? 413 : error.status || 400, { ok: false, error: error.message || String(error) }); }
 });
@@ -162,6 +181,8 @@ async function start() {
   });
   tunnel = relayUrl ? createTunnel({ localUrl, relayUrl, tunnelKey: process.env.TUNNEL_KEY || identity.tunnelKey }) : null;
   if (tunnel) await tunnel.start();
+  ticketRuntime = configureTickets();
+  if (ticketRuntime) { await ticketRuntime.reconciler.once(); ticketStop = ticketRuntime.reconciler.start(); }
   startupState = "tunnel_ready";
   if (process.env.MACHINE_BASE_COORDINATE_ON_START !== "0") { startupState = "peers_checking"; coordination = await coordinate(); startupState = coordination.ok ? "converged" : launchTrustFailure ? "started_unverified" : "coordination_failed"; }
   console.log(JSON.stringify({ ready: true, pid: process.pid, port, tunnelKey: process.env.TUNNEL_KEY || identity.tunnelKey, tunnel: tunnel?.state || null }));
@@ -170,6 +191,7 @@ async function stop() {
   if (stopping) return;
   stopping = true;
   tunnel?.stop();
+  ticketStop?.();
   pool.stop();
   await new Promise((resolve) => {
     if (!server?.listening) return resolve();
