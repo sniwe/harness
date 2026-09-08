@@ -9,8 +9,13 @@ pair, and rotating Cloudflare quick tunnel.
 npm test
 $env:TUNNEL_RELAY_LOCAL_URL = "http://127.0.0.1:3100"
 $env:CODEX_BIN = "$env:APPDATA\npm\codex.cmd"
+$env:TICKETS_PROJECT_KEY = "<this-machine-project-key>"
+$env:MACHINE_BASE_RUNTIME_CWD = "<this-machine-project-root>"
 npm start
 ```
+
+The project key and runtime cwd are explicit per-machine configuration; the
+server does not infer a host role from filesystem paths.
 
 The relay receives `{ tunnelKey, tunnelUrl }`. If `TUNNEL_KEY` is omitted, the
 server derives a stable hashed key from the Windows machine identity and stores
