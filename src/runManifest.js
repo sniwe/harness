@@ -22,7 +22,7 @@ export function validateRunManifest(manifest, { verifyInputs = true } = {}) {
   for (const input of manifest.inputs) {
     if (!KEY.test(input.role || '') || !HASH.test(input.sha256 || '') || (verifyInputs && input.path && sha256File(input.path) !== input.sha256)) throw new Error(`run_manifest_input_invalid:${input.role || 'unknown'}`);
   }
-  for (const step of manifest.steps) if (!KEY.test(step.stepId || '') || !step.owner || !Array.isArray(step.dependsOn) || !step.commandProfile || !step.verifierProfile) throw new Error(`run_manifest_step_invalid:${step.stepId || 'unknown'}`);
+  for (const step of manifest.steps) if (!KEY.test(step.stepId || '') || !step.owner || !Array.isArray(step.dependsOn) || !step.commandProfile || !step.verifierProfile || !Array.isArray(step.immutableInputs) || !Number.isFinite(step.resourceBudget?.timeoutMs) || !step.retryClass || !Array.isArray(step.requiredOutputTypes) || !step.rollbackProfile || !step.optionalPolicy) throw new Error(`run_manifest_step_invalid:${step.stepId || 'unknown'}`);
   const digest = crypto.createHash('sha256').update(JSON.stringify({ ...manifest, planDigest: undefined })).digest('hex');
   if (manifest.planDigest !== digest) throw new Error('run_manifest_digest_invalid');
   return { ok: true, runId: manifest.runId, planDigest: digest, steps: manifest.steps.length };
