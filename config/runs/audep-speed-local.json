@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "runId": "audep-speed-local-260908",
-  "planDigest": "57499d76137be52bfd6d45f9ab3f98c0600635b94a5605189f555ccd1d227316",
+  "planDigest": "dbe18cd2b8ea6e62740595155cf2f92d6f628228a07eca90a953ae09063d9f34",
   "controller": { "machineKey": "machine-base-controller" },
   "inputs": [
     { "role": "app-plan", "sha256": "c3ad9059934e84d3f3c55ce11d7fd3e083b0e19ca9947bd8b8aed8ddd7e9b461" },
@@ -15,6 +15,7 @@
   "adapters": {
     "main-app": {
       "verifier": "mgmt\\dev\\260906\\verify-upload-987-browser.mjs",
+      "appUrl": "http://127.0.0.1:45673",
       "source": "C:\\retry\\src\\backend\\data\\media\\1788683394546-ebc52030-3330-4ddb-92dc-b95d9c76a26d-987-mtmo3aqe-c4b8b6ddfda248.mp3"
     },
     "qwen-asr": {
@@ -23,7 +24,7 @@
     }
   },
   "runtimes": {
-    "main-app": { "baseUrl": "http://127.0.0.1:3000", "requiredPath": "/health", "required": { "tunnelKey": "chinApp" } },
+    "main-app": { "baseUrl": "http://127.0.0.1:45673", "requiredPath": "/health", "required": { "tunnelKey": "chinApp" } },
     "qwen-asr": { "baseUrl": "http://127.0.0.1:8000", "requiredPath": "/health", "required": { "runtime.server_role": "english" } }
   },
   "protocolBaseline": "12.5s-primary-plus-5s-boundary-v1",
