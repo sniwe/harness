@@ -13,3 +13,8 @@ test('restart tracer supports cancellation while polling an indeterminate stage'
   await assert.rejects(() => runRestartTracer({ name: 'app-during-upload', predicate: () => false, observe: async () => { polls += 1; controller.abort(); return {}; }, restart: async () => {}, ready: () => true, sleep: async () => {}, signal: controller.signal }), /restart_tracer_cancelled/);
   assert.equal(polls, 1);
 });
+
+test('restart tracer rejects a restart that loses or reuses identity', async () => {
+  let phase = 0;
+  await assert.rejects(() => runRestartTracer({ name: 'app-after-seal', predicate: () => true, observe: async () => ({ runtimeGeneration: 'same', jobId: phase++ ? 'job-2' : 'job-1' }), restart: async () => {}, ready: () => true, sleep: async () => {} }), /restart_tracer_identity_invalid/);
+});

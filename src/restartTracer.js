@@ -19,6 +19,7 @@ export async function runRestartTracer({ name, predicate, observe, restart, read
     if (await ready(after, before)) break;
     await sleep(pollMs);
   }
+  if (!before.runtimeGeneration || !before.jobId || !after?.runtimeGeneration || !after?.jobId || before.runtimeGeneration === after.runtimeGeneration || before.jobId !== after.jobId) throw new Error('restart_tracer_identity_invalid');
   const evidence = { name, verdict: 'pass', trigger: { predicate: name }, before: { runtimeGeneration: before.runtimeGeneration, jobId: before.jobId }, after: { runtimeGeneration: after.runtimeGeneration, jobId: after.jobId } };
   const result = { ...evidence, artifactId: digest(evidence) };
   await record(result);
