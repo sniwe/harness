@@ -57,3 +57,16 @@ test('run executor replays a durable successful attempt after controller recover
   const state = await executor.run();
   assert.equal(state.steps.A0.status, 'succeeded');
 });
+
+test('run executor exposes command failures as exact resumable blockers', async () => {
+  const manifest = readRunManifest('config/runs/audep-speed-local.json', { verifyInputs: false });
+  const recoveryManifest = { ...manifest, steps: [manifest.steps[0]] };
+  const store = createRunStore({ root: mkdtempSync(path.join(tmpdir(), 'run-executor-block-')), runId: manifest.runId, manifest: recoveryManifest });
+  const workflow = createWorkflow({ manifest: recoveryManifest, store });
+  const executor = createRunExecutor({ workflow, manifest: recoveryManifest, runner: async () => { throw new Error('verifier_failed'); } });
+  const state = await executor.run();
+  assert.equal(state.status, 'blocked');
+  assert.equal(state.steps.A0.blockReason, 'execution_failed');
+  assert.equal(executor.attempts.recover()[0].outcome.state, 'blocked');
+  assert.equal(executor.attempts.recover()[0].outcome.artifactId, state.steps.A0.blockArtifactId);
+});

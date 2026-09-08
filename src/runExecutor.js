@@ -41,10 +41,11 @@ export function createRunExecutor({ workflow, manifest, attemptStore, commandRun
       workflow.accept(step.stepId, evidence);
       return outcome;
     } catch (error) {
-      const outcome = attempts.finish(attempt.attemptId, { state: 'failed', error: error.message });
+      const blockArtifactId = crypto.createHash('sha256').update(`${attempt.attemptId}:${error.message}`).digest('hex');
+      const outcome = attempts.finish(attempt.attemptId, { state: 'blocked', reason: 'execution_failed', error: error.message, artifactId: blockArtifactId });
       const state = workflow.snapshot();
-      workflow.store.append({ type: 'step_execution_failed', runId: state.runId, stepId: step.stepId, attemptId: attempt.attemptId, error: error.message });
-      workflow.store.write({ ...state, steps: { ...state.steps, [step.stepId]: { ...state.steps[step.stepId], status: 'failed', failureAttemptId: attempt.attemptId, failure: error.message } } });
+      workflow.store.append({ type: 'step_execution_blocked', runId: state.runId, stepId: step.stepId, attemptId: attempt.attemptId, artifactId: blockArtifactId, error: error.message });
+      workflow.store.write({ ...state, status: 'blocked', steps: { ...state.steps, [step.stepId]: { ...state.steps[step.stepId], status: 'blocked', blockReason: 'execution_failed', blockArtifactId, failureAttemptId: attempt.attemptId, failure: error.message } } });
       return outcome;
     }
   }
