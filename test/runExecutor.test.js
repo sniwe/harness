@@ -63,7 +63,7 @@ test('run executor exposes command failures as exact resumable blockers', async 
   const recoveryManifest = { ...manifest, steps: [manifest.steps[0]] };
   const store = createRunStore({ root: mkdtempSync(path.join(tmpdir(), 'run-executor-block-')), runId: manifest.runId, manifest: recoveryManifest });
   const workflow = createWorkflow({ manifest: recoveryManifest, store });
-  const executor = createRunExecutor({ workflow, manifest: recoveryManifest, runner: async () => { throw new Error('verifier_failed'); } });
+  const executor = createRunExecutor({ workflow, manifest: recoveryManifest, autoRetry: false, runner: async () => { throw new Error('verifier_failed'); } });
   const state = await executor.run();
   assert.equal(state.status, 'blocked');
   assert.equal(state.steps.A0.blockReason, 'execution_failed');
@@ -112,4 +112,14 @@ test('run executor emits durable heartbeats during an indeterminate runner', asy
   const executor = createRunExecutor({ workflow, manifest: recoveryManifest, heartbeatMs: 1, runner: async () => { await new Promise((resolve) => { release = resolve; }); return { runId: manifest.runId, stepId: 'A0', planDigest: manifest.planDigest, verdict: 'pass', outputTypes: ['acceptance'], artifactId: '1'.repeat(64), verifier: { profile: 'a0-observability', exitCode: 0 } }; } });
   const originalHeartbeat = workflow.heartbeat; workflow.heartbeat = (...args) => { heartbeats += 1; return originalHeartbeat(...args); };
   const running = executor.run(); await new Promise((resolve) => setTimeout(resolve, 5)); assert.ok(heartbeats > 1); release(); const state = await running; assert.equal(state.status, 'accepted');
+});
+
+test('run executor retries recoverable failures within the manifest bound', async () => {
+  const manifest = readRunManifest('config/runs/audep-speed-local.json', { verifyInputs: false });
+  const recoveryManifest = { ...manifest, steps: [manifest.steps[0]] };
+  const store = createRunStore({ root: mkdtempSync(path.join(tmpdir(), 'run-executor-retry-')), runId: manifest.runId, manifest: recoveryManifest });
+  const workflow = createWorkflow({ manifest: recoveryManifest, store }); let calls = 0;
+  const executor = createRunExecutor({ workflow, manifest: recoveryManifest, runner: async () => { calls += 1; if (calls === 1) throw new Error('transient_verifier_failure'); return { runId: manifest.runId, stepId: 'A0', planDigest: manifest.planDigest, verdict: 'pass', outputTypes: ['acceptance'], artifactId: '2'.repeat(64), verifier: { profile: 'a0-observability', exitCode: 0 } }; } });
+  const state = await executor.run();
+  assert.equal(state.status, 'accepted'); assert.equal(calls, 2); assert.equal(executor.attempts.recover().length, 2);
 });

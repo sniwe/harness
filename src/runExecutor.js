@@ -15,7 +15,7 @@ function evidenceFromCommand(step, result) {
   return evidence;
 }
 
-export function createRunExecutor({ workflow, manifest, attemptStore, operationOutbox, commandRunner = runCommand, resolveCommand, runner, pollMs = 1000, heartbeatMs = 0, sleepImpl = sleep, skipConditional = [] } = {}) {
+export function createRunExecutor({ workflow, manifest, attemptStore, operationOutbox, commandRunner = runCommand, resolveCommand, runner, pollMs = 1000, heartbeatMs = 0, sleepImpl = sleep, skipConditional = [], autoRetry = true } = {}) {
   if (!workflow || !manifest || (!resolveCommand && !runner)) throw new Error('run_executor_invalid');
   const attempts = attemptStore || createAttemptStore(workflow.store.dir);
 
@@ -106,7 +106,12 @@ export function createRunExecutor({ workflow, manifest, attemptStore, operationO
         workflow.skipStep(step.stepId, { artifactId, reason: 'explicit_executor_policy', verifier: { profile: declared.verifierProfile, exitCode: 0 } });
         continue;
       }
-      if (step) { await executeStep(step); continue; }
+      if (step) {
+        await executeStep(step);
+        const after = workflow.snapshot(); const failed = after.steps[step.stepId];
+        if (autoRetry && failed?.status === 'blocked' && failed.blockReason === 'execution_failed' && (failed.correctiveAttempts || 0) < (manifest.limits?.maxCorrectiveAttemptsPerGate || 0)) workflow.retryStep(step.stepId, 'executor_corrective_attempt');
+        continue;
+      }
       await sleepImpl(pollMs);
     }
   }
