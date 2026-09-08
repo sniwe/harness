@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { resolveManifestFile, runCommand } from '../src/runCli.js';
@@ -35,4 +35,15 @@ test('rehearsal exports its report without changing the workflow contract', asyn
   assert.equal(result.reportFile, outFile);
   assert.equal(existsSync(outFile), true);
   assert.match(readFileSync(outFile, 'utf8'), /Evidence index/);
+});
+
+test('report returns failure when final acceptance evidence blocks the run', async () => {
+  const store = createRunStore({ root: mkdtempSync(path.join(tmpdir(), 'report-gate-')), runId: 'audep-speed-local-260908' });
+  const started = await runCommand('start', 'config/runs/audep-speed-local.json', { store, preflight: async () => ({ ok: true, state: 'ready' }) });
+  assert.equal(started.ok, true);
+  const acceptanceFile = path.join(mkdtempSync(path.join(tmpdir(), 'acceptance-')), 'bundle.json');
+  writeFileSync(acceptanceFile, JSON.stringify({ app: { schemaVersion: 1, benchmarkId: 'b', runId: 'r', requestArtifactId: 'a'.repeat(64), source: { basename: '987.mp3', durationMs: 1 }, job: { remoteJobId: 'j' }, runtime: { appGeneration: 'a', qwenGeneration: 'q' }, verdict: 'blocked' }, qwen: { schemaVersion: 1, benchmarkId: 'b', runId: 'r', requestArtifactId: 'a'.repeat(64), source: { basename: '987.mp3', durationMs: 1 }, job: { remoteJobId: 'j' }, runtime: { appGeneration: 'a', qwenGeneration: 'q' }, verdict: 'blocked' }, restarts: [] }));
+  const report = await runCommand('report', 'config/runs/audep-speed-local.json', { store, acceptanceFile });
+  assert.equal(report.ok, false);
+  assert.match(report.report, /bilateral_benchmark_failed/);
 });
