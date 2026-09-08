@@ -17,3 +17,7 @@ test('reconciler runs maintenance before scanning', async () => {
   const order = []; const reconciler = createTicketReconciler({ identity: { machineKey: 'machine-b', projectKey: 'main-app' }, client: { list: async () => { order.push('list'); return { items: [] }; } }, log: () => {}, onMaintenance: async () => order.push('maintenance') });
   await reconciler.once(); assert.deepEqual(order, ['maintenance', 'list']);
 });
+
+test('reconciler prevents overlapping scans', async () => {
+  let release; const scan = new Promise((resolve) => { release = resolve; }); const reconciler = createTicketReconciler({ identity: { machineKey: 'machine-b', projectKey: 'main-app' }, client: { list: async () => { await scan; return { items: [] }; } }, log: () => {} }); const first = reconciler.once(); await new Promise((resolve) => setImmediate(resolve)); assert.deepEqual(await reconciler.once(), { skipped: true, reason: 'scan_in_progress' }); release(); await first;
+});
