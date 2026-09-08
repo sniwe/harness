@@ -23,7 +23,7 @@ test('command runner reports real success and failure states', async () => {
 
 test('durable command returns an ID and persists terminal output', async () => {
   const controller = createDurableCommandController({ root: path.join(mkdtempSync(path.join(tmpdir(), 'durable-command-')), 'commands') }); const started = controller.start({ command: process.execPath, args: ['-e', 'process.stdout.write("durable")'], cwd: process.cwd() }); assert.equal(started.state, 'running');
-  let result = controller.inspect(started.commandId); for (let attempt = 0; attempt < 20 && result.state === 'running'; attempt += 1) { await new Promise((resolve) => setTimeout(resolve, 10)); result = controller.inspect(started.commandId); }
+  const result = await controller.wait(started.commandId, { pollMs: 10 });
   assert.equal(result.state, 'succeeded'); assert.match(result.output, /durable/);
 });
 

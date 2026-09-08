@@ -22,6 +22,7 @@ export function createDurableCommandController({ root, spawnImpl = spawn, probe 
     return initial;
   }
   function inspect(commandId) { const state = read(commandId); if (state.state === 'running' && !active.has(commandId) && !probe(state.pid)) return write({ ...state, state: 'unknown', reason: 'owned_process_missing', observedAt: new Date().toISOString() }); return state; }
+  async function wait(commandId, { pollMs = 1000, signal } = {}) { while (true) { if (signal?.aborted) throw new Error('command_wait_cancelled'); const state = inspect(commandId); if (['succeeded', 'failed', 'unknown', 'stopping'].includes(state.state)) return state; await new Promise((resolve) => setTimeout(resolve, pollMs)); } }
   function stop(commandId) { const state = inspect(commandId); if (state.state !== 'running') return state; try { process.kill(state.pid); } catch {} return write({ ...state, state: 'stopping', stoppedAt: new Date().toISOString() }); }
-  return { start, inspect, stop, read };
+  return { start, inspect, wait, stop, read };
 }
