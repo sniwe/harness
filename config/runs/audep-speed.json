@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "runId": "audep-speed-260908",
+  "planDigest": "ffc9b74974be37db37464461629f17b246c87f5202258520042582741b28a655",
+  "controller": { "machineKey": "machine-base-controller" },
+  "inputs": [
+    { "role": "harness-plan", "path": "C:\\Users\\Admin\\Downloads\\Harness-Unattended-audEp-Implementation-Plan (1).md", "sha256": "5eef5bccad0710df77588cf1a4ee173df773217690ea12613382a20b1960547f" },
+    { "role": "app-plan", "path": "C:\\Users\\Admin\\Downloads\\Main-App audEp Processing-Speed Phased Vertical Tracer-Bullet Implementation Plan.md", "sha256": "c3ad9059934e84d3f3c55ce11d7fd3e083b0e19ca9947bd8b8aed8ddd7e9b461" },
+    { "role": "qwen-plan", "path": "C:\\Users\\Admin\\Downloads\\QwenASR audEp Processing-Speed Phased Vertical Tracer-Bullet Implementation Plan.md", "sha256": "d325d9407caf1ff9705cbb3d476255e130907ab4ae4574c506f184bf487ae50a" }
+  ],
+  "handoffMode": "verified-byte-transfer",
+  "projects": {
+    "main-app": { "profile": "C:\\retry" },
+    "qwen-asr": { "profile": "C:\\Users\\rhyse\\Qwen3-ASR" }
+  },
+  "protocolBaseline": "12.5s-primary-plus-5s-boundary-v1",
+  "limits": { "maxCorrectiveAttemptsPerGate": 2, "maxConcurrentBenchmarks": 1 },
+  "steps": [
+    { "stepId": "A0", "owner": "main-app", "dependsOn": [], "commandProfile": "app-focused", "verifierProfile": "a0-observability" },
+    { "stepId": "Q0", "owner": "qwen-asr", "dependsOn": [], "commandProfile": "qwen-focused", "verifierProfile": "q0-baseline" },
+    { "stepId": "A1", "owner": "main-app", "dependsOn": ["A0"], "commandProfile": "app-focused", "verifierProfile": "a1-byte-hash" },
+    { "stepId": "Q1", "owner": "qwen-asr", "dependsOn": ["Q0"], "commandProfile": "qwen-focused", "verifierProfile": "q1-long-poll" },
+    { "stepId": "A2A", "owner": "main-app", "dependsOn": ["A1"], "commandProfile": "app-focused", "verifierProfile": "a2a-partial" },
+    { "stepId": "A2B", "owner": "main-app", "dependsOn": ["A2A", "Q1"], "commandProfile": "app-focused", "verifierProfile": "a2b-adoption" },
+    { "stepId": "A3", "owner": "main-app", "dependsOn": ["A2B"], "commandProfile": "app-focused", "verifierProfile": "a3-concurrency" },
+    { "stepId": "A4", "owner": "main-app", "dependsOn": ["A3"], "commandProfile": "app-browser", "verifierProfile": "a4-browser" },
+    { "stepId": "Q2", "owner": "qwen-asr", "dependsOn": ["Q1", "A4"], "commandProfile": "qwen-benchmark", "verifierProfile": "q2-987" },
+    { "stepId": "Q3", "owner": "qwen-asr", "dependsOn": ["Q2"], "commandProfile": "qwen-benchmark", "verifierProfile": "q3-correction" },
+    { "stepId": "Q4", "owner": "qwen-asr", "dependsOn": ["Q3"], "commandProfile": "qwen-benchmark", "verifierProfile": "q4-quality-vram" },
+    { "stepId": "Q5", "owner": "qwen-asr", "dependsOn": ["Q4"], "commandProfile": "qwen-benchmark", "verifierProfile": "q5-localization" },
+    { "stepId": "A5", "owner": "main-app", "dependsOn": ["A4"], "commandProfile": "app-browser", "verifierProfile": "a5-persistence" },
+    { "stepId": "Q6", "owner": "qwen-asr", "dependsOn": ["Q5", "A5"], "commandProfile": "qwen-focused", "verifierProfile": "q6-contract" },
+    { "stepId": "A6", "owner": "main-app", "dependsOn": ["Q6"], "commandProfile": "app-browser", "verifierProfile": "a6-acceptance" },
+    { "stepId": "Q7", "owner": "qwen-asr", "dependsOn": ["A6"], "commandProfile": "qwen-benchmark", "verifierProfile": "q7-final" },
+    { "stepId": "A7", "owner": "main-app", "dependsOn": ["Q7"], "commandProfile": "app-browser", "verifierProfile": "a7-final" }
+  ]
+}
