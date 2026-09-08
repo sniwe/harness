@@ -52,20 +52,27 @@ export function createRunExecutor({ workflow, manifest, attemptStore, commandRun
   function recover() {
     const recovered = [];
     for (const record of attempts.recover()) {
-      if (record.outcome || record.input.runId !== manifest.runId) continue;
-      const outcome = attempts.finish(record.input.attemptId, { state: 'unknown', reason: 'unknown_after_crash' });
+      if (record.input.runId !== manifest.runId) continue;
       const state = workflow.snapshot();
       const current = state.steps[record.input.stepId];
-      if (current?.attemptId === record.input.attemptId && ['running', 'verifying'].includes(current.status)) {
-        workflow.store.append({ type: 'step_blocked_after_recovery', runId: state.runId, stepId: record.input.stepId, attemptId: record.input.attemptId, reason: 'unknown_after_crash' });
-        workflow.store.write({ ...state, status: 'blocked', steps: { ...state.steps, [record.input.stepId]: { ...current, status: 'blocked', blockReason: 'unknown_after_crash', blockAttemptId: record.input.attemptId } } });
+      if (current?.attemptId !== record.input.attemptId || !['running', 'verifying'].includes(current.status)) continue;
+      if (record.outcome?.state === 'succeeded' && record.outcome.evidence) {
+        workflow.accept(record.input.stepId, record.outcome.evidence);
+        recovered.push(record.outcome);
+        continue;
       }
+      if (record.outcome) continue;
+      const outcome = attempts.finish(record.input.attemptId, { state: 'unknown', reason: 'unknown_after_crash' });
+      const refreshed = workflow.snapshot();
+      workflow.store.append({ type: 'step_blocked_after_recovery', runId: refreshed.runId, stepId: record.input.stepId, attemptId: record.input.attemptId, reason: 'unknown_after_crash' });
+      workflow.store.write({ ...refreshed, status: 'blocked', steps: { ...refreshed.steps, [record.input.stepId]: { ...refreshed.steps[record.input.stepId], status: 'blocked', blockReason: 'unknown_after_crash', blockAttemptId: record.input.attemptId } } });
       recovered.push(outcome);
     }
     return recovered;
   }
 
   async function run({ signal } = {}) {
+    recover();
     while (true) {
       if (signal?.aborted) throw new Error('run_execution_cancelled');
       const state = workflow.snapshot();

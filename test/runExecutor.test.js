@@ -43,3 +43,17 @@ test('run executor fences an incomplete attempt after controller recovery', () =
   assert.equal(recovered[0].reason, 'unknown_after_crash');
   assert.equal(workflow.snapshot().steps.A0.blockReason, 'unknown_after_crash');
 });
+
+test('run executor replays a durable successful attempt after controller recovery', async () => {
+  const manifest = readRunManifest('config/runs/audep-speed-local.json', { verifyInputs: false });
+  const recoveryManifest = { ...manifest, steps: [manifest.steps[0]] };
+  const store = createRunStore({ root: mkdtempSync(path.join(tmpdir(), 'run-executor-replay-')), runId: manifest.runId, manifest });
+  const workflow = createWorkflow({ manifest: recoveryManifest, store });
+  const executor = createRunExecutor({ workflow, manifest: recoveryManifest, runner: async () => { throw new Error('must not replay side effect'); } });
+  const started = workflow.begin('A0');
+  const evidence = { runId: manifest.runId, stepId: 'A0', planDigest: manifest.planDigest, verdict: 'pass', outputTypes: ['acceptance'], artifactId: 'c'.repeat(64), verifier: { profile: 'a0-observability', exitCode: 0 } };
+  executor.attempts.begin({ attemptId: started.steps.A0.attemptId, runId: manifest.runId, planDigest: manifest.planDigest, stepId: 'A0', operationId: 'operation-2' });
+  executor.attempts.finish(started.steps.A0.attemptId, { state: 'succeeded', evidence });
+  const state = await executor.run();
+  assert.equal(state.steps.A0.status, 'succeeded');
+});
