@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import { createWorkflow } from './workflowEngine.js';
 
-export async function runRehearsal({ manifest, store, runner = async ({ step }) => ({ runId: manifest.runId, stepId: step.stepId, planDigest: manifest.planDigest, verdict: 'pass', artifactId: crypto.createHash('sha256').update(step.stepId).digest('hex'), verifier: { profile: step.verifierProfile, exitCode: 0 } }) } = {}) {
+export async function runRehearsal({ manifest, store, runner = async ({ step }) => { const declared = manifest.steps.find((item) => item.stepId === step.stepId); return { runId: manifest.runId, stepId: step.stepId, planDigest: manifest.planDigest, verdict: 'pass', outputTypes: declared.requiredOutputTypes, artifactId: crypto.createHash('sha256').update(step.stepId).digest('hex'), verifier: { profile: declared.verifierProfile, exitCode: 0 } }; } } = {}) {
   const workflow = createWorkflow({ manifest, store }); const trace = [];
   while (workflow.next()) { const step = workflow.next(); workflow.begin(step.stepId); trace.push({ stepId: step.stepId, state: 'running' }); const evidence = await runner({ step, workflow }); workflow.accept(step.stepId, evidence); trace.push({ stepId: step.stepId, state: workflow.snapshot().steps[step.stepId].status }); }
   return { ok: workflow.snapshot().status === 'accepted', runId: manifest.runId, trace, state: workflow.snapshot() };
