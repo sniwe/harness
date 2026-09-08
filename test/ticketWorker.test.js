@@ -21,3 +21,9 @@ test('worker blocks uncertain execution after a post-start failure', async () =>
   await assert.rejects(() => worker.run({ ...state, subject: 'subject', body: 'untrusted body', correlationId: 'c' }), /worker_transport_lost/);
   assert.equal(patches.at(-1).action, 'block'); assert.equal(patches.at(-1).data.reason, 'unknown_after_crash'); assert.equal(state.status, 'blocked');
 });
+
+test('log failure prevents claim and execution launch', async () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'ticket-worker-log-failure-')); const calls = []; const client = { async get() { calls.push('get'); return { ticket: { ticketId: 't-log', revision: 0, headHash: 'h0', status: 'pending', sender: { machineKey: 'machine-a', projectKey: 'project-a' } } }; }, async mutate() { calls.push('mutate'); } };
+  const worker = createTicketWorker({ client, pool: { request: async () => { calls.push('pool'); } }, identity: { machineKey: 'machine-b', projectKey: 'project-b' }, lockRoot: root, log: () => { throw new Error('log_unavailable'); } });
+  await assert.rejects(() => worker.run({ ticketId: 't-log', subject: 'subject', body: 'body', correlationId: 'c' }), /log_unavailable/); assert.deepEqual(calls, []);
+});

@@ -14,9 +14,9 @@ export function createTicketWorker({ client, pool, identity, log, lockRoot, jour
     }
     let started = false; let leaseToken; const actor = identity;
     try {
-      leaseToken = crypto.randomUUID(); let current = await client.get(ticket.ticketId); const head = current.ticket;
+      leaseToken = crypto.randomUUID(); journal?.append({ event: 'execution_intent', ticketId: ticket.ticketId, executionId: `ticket:${ticket.ticketId}` }); log({ event: 'execution_intent', ticketId: ticket.ticketId, executionId: `ticket:${ticket.ticketId}` }); let current = await client.get(ticket.ticketId); const head = current.ticket;
       const claimed = await client.mutate(ticket.ticketId, { operationId: `claim:${ticket.ticketId}`, expectedRevision: head.revision, previousHash: head.headHash, actor, action: 'claim', data: { leaseToken } });
-      await client.mutate(ticket.ticketId, { operationId: `start:${ticket.ticketId}`, expectedRevision: claimed.ticket.revision, previousHash: claimed.ticket.headHash, actor, action: 'start', data: { leaseToken } }); journal?.append({ event: 'execution_intent', ticketId: ticket.ticketId, executionId: `ticket:${ticket.ticketId}` }); log({ event: 'execution_started', ticketId: ticket.ticketId, executionId: `ticket:${ticket.ticketId}` });
+      await client.mutate(ticket.ticketId, { operationId: `start:${ticket.ticketId}`, expectedRevision: claimed.ticket.revision, previousHash: claimed.ticket.headHash, actor, action: 'start', data: { leaseToken } }); log({ event: 'execution_started', ticketId: ticket.ticketId, executionId: `ticket:${ticket.ticketId}` });
       started = true;
       const result = await pool.request({ task: 'remote-prompt', requestId: `ticket:${ticket.ticketId}`, prompt: ticketPrompt(ticket) }); const outcomeHash = crypto.createHash('sha256').update(JSON.stringify(result)).digest('hex'); journal?.append({ event: 'execution_outcome', ticketId: ticket.ticketId, executionId: `ticket:${ticket.ticketId}`, outcomeHash });
       const receiptTicketId = crypto.createHash('sha256').update(`receipt/${ticket.ticketId}`).digest('hex');
