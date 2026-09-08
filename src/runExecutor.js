@@ -69,12 +69,14 @@ export function createRunExecutor({ workflow, manifest, attemptStore, operationO
       const current = state.steps[record.input.stepId];
       if (current?.attemptId !== record.input.attemptId || !['running', 'verifying'].includes(current.status)) continue;
       if (record.outcome?.state === 'succeeded' && record.outcome.evidence) {
+        try { operationOutbox?.result(record.input.operationId, { state: 'succeeded', attemptId: record.input.attemptId, recovered: true }); } catch { /* an already-closed or unavailable outbox is not replayed */ }
         workflow.accept(record.input.stepId, record.outcome.evidence);
         recovered.push(record.outcome);
         continue;
       }
       if (record.outcome?.state === 'blocked') {
         const artifactId = record.outcome.artifactId || crypto.createHash('sha256').update(`${record.input.attemptId}:${record.outcome.error || 'execution_failed'}`).digest('hex');
+        try { operationOutbox?.result(record.input.operationId, { state: 'blocked', attemptId: record.input.attemptId, artifactId, recovered: true }); } catch { /* an already-closed or unavailable outbox is retained */ }
         workflow.store.append({ type: 'step_blocked_after_recovery', runId: state.runId, stepId: record.input.stepId, attemptId: record.input.attemptId, artifactId, reason: record.outcome.reason || 'execution_failed' });
         workflow.store.write({ ...state, status: 'blocked', steps: { ...state.steps, [record.input.stepId]: { ...current, status: 'blocked', blockReason: record.outcome.reason || 'execution_failed', blockArtifactId: artifactId, failureAttemptId: record.input.attemptId } } });
         recovered.push(record.outcome);
@@ -82,6 +84,7 @@ export function createRunExecutor({ workflow, manifest, attemptStore, operationO
       }
       if (record.outcome) continue;
       const outcome = attempts.finish(record.input.attemptId, { state: 'unknown', reason: 'unknown_after_crash' });
+      try { operationOutbox?.result(record.input.operationId, { state: 'unknown', attemptId: record.input.attemptId, reason: 'unknown_after_crash' }); } catch { /* retain evidence if the outbox is unavailable */ }
       const refreshed = workflow.snapshot();
       workflow.store.append({ type: 'step_blocked_after_recovery', runId: refreshed.runId, stepId: record.input.stepId, attemptId: record.input.attemptId, reason: 'unknown_after_crash' });
       workflow.store.write({ ...refreshed, status: 'blocked', steps: { ...refreshed.steps, [record.input.stepId]: { ...refreshed.steps[record.input.stepId], status: 'blocked', blockReason: 'unknown_after_crash', blockAttemptId: record.input.attemptId } } });
