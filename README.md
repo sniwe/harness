@@ -43,10 +43,10 @@ The existing general worker route remains disabled unless
 `MACHINE_BASE_LOCAL_WORKER_REQUEST_ENABLED=1` is explicitly set.
 
 The sender treats the initial peer request as `202 accepted`, then persistently
-polls `/api/machine-base/peer-request-status` by request ID until completion,
-including fresh exact-key lookup on each poll so tunnel rotation is tolerated.
-`MACHINE_BASE_REMOTE_PROMPT_TIMEOUT_MS` bounds the execution window (default
-30 minutes, maximum 30 minutes).
+polls `/api/machine-base/peer-request-status` by request ID until a terminal
+result or explicit cancellation, including fresh exact-key lookup on each poll
+so tunnel rotation is tolerated. Transport requests have bounded connection
+attempts; remote processing has no encoded time limit.
 
 Commit coordination is automatic at startup and follows tunnel rotation by key, with bounded retries and post-relaunch confirmation.
 
