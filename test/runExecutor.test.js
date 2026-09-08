@@ -93,3 +93,13 @@ test('run executor replays a durable blocked outcome after controller recovery',
   const recovered = executor.recover();
   assert.equal(recovered[0].state, 'blocked'); assert.equal(workflow.snapshot().steps.A0.blockArtifactId, artifactId); assert.equal(workflow.snapshot().status, 'blocked');
 });
+
+test('run executor cannot persist invalid evidence as success', async () => {
+  const manifest = readRunManifest('config/runs/audep-speed-local.json', { verifyInputs: false });
+  const recoveryManifest = { ...manifest, steps: [manifest.steps[0]] };
+  const store = createRunStore({ root: mkdtempSync(path.join(tmpdir(), 'run-executor-evidence-')), runId: manifest.runId, manifest: recoveryManifest });
+  const workflow = createWorkflow({ manifest: recoveryManifest, store });
+  const executor = createRunExecutor({ workflow, manifest: recoveryManifest, runner: async () => ({ runId: manifest.runId, stepId: 'A0', planDigest: manifest.planDigest, verdict: 'pass', outputTypes: [], artifactId: 'f'.repeat(64), verifier: { profile: 'a0-observability', exitCode: 0 } }) });
+  const state = await executor.run(); const outcome = executor.attempts.recover()[0].outcome;
+  assert.equal(state.status, 'blocked'); assert.equal(outcome.state, 'blocked'); assert.match(outcome.error, /evidence_output_types_missing/);
+});

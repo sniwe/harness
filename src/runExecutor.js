@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { createAttemptStore } from './attemptStore.js';
 import { runCommand } from './commandRunner.js';
+import { evaluateEvidence } from './gateEvaluator.js';
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -38,6 +39,8 @@ export function createRunExecutor({ workflow, manifest, attemptStore, operationO
         ? await runner({ manifest, step: declared, attempt })
         : evidenceFromCommand(declared, await commandRunner({ ...resolveCommand({ manifest, step: declared, attempt }), step: declared }));
       const evidence = raw?.state ? evidenceFromCommand(declared, raw) : raw;
+      const gate = evaluateEvidence({ evidence, step: declared, manifest });
+      if (!gate.ok) throw new Error(`evidence_${gate.reason}`);
       const outcome = attempts.finish(attempt.attemptId, { state: 'succeeded', evidence });
       operationOutbox?.result(attempt.operationId, { state: 'succeeded', attemptId: attempt.attemptId });
       workflow.accept(step.stepId, evidence);
