@@ -6,6 +6,11 @@ import { resolveAppBenchmarkAdapter } from './appAdapter.js';
 import { resolveQwenBenchmarkAdapter } from './qwenAdapter.js';
 import { probeRuntime } from './runtimeProbe.js';
 
+export function validateRuntimeContracts(manifest, runtimes) {
+  const qwen = runtimes?.['qwen-asr']; const runtime = qwen?.body?.runtime; const plans = runtime?.audep_capabilities?.plans || [];
+  return qwen?.state === 'ready' && runtime?.audep_capabilities?.protocolVersion === 1 && plans.some((plan) => (typeof plan === 'string' ? plan : plan?.planVersion) === manifest.protocolBaseline);
+}
+
 export async function preflightManifest(file, { projectConfig = path.resolve('config/tickets.projects.json') } = {}) {
   try {
     const manifest = readRunManifest(file);
@@ -17,7 +22,7 @@ export async function preflightManifest(file, { projectConfig = path.resolve('co
     const missing = projects.filter((project) => !project.exists); const adapters = {};
     for (const [key, resolver] of [['main-app', resolveAppBenchmarkAdapter], ['qwen-asr', resolveQwenBenchmarkAdapter]]) { try { adapters[key] = resolver({ projectRoot: manifest.projects[key]?.profile, ...manifest.adapters?.[key] }); } catch (error) { adapters[key] = { state: 'blocked', error: error.message }; } }
     const runtimes = {}; for (const [key, runtime] of Object.entries(manifest.runtimes || {})) runtimes[key] = await probeRuntime(runtime);
-    const adapterMissing = Object.values(adapters).filter((adapter) => adapter.state === 'blocked'); const runtimeMissing = Object.values(runtimes).filter((runtime) => runtime.state === 'blocked');
-    return { ok: missing.length === 0 && adapterMissing.length === 0 && runtimeMissing.length === 0, state: missing.length || adapterMissing.length || runtimeMissing.length ? 'blocked' : 'ready', manifest: { runId: manifest.runId, planDigest: manifest.planDigest }, projects, missing, adapters, runtimes };
+    const adapterMissing = Object.values(adapters).filter((adapter) => adapter.state === 'blocked'); const runtimeMissing = Object.values(runtimes).filter((runtime) => runtime.state === 'blocked'); const contractReady = validateRuntimeContracts(manifest, runtimes);
+    return { ok: missing.length === 0 && adapterMissing.length === 0 && runtimeMissing.length === 0 && contractReady, state: missing.length || adapterMissing.length || runtimeMissing.length || !contractReady ? 'blocked' : 'ready', manifest: { runId: manifest.runId, planDigest: manifest.planDigest }, projects, missing, adapters, runtimes, contractReady };
   } catch (error) { return { ok: false, state: 'blocked', error: error.message }; }
 }
