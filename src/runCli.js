@@ -4,9 +4,19 @@ import { fileURLToPath } from 'node:url';
 import { createWorkflow } from './workflowEngine.js';
 import { runRehearsal, renderRunReport } from './rehearsal.js';
 import { writeFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
+import path from 'node:path';
 
 const [command, ...args] = process.argv.slice(2);
 const value = (name) => { const index = args.indexOf(name); return index >= 0 ? args[index + 1] : ''; };
+
+export function resolveManifestFile({ manifestFile, runId, directory = 'config/runs' } = {}) {
+  if (manifestFile) return manifestFile;
+  if (!runId) return '';
+  const matches = readdirSync(directory).filter((file) => file.toLowerCase().endsWith('.json')).filter((file) => { try { return JSON.parse(readFileSync(path.join(directory, file), 'utf8')).runId === runId; } catch { return false; } });
+  if (matches.length !== 1) throw new Error(matches.length ? 'run_id_ambiguous' : 'run_id_not_found');
+  return path.join(directory, matches[0]);
+}
 
 export async function runCommand(commandName, manifestFile, { store, outFile } = {}) {
   if (!manifestFile) throw new Error('manifest_required');
@@ -24,6 +34,6 @@ export async function runCommand(commandName, manifestFile, { store, outFile } =
 }
 
 if (fileURLToPath(import.meta.url) === process.argv[1]) {
-    try { const result = await runCommand(command, value('--manifest'), { outFile: value('--out') || undefined }); console.log(JSON.stringify(result)); if (result.ok === false) process.exitCode = 2; }
+    try { const result = await runCommand(command, resolveManifestFile({ manifestFile: value('--manifest'), runId: value('--run') }), { outFile: value('--out') || undefined }); console.log(JSON.stringify(result)); if (result.ok === false) process.exitCode = 2; }
   catch (error) { console.log(JSON.stringify({ ok: false, error: error.message })); process.exitCode = 2; }
 }
