@@ -6,7 +6,7 @@ import { createRunStore } from './runStore.js';
 export function createWorkflow({ manifest, store = createRunStore({ runId: manifest.runId }), initialize = true } = {}) {
   const initial = { schemaVersion: 1, runId: manifest.runId, planDigest: manifest.planDigest, status: 'waiting_inputs', steps: {}, evidence: {} };
   if (initialize) store.initialize(reduceRun(initial, manifest));
-  function snapshot() { return reduceRun(store.read(), manifest); }
+  function snapshot() { const state = store.read(); if (state.runId !== manifest.runId || state.planDigest !== manifest.planDigest) throw new Error('run_state_manifest_mismatch'); return reduceRun(state, manifest); }
   function next() { const state = snapshot(); return state.status === 'running' ? Object.values(state.steps).find((step) => step.status === 'runnable') : undefined; }
   function begin(stepId) {
     const state = snapshot(); const step = manifest.steps.find((item) => item.stepId === stepId); const current = state.steps[stepId];

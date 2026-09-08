@@ -38,3 +38,7 @@ test('blocked steps can use only bounded corrective retries', () => {
 test('resume requires the exact artifact that caused the blocker', () => {
   const run = workflow(); const artifactId = 'e'.repeat(64); run.begin('A0'); run.accept('A0', { runId: manifest.runId, stepId: 'A0', planDigest: manifest.planDigest, verdict: 'fail', artifactId, verifier: { exitCode: 1 } }); assert.throws(() => run.resume('f'.repeat(64)), /resolution_not_found/); assert.equal(run.resume(artifactId).steps.A0.status, 'runnable');
 });
+
+test('reconstructed workflow rejects a state from another manifest revision', () => {
+  const run = workflow(); const mismatched = { ...manifest, planDigest: 'b'.repeat(64) }; assert.throws(() => createWorkflow({ manifest: mismatched, store: run.store }).snapshot(), /run_state_manifest_mismatch/);
+});
