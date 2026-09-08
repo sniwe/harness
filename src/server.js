@@ -59,10 +59,9 @@ try {
 const commitSync = createCommitSyncClient({ registryUrl: `${relayBaseUrl}/_functions/tunnels` });
 const machineKey = process.env.TUNNEL_KEY || identity.tunnelKey;
 const peerRequestClient = createPeerRequestClient({ registryUrl: `${relayBaseUrl}/_functions/tunnels`, localKey: machineKey, callerKey: machineKey });
-const remotePromptTimeoutMs = Number.isInteger(Number(process.env.MACHINE_BASE_REMOTE_PROMPT_TIMEOUT_MS)) ? Math.min(1800000, Math.max(1000, Number(process.env.MACHINE_BASE_REMOTE_PROMPT_TIMEOUT_MS))) : 1800000;
 
 const pool = createWorkerPool({ env: { ...process.env, MACHINE_BASE_REPO_ROOT: repoRoot }, workerEntry: path.resolve("mgmt/machine-base-worker/src/index.js"), cwd: path.resolve("mgmt/machine-base-worker") });
-const peerRequestHandler = createPeerRequestHandler({ pool, targetKey: machineKey, enabled: process.env.MACHINE_BASE_REMOTE_PROMPTS_ENABLED !== "0", maxInFlight: 1, timeoutMs: remotePromptTimeoutMs });
+const peerRequestHandler = createPeerRequestHandler({ pool, targetKey: machineKey, enabled: process.env.MACHINE_BASE_REMOTE_PROMPTS_ENABLED !== "0", maxInFlight: 1 });
 let port = configuredPort;
 let localUrl = "";
 let tunnel = null;
@@ -157,8 +156,8 @@ server = http.createServer(async (request, response) => {
     if (request.method === "POST" && pathname === "/api/machine-base/peer-request-send") {
       if (process.env.MACHINE_BASE_PEER_REQUEST_SENDER_ENABLED === "0") return json(response, 403, { ok: false, error: "peer_sender_disabled" });
       const payload = JSON.parse(await readBody(request, 64 * 1024));
-      if (!payload || typeof payload !== "object" || Array.isArray(payload) || Object.keys(payload).some((key) => !["tunnelKey", "prompt", "timeoutMs"].includes(key))) return json(response, 400, { ok: false, error: "sender_request_fields_invalid" });
-      const result = await peerRequestClient.send(payload.tunnelKey, payload.prompt, payload.timeoutMs);
+      if (!payload || typeof payload !== "object" || Array.isArray(payload) || Object.keys(payload).some((key) => !["tunnelKey", "prompt"].includes(key))) return json(response, 400, { ok: false, error: "sender_request_fields_invalid" });
+      const result = await peerRequestClient.send(payload.tunnelKey, payload.prompt);
       return json(response, 200, result);
     }
     if (request.method === "POST" && pathname === "/api/machine-base/request") {

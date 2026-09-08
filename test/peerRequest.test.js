@@ -8,7 +8,8 @@ const id2 = "22222222-2222-4222-8222-222222222222";
 function response(body, status = 200) { return { ok: status >= 200 && status < 300, status, json: async () => body }; }
 
 test("remote prompt envelope is strict and bounded", () => {
-  assert.equal(validateRemotePromptEnvelope({ requestId: id, targetTunnelKey: "machine-base-peer", prompt: "READY", timeoutMs: 999999 }, { targetKey: "machine-base-peer" }).timeoutMs, 999999);
+  assert.deepEqual(validateRemotePromptEnvelope({ requestId: id, targetTunnelKey: "machine-base-peer", prompt: "READY" }, { targetKey: "machine-base-peer" }), { requestId: id, targetTunnelKey: "machine-base-peer", prompt: "READY" });
+  assert.throws(() => validateRemotePromptEnvelope({ requestId: id, targetTunnelKey: "machine-base-peer", prompt: "READY", timeoutMs: 999999 }, { targetKey: "machine-base-peer" }), /request_fields_invalid/);
   assert.throws(() => validateRemotePromptEnvelope({ requestId: id, targetTunnelKey: "machine-base-other", prompt: "READY" }, { targetKey: "machine-base-peer" }), /target_key_invalid/);
   assert.throws(() => validateRemotePromptEnvelope({ requestId: id, targetTunnelKey: "machine-base-peer", prompt: "READY", cwd: "C:\\" }, { targetKey: "machine-base-peer" }), /request_fields_invalid/);
 });

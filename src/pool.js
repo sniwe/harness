@@ -37,26 +37,25 @@ export function createWorkerPool({ workerEntry = path.resolve("mgmt/machine-base
   }
   async function start() { await Promise.all(slots.map(spawnSlot)); }
   function readySlot() { return slots.find((slot) => slot.state === "ready"); }
-  async function request(payload, timeoutMs = 60000) {
+  async function request(payload) {
     const work = queue.catch(() => {}).then(async () => {
       let slot = readySlot();
       if (!slot) throw new Error("no_worker_ready");
-      try { return await send(slot, payload, timeoutMs); }
+      try { return await send(slot, payload); }
       catch (error) {
         failSlot(slot, error);
         if (payload.task === "remote-prompt") throw error;
         slot = readySlot();
         if (!slot) throw error;
-        return send(slot, payload, timeoutMs);
+        return send(slot, payload);
       }
     });
     queue = work.catch(() => {});
     return work;
   }
-  function send(slot, payload, timeoutMs) {
+  function send(slot, payload) {
     return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => { slot.pending = null; slot.child.kill(); reject(new Error(`worker_timeout slot=${slot.id}`)); }, timeoutMs);
-      slot.pending = { resolve: (value) => { clearTimeout(timer); resolve(value); }, reject: (error) => { clearTimeout(timer); reject(error); } };
+      slot.pending = { resolve, reject };
       try { slot.child.stdin.write(`${JSON.stringify(payload)}\n`); } catch (error) { slot.pending.reject(error); }
     });
   }

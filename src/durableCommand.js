@@ -11,15 +11,14 @@ export function createDurableCommandController({ root, spawnImpl = spawn, probe 
   const fileFor = (commandId) => path.join(root, `${commandId}.json`);
   const read = (commandId) => { const file = fileFor(commandId); if (!fs.existsSync(file)) throw new Error('command_not_found'); return JSON.parse(fs.readFileSync(file, 'utf8')); };
   const write = (state) => { const file = fileFor(state.commandId); const temporary = `${file}.${process.pid}.tmp`; fs.writeFileSync(temporary, JSON.stringify(state, null, 2)); fs.renameSync(temporary, file); return state; };
-  function start({ command, args = [], cwd, env = process.env, timeoutMs = 1800000 } = {}) {
-    if (!command || !cwd || !Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new Error('command_start_invalid');
-    const commandId = crypto.randomUUID(); const startedAt = new Date().toISOString(); let output = ''; let timedOut = false; let settled = false;
+  function start({ command, args = [], cwd, env = process.env } = {}) {
+    if (!command || !cwd) throw new Error('command_start_invalid');
+    const commandId = crypto.randomUUID(); const startedAt = new Date().toISOString(); let output = ''; let settled = false;
     const child = spawnImpl(command, args, { cwd, env, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, detached: true });
-    const finish = (result) => { if (settled) return; settled = true; active.delete(commandId); clearTimeout(timer); child.stdout?.destroy(); child.stderr?.destroy(); write({ ...read(commandId), ...result, output, finishedAt: new Date().toISOString() }); };
+    const finish = (result) => { if (settled) return; settled = true; active.delete(commandId); child.stdout?.destroy(); child.stderr?.destroy(); write({ ...read(commandId), ...result, output, finishedAt: new Date().toISOString() }); };
     const append = (chunk) => { output = (output + String(chunk)).slice(-MAX_OUTPUT_BYTES); write({ ...read(commandId), output }); };
-    const initial = write({ schemaVersion: 1, commandId, command, args, cwd, startedAt, timeoutMs, pid: child.pid, state: 'running', output: '' }); active.add(commandId);
-    child.stdout?.on('data', append); child.stderr?.on('data', append); child.on('error', (error) => finish({ state: 'failed', error: error.message })); child.on('close', (exitCode, signal) => finish({ state: timedOut ? 'uncertain' : exitCode === 0 ? 'succeeded' : 'failed', exitCode, signal, ...(timedOut ? { reason: 'timeout' } : {}) }));
-    const timer = setTimeout(() => { timedOut = true; try { child.kill(); } catch {} }, Math.max(1, timeoutMs));
+    const initial = write({ schemaVersion: 1, commandId, command, args, cwd, startedAt, pid: child.pid, state: 'running', output: '' }); active.add(commandId);
+    child.stdout?.on('data', append); child.stderr?.on('data', append); child.on('error', (error) => finish({ state: 'failed', error: error.message })); child.on('close', (exitCode, signal) => finish({ state: exitCode === 0 ? 'succeeded' : 'failed', exitCode, signal }));
     return initial;
   }
   function inspect(commandId) { const state = read(commandId); if (state.state === 'running' && !active.has(commandId) && !probe(state.pid)) return write({ ...state, state: 'unknown', reason: 'owned_process_missing', observedAt: new Date().toISOString() }); return state; }

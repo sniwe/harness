@@ -17,16 +17,16 @@ test('artifact transfer retains exact bytes and rejects corruption', () => {
 });
 
 test('command runner reports real success and failure states', async () => {
-  const cwd = process.cwd(); const ok = await runCommand({ command: process.execPath, args: ['-e', 'process.stdout.write("ok")'], cwd, timeoutMs: 5000 }); const bad = await runCommand({ command: process.execPath, args: ['-e', 'process.exit(3)'], cwd, timeoutMs: 5000 });
+  const cwd = process.cwd(); const ok = await runCommand({ command: process.execPath, args: ['-e', 'process.stdout.write("ok")'], cwd }); const bad = await runCommand({ command: process.execPath, args: ['-e', 'process.exit(3)'], cwd });
   assert.equal(ok.state, 'succeeded'); assert.match(ok.output, /ok/); assert.equal(bad.state, 'failed'); assert.equal(bad.exitCode, 3);
 });
 
 test('durable command returns an ID and persists terminal output', async () => {
-  const controller = createDurableCommandController({ root: path.join(mkdtempSync(path.join(tmpdir(), 'durable-command-')), 'commands') }); const started = controller.start({ command: process.execPath, args: ['-e', 'process.stdout.write("durable")'], cwd: process.cwd(), timeoutMs: 5000 }); assert.equal(started.state, 'running');
+  const controller = createDurableCommandController({ root: path.join(mkdtempSync(path.join(tmpdir(), 'durable-command-')), 'commands') }); const started = controller.start({ command: process.execPath, args: ['-e', 'process.stdout.write("durable")'], cwd: process.cwd() }); assert.equal(started.state, 'running');
   let result = controller.inspect(started.commandId); for (let attempt = 0; attempt < 20 && result.state === 'running'; attempt += 1) { await new Promise((resolve) => setTimeout(resolve, 10)); result = controller.inspect(started.commandId); }
   assert.equal(result.state, 'succeeded'); assert.match(result.output, /durable/);
 });
 
 test('reconstructed durable command treats a missing process as unknown', () => {
-  const root = path.join(mkdtempSync(path.join(tmpdir(), 'durable-command-')), 'commands'); const controller = createDurableCommandController({ root, spawnImpl: () => ({ pid: 777, unref() {}, on() {}, stdout: null, stderr: null }), probe: () => true }); const started = controller.start({ command: 'test', cwd: process.cwd(), timeoutMs: 10 }); const restarted = createDurableCommandController({ root, probe: () => false }); assert.equal(restarted.inspect(started.commandId).state, 'unknown');
+  const root = path.join(mkdtempSync(path.join(tmpdir(), 'durable-command-')), 'commands'); const controller = createDurableCommandController({ root, spawnImpl: () => ({ pid: 777, unref() {}, on() {}, stdout: null, stderr: null }), probe: () => true }); const started = controller.start({ command: 'test', cwd: process.cwd() }); const restarted = createDurableCommandController({ root, probe: () => false }); assert.equal(restarted.inspect(started.commandId).state, 'unknown');
 });
