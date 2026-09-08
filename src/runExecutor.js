@@ -15,7 +15,7 @@ function evidenceFromCommand(step, result) {
   return evidence;
 }
 
-export function createRunExecutor({ workflow, manifest, attemptStore, operationOutbox, commandRunner = runCommand, resolveCommand, runner, pollMs = 1000, sleepImpl = sleep, skipConditional = [] } = {}) {
+export function createRunExecutor({ workflow, manifest, attemptStore, operationOutbox, commandRunner = runCommand, resolveCommand, runner, pollMs = 1000, heartbeatMs = 0, sleepImpl = sleep, skipConditional = [] } = {}) {
   if (!workflow || !manifest || (!resolveCommand && !runner)) throw new Error('run_executor_invalid');
   const attempts = attemptStore || createAttemptStore(workflow.store.dir);
 
@@ -33,8 +33,11 @@ export function createRunExecutor({ workflow, manifest, attemptStore, operationO
       commandProfile: declared.commandProfile,
       immutableInputs: declared.immutableInputs,
     });
+    let heartbeatTimer;
     try {
       operationOutbox?.intent(attempt.operationId, { runId: manifest.runId, stepId: step.stepId, attemptId: attempt.attemptId, action: 'execute_step' });
+      workflow.heartbeat(step.stepId, { attemptId: attempt.attemptId, operationId: attempt.operationId });
+      if (heartbeatMs > 0) heartbeatTimer = setInterval(() => { try { workflow.heartbeat(step.stepId, { attemptId: attempt.attemptId, operationId: attempt.operationId }); } catch { /* terminal state is durable */ } }, heartbeatMs);
       const raw = runner
         ? await runner({ manifest, step: declared, attempt })
         : evidenceFromCommand(declared, await commandRunner({ ...resolveCommand({ manifest, step: declared, attempt }), step: declared }));
@@ -53,6 +56,8 @@ export function createRunExecutor({ workflow, manifest, attemptStore, operationO
       workflow.store.append({ type: 'step_execution_blocked', runId: state.runId, stepId: step.stepId, attemptId: attempt.attemptId, artifactId: blockArtifactId, error: error.message });
       workflow.store.write({ ...state, status: 'blocked', steps: { ...state.steps, [step.stepId]: { ...state.steps[step.stepId], status: 'blocked', blockReason: 'execution_failed', blockArtifactId, failureAttemptId: attempt.attemptId, failure: error.message } } });
       return outcome;
+    } finally {
+      if (heartbeatTimer) clearInterval(heartbeatTimer);
     }
   }
 

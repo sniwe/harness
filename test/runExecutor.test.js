@@ -103,3 +103,13 @@ test('run executor cannot persist invalid evidence as success', async () => {
   const state = await executor.run(); const outcome = executor.attempts.recover()[0].outcome;
   assert.equal(state.status, 'blocked'); assert.equal(outcome.state, 'blocked'); assert.match(outcome.error, /evidence_output_types_missing/);
 });
+
+test('run executor emits durable heartbeats during an indeterminate runner', async () => {
+  const manifest = readRunManifest('config/runs/audep-speed-local.json', { verifyInputs: false });
+  const recoveryManifest = { ...manifest, steps: [manifest.steps[0]] };
+  const store = createRunStore({ root: mkdtempSync(path.join(tmpdir(), 'run-executor-heartbeat-')), runId: manifest.runId, manifest: recoveryManifest });
+  const workflow = createWorkflow({ manifest: recoveryManifest, store }); let release; let heartbeats = 0;
+  const executor = createRunExecutor({ workflow, manifest: recoveryManifest, heartbeatMs: 1, runner: async () => { await new Promise((resolve) => { release = resolve; }); return { runId: manifest.runId, stepId: 'A0', planDigest: manifest.planDigest, verdict: 'pass', outputTypes: ['acceptance'], artifactId: '1'.repeat(64), verifier: { profile: 'a0-observability', exitCode: 0 } }; } });
+  const originalHeartbeat = workflow.heartbeat; workflow.heartbeat = (...args) => { heartbeats += 1; return originalHeartbeat(...args); };
+  const running = executor.run(); await new Promise((resolve) => setTimeout(resolve, 5)); assert.ok(heartbeats > 1); release(); const state = await running; assert.equal(state.status, 'accepted');
+});
