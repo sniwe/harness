@@ -68,6 +68,7 @@ let server;
 let startupState = "starting";
 let localCommitConfirmation = null;
 let coordination = null;
+let coordinationTimer = null;
 let syncInProgress = false;
 let stopping = false;
 let ticketRuntime = null;
@@ -195,12 +196,13 @@ async function start() {
   ticketRuntime = configureTickets();
   if (ticketRuntime) { await ticketRuntime.reconciler.once(); ticketStop = ticketRuntime.reconciler.start(); }
   startupState = "tunnel_ready";
-  if (process.env.MACHINE_BASE_COORDINATE_ON_START !== "0") { startupState = "peers_checking"; coordination = await coordinate(); startupState = coordination.ok ? "converged" : launchTrustFailure ? "started_unverified" : "coordination_failed"; }
+  if (process.env.MACHINE_BASE_COORDINATE_ON_START !== "0") { startupState = "peers_checking"; coordination = await coordinate(); startupState = coordination.ok ? "converged" : launchTrustFailure ? "started_unverified" : "coordination_failed"; if (!coordination.ok && !launchTrustFailure) { coordinationTimer = setInterval(async () => { if (stopping || syncInProgress) return; try { const result = await coordinate(); coordination = result; if (result.ok) { startupState = "converged"; clearInterval(coordinationTimer); coordinationTimer = null; } } catch (error) { coordination = { ok: false, error: error.message }; } }, 30000); } }
   console.log(JSON.stringify({ ready: true, pid: process.pid, port, tunnelKey: process.env.TUNNEL_KEY || identity.tunnelKey, tunnel: tunnel?.state || null }));
 }
 async function stop() {
   if (stopping) return;
   stopping = true;
+  if (coordinationTimer) { clearInterval(coordinationTimer); coordinationTimer = null; }
   tunnel?.stop();
   ticketStop?.();
   pool.stop();
