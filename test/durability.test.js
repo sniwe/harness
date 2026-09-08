@@ -18,6 +18,10 @@ test('attempt identities are contained and durable writes are complete JSON reco
   const root = mkdtempSync(path.join(tmpdir(), 'attempt-safe-')); const attempts = createAttemptStore(root); assert.throws(() => attempts.begin({ attemptId: '../escape' }), /attempt_id_invalid/); const attempt = attempts.begin({ attemptId: 'a-safe' }); const outcome = attempts.finish(attempt.attemptId, { state: 'failed', error: 'worker_failed' }); assert.equal(outcome.attemptId, 'a-safe'); assert.match(fs.readFileSync(path.join(root, 'attempts', 'a-safe', 'outcome.json'), 'utf8'), /worker_failed/);
 });
 
+test('operation identities are contained and outbox records are atomically persisted', () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'operation-safe-')); const outbox = createOperationOutbox(root); assert.throws(() => outbox.intent('../escape', { action: 'claim' }), /operation_id_invalid/); outbox.intent('op-safe', { action: 'claim' }); const complete = outbox.result('op-safe', { status: 200 }); assert.equal(complete.status, 'complete'); assert.match(fs.readFileSync(path.join(root, 'operations', 'op-safe.json'), 'utf8'), /"complete"/);
+});
+
 test('project lease excludes a second owner and releases only its owner', () => {
   const root = mkdtempSync(path.join(tmpdir(), 'lease-')); const lease = acquireProjectLease(root, { projectKey: 'app', pid: 11, now: 22, isAlive: () => true }); assert.throws(() => acquireProjectLease(root, { projectKey: 'app', pid: 12, now: 23, isAlive: () => true }), /lease_busy/); lease.release(); assert.equal(acquireProjectLease(root, { projectKey: 'app', pid: 12, now: 23 }).lease.pid, 12);
 });
