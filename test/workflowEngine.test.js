@@ -26,3 +26,7 @@ test('valid evidence unlocks the dependent step after restart', () => {
   assert.equal(run.next().stepId, 'Q0');
   assert.equal(run.snapshot().steps.Q0.status, 'runnable');
 });
+
+test('cancellation is durable and prevents further dispatch', () => {
+  const run = workflow(); run.cancel('test_cancel'); assert.equal(run.snapshot().status, 'cancelled'); assert.equal(run.next(), undefined); assert.throws(() => run.begin('A0'), /step_not_runnable/);
+});

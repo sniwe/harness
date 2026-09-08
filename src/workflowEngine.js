@@ -7,10 +7,10 @@ export function createWorkflow({ manifest, store = createRunStore({ runId: manif
   const initial = { schemaVersion: 1, runId: manifest.runId, planDigest: manifest.planDigest, status: 'waiting_inputs', steps: {}, evidence: {} };
   store.initialize(reduceRun(initial, manifest));
   function snapshot() { return reduceRun(store.read(), manifest); }
-  function next() { return Object.values(snapshot().steps).find((step) => step.status === 'runnable'); }
+  function next() { const state = snapshot(); return state.status === 'running' ? Object.values(state.steps).find((step) => step.status === 'runnable') : undefined; }
   function begin(stepId) {
     const state = snapshot(); const step = manifest.steps.find((item) => item.stepId === stepId); const current = state.steps[stepId];
-    if (!step || !current || current.status !== 'runnable') throw new Error(`step_not_runnable:${stepId}`);
+    if (state.status !== 'running' || !step || !current || current.status !== 'runnable') throw new Error(`step_not_runnable:${stepId}`);
     const nextState = { ...state, steps: { ...state.steps, [stepId]: { ...current, status: 'running', attempts: current.attempts + 1, attemptId: crypto.randomUUID() } } };
     store.append({ type: 'step_started', runId: state.runId, stepId }); return store.write(nextState);
   }
@@ -20,5 +20,6 @@ export function createWorkflow({ manifest, store = createRunStore({ runId: manif
     const nextState = reduceRun({ ...state, evidence: { ...state.evidence, [stepId]: evidence }, steps: { ...state.steps, [stepId]: { ...state.steps[stepId], status: 'succeeded', gateId: result.gateId } } }, manifest);
     store.append({ type: 'step_accepted', runId: state.runId, stepId, artifactId: evidence.artifactId, gateId: result.gateId }); return store.write(nextState);
   }
-  return { snapshot, next, begin, accept, store };
+  function cancel(reason = 'operator_cancelled') { const state = snapshot(); const nextState = { ...state, status: 'cancelled', cancelReason: reason, cancelledAt: new Date().toISOString() }; store.append({ type: 'run_cancelled', runId: state.runId, reason }); return store.write(nextState); }
+  return { snapshot, next, begin, accept, cancel, store };
 }
