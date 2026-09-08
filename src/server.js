@@ -22,7 +22,7 @@ const branch = process.env.MACHINE_BASE_GIT_BRANCH || "main";
 const identityPath = path.join(root, "identity.json");
 const setupPath = path.join(root, "setup.json");
 const configuredPort = Number.isInteger(Number(process.env.PORT)) ? Math.max(0, Number(process.env.PORT)) : 3100;
-const relayBaseUrl = String(process.env.TUNNEL_RELAY_BASE_URL || "https://dev-sitex2082572611.wixdev-sites.org/").replace(/\/+$/, "");
+const relayBaseUrl = process.env.TUNNEL_DISABLED === "1" ? "" : String(process.env.TUNNEL_RELAY_BASE_URL || "https://dev-sitex2082572611.wixdev-sites.org/").replace(/\/+$/, "");
 const relayUrl = relayBaseUrl ? `${relayBaseUrl}${process.env.TUNNEL_RELAY_PATH || "/_functions/tunnelRelay"}` : "";
 
 fs.mkdirSync(root, { recursive: true });
