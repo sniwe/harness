@@ -19,7 +19,7 @@ test('AudEp filename aliases are exact and canonicalized', () => {
 });
 
 test('handoff filenames cannot escape the receiving directory', () => {
-  const descriptor = { schemaVersion: 1, runId: 'r', artifactType: 'x', producerPhase: 'Q1', producer: { machineKey: 'q', projectKey: 'qwen-asr' }, consumer: { machineKey: 'a', projectKey: 'main-app' }, filename: 'x.md', requiredAcceptanceType: 'x', artifact: { sha256: 'a'.repeat(64), byteLength: 1 } };
+  const descriptor = { schemaVersion: 1, runId: 'r', artifactType: 'x', producerPhase: 'Q1', producer: { machineKey: 'q', projectKey: 'qwen-asr', commit: 'c'.repeat(40), runtimeGeneration: 'g1' }, consumer: { machineKey: 'a', projectKey: 'main-app', phase: 'A2B' }, filename: 'x.md', requiredAcceptanceType: 'x', artifact: { sha256: 'a'.repeat(64), byteLength: 1, mediaType: 'text/plain' } };
   assert.equal(validateHandoff(descriptor), true);
   assert.throws(() => validateHandoff({ ...descriptor, filename: '../x.md' }), /filename_invalid/);
   assert.throws(() => validateHandoff({ ...descriptor, filename: 'nested/x.md' }), /filename_invalid/);
