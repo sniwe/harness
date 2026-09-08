@@ -45,6 +45,8 @@ test('rehearsal exports its report without changing the workflow contract', asyn
   const manifestFile = 'config/runs/audep-speed-local.json'; const outFile = path.join(mkdtempSync(path.join(tmpdir(), 'rehearsal-report-')), 'run-report.md'); const store = createRunStore({ root: mkdtempSync(path.join(tmpdir(), 'rehearsal-export-')), runId: 'audep-speed-local-260908' });
   const result = await runCommand('rehearse', manifestFile, { store, outFile, fixture: true });
   assert.match(result.report, /PASS/);
+  assert.match(result.report, /app-during-upload: not_observed/);
+  assert.match(result.report, /NOT_EVALUATED/);
   assert.equal(result.reportFile, outFile);
   assert.equal(existsSync(outFile), true);
   assert.match(readFileSync(outFile, 'utf8'), /Evidence index/);
