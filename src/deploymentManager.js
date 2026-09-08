@@ -10,5 +10,14 @@ export function createDeploymentManager(file) {
   function activate() { const state = read(); if (!state || state.state !== 'staged') throw new Error('deployment_not_staged'); return write({ ...state, state: 'active', activatedAt: new Date().toISOString() }); }
   function markHealthy({ runtimeGeneration, commit }) { const state = read(); if (!state || state.state !== 'active' || !runtimeGeneration || !commit) throw new Error('deployment_health_invalid'); return write({ ...state, state: 'healthy', runtimeGeneration, commit, healthyAt: new Date().toISOString() }); }
   function rollback(reason) { const state = read(); if (!state || !['active', 'healthy'].includes(state.state)) throw new Error('deployment_rollback_invalid'); return write({ ...state, state: 'rollback_required', reason: String(reason || 'health_deadline_exceeded'), rollbackAt: new Date().toISOString(), restore: state.previous }); }
-  return { read, stage, activate, markHealthy, rollback };
+  async function waitForHealthy({ observe, sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)), pollMs = 1000, signal } = {}) {
+    if (typeof observe !== 'function') throw new Error('deployment_observer_required');
+    while (true) {
+      if (signal?.aborted) throw new Error('deployment_health_wait_cancelled');
+      const observed = await observe();
+      if (observed?.state === 'healthy' && observed.runtimeGeneration && observed.commit) return markHealthy({ runtimeGeneration: observed.runtimeGeneration, commit: observed.commit });
+      await sleep(pollMs);
+    }
+  }
+  return { read, stage, activate, markHealthy, waitForHealthy, rollback };
 }
