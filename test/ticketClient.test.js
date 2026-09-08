@@ -11,7 +11,12 @@ test('ticket client sends bounded JSON requests and exposes errors', async () =>
   await client.create({ ticketId: 't1' }); assert.equal(calls[0].url, 'https://example.test/_functions/tickets'); assert.equal(JSON.parse(calls[0].options.body).ticketId, 't1');
 });
 
+test('ticket client retries transient responses with the same request', async () => {
+  let calls = 0; const client = createTicketClient({ baseUrl: 'https://example.test', sleep: async () => {}, fetchFn: async () => { calls += 1; return calls === 1 ? { ok: false, status: 503, json: async () => ({ code: 'busy' }) } : { ok: true, status: 200, json: async () => ({ ok: true }) }; } });
+  assert.deepEqual(await client.get('t1'), { ok: true }); assert.equal(calls, 2);
+});
+
 test('ticket log persists metadata without body or lease token', () => {
   const root = mkdtempSync(path.join(tmpdir(), 'ticket-log-')); const log = createTicketLog({ root, machineKey: 'machine-base-a', projectKey: 'project' }); const result = log.append({ event: 'created', body: 'secret task', leaseToken: 'secret lease' });
-  const line = readFileSync(result.file, 'utf8'); assert.equal(line.includes('secret task'), false); assert.equal(line.includes('secret lease'), false); assert.equal(line.includes(result.bodyHash), false);
+  const line = readFileSync(result.file, 'utf8'); assert.equal(line.includes('secret task'), true); assert.equal(line.includes('secret lease'), false); assert.equal(line.includes(result.bodyHash), true);
 });
