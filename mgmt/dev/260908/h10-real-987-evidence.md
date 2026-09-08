@@ -30,6 +30,7 @@ This is retained evidence from the real normal-browser verifier run. It is not a
 - Qwen final current operation: none
 - Qwen durable manifest: `C:\Users\rhyse\Qwen3-ASR\dev\audep-work-a7-260906\jobs\audep-4e95ddd8-a381-4d69-88aa-96f67d91c19e-c928324fdf276e1735e72600936c613b00e0d1dbb21717df3497821a5fd3e789\manifest.json`; SHA-256 `beb4010ae70c5d3df853f10743a555597299de5020aab9e39c69774228a781d4`
 - Qwen final update: `updates\00000013.json`; SHA-256 `3faa7850c63ca58b6f08a1fdcc7fb516fddc028bd278215ae4dcbd67f8915f33`; committed audio `644655` ms; localization alignment version `2`
+- Independent structural probe of update 13: status `ready`, timeline status `ready`, `1674` timeline units, `1674` anchors, all `charStart/charEnd` coordinates contiguous (`badCoordinates=0`), `invalidFromChar=null`, `invalidFromToken=null`, and `textStableThroughChar=1674`
 - Qwen required suite: `C:\Users\rhyse\.conda\envs\qwen3-asr\python.exe -m unittest discover -s tests -p "test_audep*.py" -v`; `48/48` passed
 - Qwen full suite: same interpreter with `-p "test_*.py" -v`; `80/80` passed
 
