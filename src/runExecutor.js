@@ -49,6 +49,22 @@ export function createRunExecutor({ workflow, manifest, attemptStore, commandRun
     }
   }
 
+  function recover() {
+    const recovered = [];
+    for (const record of attempts.recover()) {
+      if (record.outcome || record.input.runId !== manifest.runId) continue;
+      const outcome = attempts.finish(record.input.attemptId, { state: 'unknown', reason: 'unknown_after_crash' });
+      const state = workflow.snapshot();
+      const current = state.steps[record.input.stepId];
+      if (current?.attemptId === record.input.attemptId && ['running', 'verifying'].includes(current.status)) {
+        workflow.store.append({ type: 'step_blocked_after_recovery', runId: state.runId, stepId: record.input.stepId, attemptId: record.input.attemptId, reason: 'unknown_after_crash' });
+        workflow.store.write({ ...state, status: 'blocked', steps: { ...state.steps, [record.input.stepId]: { ...current, status: 'blocked', blockReason: 'unknown_after_crash', blockAttemptId: record.input.attemptId } } });
+      }
+      recovered.push(outcome);
+    }
+    return recovered;
+  }
+
   async function run({ signal } = {}) {
     while (true) {
       if (signal?.aborted) throw new Error('run_execution_cancelled');
@@ -66,5 +82,5 @@ export function createRunExecutor({ workflow, manifest, attemptStore, commandRun
     }
   }
 
-  return { run, executeStep, attempts };
+  return { run, executeStep, recover, attempts };
 }

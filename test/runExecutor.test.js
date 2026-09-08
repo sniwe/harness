@@ -30,3 +30,16 @@ test('run executor keeps polling when no step is currently runnable', async () =
   await assert.rejects(execution, /run_execution_cancelled/);
   assert.equal(polls, 2);
 });
+
+test('run executor fences an incomplete attempt after controller recovery', () => {
+  const manifest = readRunManifest('config/runs/audep-speed-local.json', { verifyInputs: false });
+  const store = createRunStore({ root: mkdtempSync(path.join(tmpdir(), 'run-executor-recovery-')), runId: manifest.runId, manifest });
+  const workflow = createWorkflow({ manifest, store });
+  const executor = createRunExecutor({ workflow, manifest, runner: async () => { throw new Error('unused'); } });
+  const started = workflow.begin('A0');
+  executor.attempts.begin({ attemptId: started.steps.A0.attemptId, runId: manifest.runId, planDigest: manifest.planDigest, stepId: 'A0', operationId: 'operation-1' });
+  const recovered = executor.recover();
+  assert.equal(recovered[0].state, 'unknown');
+  assert.equal(recovered[0].reason, 'unknown_after_crash');
+  assert.equal(workflow.snapshot().steps.A0.blockReason, 'unknown_after_crash');
+});
