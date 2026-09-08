@@ -4,8 +4,9 @@ import { readRunManifest } from './runManifest.js';
 import { readTicketProject } from './ticketProjects.js';
 import { resolveAppBenchmarkAdapter } from './appAdapter.js';
 import { resolveQwenBenchmarkAdapter } from './qwenAdapter.js';
+import { probeRuntime } from './runtimeProbe.js';
 
-export function preflightManifest(file, { projectConfig = path.resolve('config/tickets.projects.json') } = {}) {
+export async function preflightManifest(file, { projectConfig = path.resolve('config/tickets.projects.json') } = {}) {
   try {
     const manifest = readRunManifest(file);
     const projects = Object.entries(manifest.projects).map(([projectKey, value]) => {
@@ -15,7 +16,8 @@ export function preflightManifest(file, { projectConfig = path.resolve('config/t
     });
     const missing = projects.filter((project) => !project.exists); const adapters = {};
     for (const [key, resolver] of [['main-app', resolveAppBenchmarkAdapter], ['qwen-asr', resolveQwenBenchmarkAdapter]]) { try { adapters[key] = resolver({ projectRoot: manifest.projects[key]?.profile, ...manifest.adapters?.[key] }); } catch (error) { adapters[key] = { state: 'blocked', error: error.message }; } }
-    const adapterMissing = Object.values(adapters).filter((adapter) => adapter.state === 'blocked');
-    return { ok: missing.length === 0 && adapterMissing.length === 0, state: missing.length || adapterMissing.length ? 'blocked' : 'ready', manifest: { runId: manifest.runId, planDigest: manifest.planDigest }, projects, missing, adapters };
+    const runtimes = {}; for (const [key, runtime] of Object.entries(manifest.runtimes || {})) runtimes[key] = await probeRuntime(runtime);
+    const adapterMissing = Object.values(adapters).filter((adapter) => adapter.state === 'blocked'); const runtimeMissing = Object.values(runtimes).filter((runtime) => runtime.state === 'blocked');
+    return { ok: missing.length === 0 && adapterMissing.length === 0 && runtimeMissing.length === 0, state: missing.length || adapterMissing.length || runtimeMissing.length ? 'blocked' : 'ready', manifest: { runId: manifest.runId, planDigest: manifest.planDigest }, projects, missing, adapters, runtimes };
   } catch (error) { return { ok: false, state: 'blocked', error: error.message }; }
 }

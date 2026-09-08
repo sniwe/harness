@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "runId": "audep-speed-260908",
-  "planDigest": "f4658dbf3b7f0bf8b54469c617b32b0b8fc445f83158c63d390c1e9e97d940c9",
+  "planDigest": "59d2153022a4cb8238bd0a2199b5744a3237d37a072996fa93eeb88853986882",
   "controller": { "machineKey": "machine-base-controller" },
   "inputs": [
     { "role": "harness-plan", "path": "C:\\Users\\Admin\\Downloads\\Harness-Unattended-audEp-Implementation-Plan (1).md", "sha256": "5eef5bccad0710df77588cf1a4ee173df773217690ea12613382a20b1960547f" },
@@ -22,6 +22,10 @@
       "python": "C:\\Users\\rhyse\\.conda\\envs\\qwen3-asr\\python.exe",
       "tracer": "scripts\\audep_http_fixture_tracer.py"
     }
+  },
+  "runtimes": {
+    "main-app": { "baseUrl": "http://127.0.0.1:3000", "requiredPath": "/health", "required": { "tunnelKey": "chinApp" } },
+    "qwen-asr": { "baseUrl": "http://127.0.0.1:8000", "requiredPath": "/health", "required": { "runtime.server_role": "english" } }
   },
   "protocolBaseline": "12.5s-primary-plus-5s-boundary-v1",
   "limits": { "maxCorrectiveAttemptsPerGate": 2, "maxConcurrentBenchmarks": 1 },
