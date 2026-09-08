@@ -42,8 +42,7 @@ async function ensureCodex() {
 function rpc(method, params) {
   return new Promise((resolve, reject) => {
     const id = ++rpcId;
-    const timer = setTimeout(() => { rpcWaiters.delete(id); reject(new Error(`codex_rpc_timeout method=${method}`)); }, Number(process.env.CODEX_RPC_TIMEOUT_MS || 1800000));
-    rpcWaiters.set(id, (message) => { clearTimeout(timer); if (message.error) reject(new Error(JSON.stringify(message.error))); else resolve(message); });
+    rpcWaiters.set(id, (message) => { if (message.error) reject(new Error(JSON.stringify(message.error))); else resolve(message); });
     codex.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", id, method, params })}\n`);
   });
 }
@@ -60,8 +59,7 @@ function waitEvent(method, id) {
   return new Promise((resolve, reject) => {
     const cached = method === "turn/completed" ? completedEvents.get(id) : null;
     if (cached) { completedEvents.delete(id); resolve(cached); return; }
-    const timer = setTimeout(() => { eventWaiters = eventWaiters.filter((item) => item.resolve !== resolve); reject(new Error(`codex_event_timeout method=${method}`)); }, Number(process.env.CODEX_RPC_TIMEOUT_MS || 1800000));
-    eventWaiters.push({ method, id, resolve: (value) => { clearTimeout(timer); resolve(value); }, reject });
+    eventWaiters.push({ method, id, resolve, reject });
   });
 }
 
