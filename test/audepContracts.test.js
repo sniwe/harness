@@ -68,4 +68,6 @@ test('final acceptance requires throughput and durable evidence for all six rest
   assert.equal(evaluateFinalAcceptance({ app: base, qwen: { ...base, metrics: { committedRealtime: 0.49 } }, restarts }).verdict, 'failed');
   assert.equal(evaluateFinalAcceptance({ app: base, qwen: base, restarts: restarts.map((item) => ({ ...item, before: { ...item.before, jobId: 'old' } })) }).missing.length, 6);
   assert.equal(evaluateFinalAcceptance({ app: base, qwen: base, restarts: restarts.map((item) => ({ ...item, after: { ...item.after, runtimeGeneration: item.before.runtimeGeneration } })) }).missing.length, 6);
+  assert.equal(evaluateFinalAcceptance({ app: base, qwen: base, restarts: [...restarts, restarts[0]] }).reason, 'restart_matrix_invalid');
+  assert.equal(evaluateFinalAcceptance({ app: base, qwen: base, restarts: [...restarts, { ...restarts[0], name: 'unknown-stage' }] }).reason, 'restart_matrix_invalid');
 });
