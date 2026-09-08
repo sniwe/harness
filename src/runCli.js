@@ -11,8 +11,8 @@ export async function runCommand(commandName, manifestFile) {
   if (!manifestFile) throw new Error('manifest_required');
   if (commandName === 'validate') return readRunManifest(manifestFile) && { ok: true, command: commandName, manifest: manifestFile };
   if (commandName === 'preflight') return preflightManifest(manifestFile);
+  if (commandName === 'start') { const check = preflightManifest(manifestFile); if (!check.ok) return { ...check, command: commandName }; }
   const manifest = readRunManifest(manifestFile); const workflow = createWorkflow({ manifest });
-  if (commandName === 'start') return { ok: true, state: workflow.snapshot(), next: workflow.next() };
   if (commandName === 'inspect') return { ok: true, state: workflow.snapshot(), next: workflow.next() };
   if (commandName === 'explain-block') return { ok: true, blocked: Object.values(workflow.snapshot().steps).filter((step) => step.status === 'blocked').map(({ stepId, blockReason }) => ({ stepId, blockReason })) };
   if (commandName === 'report') return { ok: true, runId: manifest.runId, status: workflow.snapshot().status, steps: workflow.snapshot().steps };
