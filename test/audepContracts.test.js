@@ -45,6 +45,14 @@ test('failed durable benchmark identity cannot replay as success', async () => {
   const root = mkdtempSync(path.join(tmpdir(), 'benchmark-fail-')); const store = createRunStore({ root, runId: 'r' }); const coordinator = createBenchmarkCoordinator({ store, runId: 'r' }); await assert.rejects(() => coordinator.execute({}, async () => { throw new Error('runner_failed'); }, { benchmarkId: 'failed-1' }), /runner_failed/); await assert.rejects(() => coordinator.execute({}, async () => { throw new Error('should_not_run'); }, { benchmarkId: 'failed-1' }), /runner_failed/);
 });
 
+test('benchmark wait persistently observes a durable identity after restart', async () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'benchmark-wait-')); const store = createRunStore({ root, runId: 'r' }); const first = createBenchmarkCoordinator({ store, runId: 'r' });
+  first.execute({}, async () => new Promise(() => {}), { benchmarkId: 'wait-1' });
+  let polls = 0; const second = createBenchmarkCoordinator({ store: createRunStore({ root, runId: 'r' }), runId: 'r' });
+  const result = await second.wait('wait-1', { pollMs: 0, sleep: async () => {}, observe: async () => (++polls < 2 ? { status: 'running' } : { status: 'succeeded', result: { schemaVersion: 1, benchmarkId: 'wait-1', runId: 'r', requestArtifactId: 'a'.repeat(64), source: { basename: '987.wav', durationMs: 1000 }, job: { remoteJobId: 'j' }, runtime: { appGeneration: 'a1', qwenGeneration: 'q1' }, verdict: 'pass', ...passEvidence } }) });
+  assert.equal(result.benchmarkId, 'wait-1'); assert.equal(polls, 2);
+});
+
 test('benchmark join rejects mismatched job or runtime identity', () => {
   const base = { schemaVersion: 1, benchmarkId: 'b', runId: 'r', requestArtifactId: 'a'.repeat(64), source: { basename: '987.wav', durationMs: 1000 }, job: { remoteJobId: 'j' }, runtime: { appGeneration: 'a1', qwenGeneration: 'q1' }, verdict: 'pass', ...passEvidence };
   assert.equal(joinBenchmarkResults(base, { ...base }).verdict, 'pass');
