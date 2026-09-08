@@ -10,5 +10,6 @@ export async function runRehearsal({ manifest, store, runner = async ({ step }) 
 export function renderRunReport({ manifest, result }) {
   const lines = [`# Run report: ${result.runId}`, '', `- Verdict: **${result.ok ? 'PASS' : 'BLOCKED'}**`, `- Plan digest: \`${manifest.planDigest}\``, `- Workflow status: \`${result.state.status}\``, '', '## Steps', ''];
   for (const step of Object.values(result.state.steps)) lines.push(`- ${step.stepId}: ${step.status}${step.gateId ? ` (${step.gateId})` : ''}`);
+  lines.push('', '## Evidence index', ''); const evidence = result.state.evidence || {}; const evidenceEntries = Object.entries(evidence); if (!evidenceEntries.length) lines.push('- none retained'); else for (const [stepId, item] of evidenceEntries) lines.push(`- ${stepId}: artifact \`${item.artifactId || 'missing'}\`, verdict \`${item.verdict || 'unknown'}\``);
   lines.push('', '## Trace', '', '```json', JSON.stringify(result.trace, null, 2), '```', ''); return lines.join('\n');
 }
