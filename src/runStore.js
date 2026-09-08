@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 export function createRunStore({ root = path.resolve(process.env.TICKETS_LOG_ROOT || 'data/machine-base', 'runs'), runId, manifest } = {}) {
-  if (!runId) throw new Error('run_id_required');
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(runId || '')) throw new Error('run_id_invalid');
   const dir = path.join(root, runId);
   const stateFile = path.join(dir, 'state.json');
   const eventsFile = path.join(dir, 'events.jsonl');
