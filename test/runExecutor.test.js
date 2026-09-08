@@ -81,3 +81,15 @@ test('run executor persists an operation intent before invoking the runner', asy
   await executor.run();
   assert.equal(events[1][0], 'result'); assert.equal(events[1][1], events[0][1]);
 });
+
+test('run executor replays a durable blocked outcome after controller recovery', () => {
+  const manifest = readRunManifest('config/runs/audep-speed-local.json', { verifyInputs: false });
+  const recoveryManifest = { ...manifest, steps: [manifest.steps[0]] };
+  const store = createRunStore({ root: mkdtempSync(path.join(tmpdir(), 'run-executor-block-replay-')), runId: manifest.runId, manifest: recoveryManifest });
+  const workflow = createWorkflow({ manifest: recoveryManifest, store }); const executor = createRunExecutor({ workflow, manifest: recoveryManifest, runner: async () => { throw new Error('must not replay side effect'); } });
+  const started = workflow.begin('A0'); const artifactId = 'e'.repeat(64);
+  executor.attempts.begin({ attemptId: started.steps.A0.attemptId, runId: manifest.runId, planDigest: manifest.planDigest, stepId: 'A0', operationId: 'operation-3' });
+  executor.attempts.finish(started.steps.A0.attemptId, { state: 'blocked', reason: 'execution_failed', artifactId });
+  const recovered = executor.recover();
+  assert.equal(recovered[0].state, 'blocked'); assert.equal(workflow.snapshot().steps.A0.blockArtifactId, artifactId); assert.equal(workflow.snapshot().status, 'blocked');
+});

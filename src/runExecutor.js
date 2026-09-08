@@ -65,6 +65,13 @@ export function createRunExecutor({ workflow, manifest, attemptStore, operationO
         recovered.push(record.outcome);
         continue;
       }
+      if (record.outcome?.state === 'blocked') {
+        const artifactId = record.outcome.artifactId || crypto.createHash('sha256').update(`${record.input.attemptId}:${record.outcome.error || 'execution_failed'}`).digest('hex');
+        workflow.store.append({ type: 'step_blocked_after_recovery', runId: state.runId, stepId: record.input.stepId, attemptId: record.input.attemptId, artifactId, reason: record.outcome.reason || 'execution_failed' });
+        workflow.store.write({ ...state, status: 'blocked', steps: { ...state.steps, [record.input.stepId]: { ...current, status: 'blocked', blockReason: record.outcome.reason || 'execution_failed', blockArtifactId: artifactId, failureAttemptId: record.input.attemptId } } });
+        recovered.push(record.outcome);
+        continue;
+      }
       if (record.outcome) continue;
       const outcome = attempts.finish(record.input.attemptId, { state: 'unknown', reason: 'unknown_after_crash' });
       const refreshed = workflow.snapshot();
