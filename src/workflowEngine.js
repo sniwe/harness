@@ -25,7 +25,7 @@ export function createWorkflow({ manifest, store = createRunStore({ runId: manif
     const state = snapshot(); const step = manifest.steps.find((item) => item.stepId === stepId); const current = state.steps[stepId];
     if (!step || step.optionalPolicy !== 'conditional' || current?.status !== 'runnable') throw new Error(`step_skip_denied:${stepId}`);
     if (!/^[0-9a-f]{64}$/.test(artifactId || '') || !reason || !verifier) throw new Error('skip_evidence_invalid');
-    const nextState = { ...state, steps: { ...state.steps, [stepId]: { ...current, status: 'skipped', skipReason: reason, skipArtifactId: artifactId, skipVerifier: verifier } } };
+    const nextState = { ...state, evidence: { ...state.evidence, [stepId]: { runId: state.runId, stepId, planDigest: state.planDigest, verdict: 'skip', outputTypes: [], artifactId, verifier, reason } }, steps: { ...state.steps, [stepId]: { ...current, status: 'skipped', skipReason: reason, skipArtifactId: artifactId, skipVerifier: verifier } } };
     store.append({ type: 'step_skipped', runId: state.runId, stepId, artifactId, reason }); return store.write(reduceRun(nextState, manifest));
   }
   function cancel(reason = 'operator_cancelled') { const state = snapshot(); const nextState = { ...state, status: 'cancelled', cancelReason: reason, cancelledAt: new Date().toISOString() }; store.append({ type: 'run_cancelled', runId: state.runId, reason }); return store.write(nextState); }
