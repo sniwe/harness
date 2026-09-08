@@ -1,13 +1,17 @@
 import crypto from 'node:crypto';
 import { validateBenchmarkResult } from './benchmarkSchema.js';
+import { createBenchmarkStore } from './benchmarkStore.js';
 
 export function createBenchmarkCoordinator({ store, runId, maxConcurrent = 1 } = {}) {
-  let active = 0;
-  async function execute(request, runner) {
-    if (active >= maxConcurrent) throw new Error('benchmark_capacity_exhausted');
-    active += 1; const benchmarkId = crypto.randomUUID();
-    try { const result = await runner({ ...request, benchmarkId, runId }); validateBenchmarkResult(result); store?.append?.({ type: 'benchmark_result', runId, benchmarkId, verdict: result.verdict }); return result; }
-    finally { active -= 1; }
+  const durable = store?.dir ? createBenchmarkStore(store.dir) : null;
+  const running = () => durable?.list().filter((item) => item.status === 'running').length || 0;
+  async function execute(request, runner, { benchmarkId = crypto.randomUUID() } = {}) {
+    const existing = durable?.inspect(benchmarkId);
+    if (existing?.status === 'succeeded' || existing?.status === 'failed') return existing.result;
+    if ((running() - (existing?.status === 'running' ? 1 : 0)) >= maxConcurrent) throw new Error('benchmark_capacity_exhausted');
+    durable?.begin({ benchmarkId, runId, request });
+    try { const result = await runner({ ...request, benchmarkId, runId }); validateBenchmarkResult(result); durable?.finish(benchmarkId, result); store?.append?.({ type: 'benchmark_result', runId, benchmarkId, verdict: result.verdict }); return result; }
+    catch (error) { durable?.update(benchmarkId, { status: 'failed', error: error.message }); throw error; }
   }
-  return { execute, get active() { return active; } };
+  return { execute, inspect: (benchmarkId) => durable?.inspect(benchmarkId) || null, get active() { return running(); } };
 }
