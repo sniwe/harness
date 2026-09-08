@@ -117,7 +117,7 @@ async function coordinate() {
 server = http.createServer(async (request, response) => {
   try {
     const pathname = new URL(request.url, "http://127.0.0.1").pathname;
-    if (request.method === "GET" && pathname === "/health") return json(response, 200, { ok: true, pid: process.pid, tunnel: tunnel?.state || null });
+    if (request.method === "GET" && pathname === "/health") return json(response, 200, { ok: true, pid: process.pid, runId: launch.runId, commit: launch.commit, branch: launch.branch, runtimeGeneration: `${launch.commit}:${launch.generation}`, tunnel: tunnel?.state || null });
     if (request.method === "GET" && pathname === "/status") return json(response, 200, { ok: true, setup, identity: { source: identity.source, machineBaseId: identity.machineBaseId, tunnelKey: machineKey }, launch, startupState, localCommitConfirmation, coordination, peerRequest: peerRequestHandler.state, ticket: ticketRuntime ? { enabled: true, machineKey: ticketRuntime.identity.machineKey, projectKey: ticketRuntime.identity.projectKey, logRoot: ticketRuntime.identity.logRoot } : { enabled: false }, tunnel: tunnel?.state || null, workers: pool.slots.map(({ child, reader, stdout, ...slot }) => slot) });
     if (request.method === "GET" && pathname === "/setup/status") return json(response, 200, setup);
     if (request.method === "GET" && pathname === "/api/machine-base/ping") return json(response, 200, { ok: true, tunnelKey: process.env.TUNNEL_KEY || identity.tunnelKey, serverRole: "machine-base", time: new Date().toISOString() });
