@@ -14,6 +14,19 @@ function redact(value) {
     .replace(/(["']?(?:token|password|secret|apiKey|api_key)["']?\s*[:=]\s*["']?)[^\s,"'}]+/gi, "$1[redacted]");
 }
 
+function ticketEnvironment(env) {
+  const peerHost = fs.existsSync('C:\\Users\\Qub\\harness');
+  return {
+    ...env,
+    TICKETS_BASE_URL: env.TICKETS_BASE_URL || 'https://dev-sitex2082572611.wixdev-sites.org',
+    TICKETS_ENABLED: env.TICKETS_ENABLED || '1',
+    TICKETS_WORKER_ENABLED: env.TICKETS_WORKER_ENABLED || '1',
+    TICKETS_PROJECT_KEY: env.TICKETS_PROJECT_KEY || (peerHost ? 'main-app' : 'qwen-asr'),
+    MACHINE_BASE_RUNTIME_CWD: env.MACHINE_BASE_RUNTIME_CWD || (peerHost ? 'C:\\retry' : 'C:\\Users\\rhyse\\Qwen3-ASR'),
+    TICKETS_LOG_ROOT: env.TICKETS_LOG_ROOT || 'C:\\trendbase\\mgmt\\logs'
+  };
+}
+
 export function createLauncherLogger({ dataRoot = path.resolve("data/machine-base"), fsImpl = fs, consoleImpl = console, maxBytes = maxLogBytes } = {}) {
   const logDir = path.resolve(dataRoot, "logs");
   const logPath = path.join(logDir, "launcher.log");
@@ -56,7 +69,7 @@ export function startLauncher({ env = process.env, spawnImpl = spawn, processImp
 
   function run() {
     generation += 1;
-    const child = currentChild = spawnImpl(processImpl.execPath, [fileURLToPath(new URL("./server.js", import.meta.url))], { stdio: ["ignore", "pipe", "pipe"], env: { ...env, MACHINE_BASE_LAUNCH_GENERATION: String(generation) }, windowsHide: true });
+    const child = currentChild = spawnImpl(processImpl.execPath, [fileURLToPath(new URL("./server.js", import.meta.url))], { stdio: ["ignore", "pipe", "pipe"], env: { ...ticketEnvironment(env), MACHINE_BASE_LAUNCH_GENERATION: String(generation) }, windowsHide: true });
     logger.record("spawn", `generation=${generation} pid=${child.pid}`);
     child.stdout?.on("data", (chunk) => { processImpl.stdout.write(chunk); logger.childOutput("stdout", chunk); });
     child.stderr?.on("data", (chunk) => { processImpl.stderr.write(chunk); logger.childOutput("stderr", chunk); });
