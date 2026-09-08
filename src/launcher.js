@@ -15,14 +15,13 @@ function redact(value) {
 }
 
 function ticketEnvironment(env) {
-  const peerHost = fs.existsSync('C:\\Users\\Qub\\harness');
   return {
     ...env,
     TICKETS_BASE_URL: env.TICKETS_BASE_URL || 'https://dev-sitex2082572611.wixdev-sites.org',
     TICKETS_ENABLED: env.TICKETS_ENABLED || '1',
     TICKETS_WORKER_ENABLED: env.TICKETS_WORKER_ENABLED || '1',
-    TICKETS_PROJECT_KEY: env.TICKETS_PROJECT_KEY || (peerHost ? 'main-app' : 'qwen-asr'),
-    MACHINE_BASE_RUNTIME_CWD: env.MACHINE_BASE_RUNTIME_CWD || (peerHost ? 'C:\\retry' : 'C:\\Users\\rhyse\\Qwen3-ASR'),
+    TICKETS_PROJECT_KEY: env.TICKETS_PROJECT_KEY || '',
+    MACHINE_BASE_RUNTIME_CWD: env.MACHINE_BASE_RUNTIME_CWD || '',
     TICKETS_LOG_ROOT: env.TICKETS_LOG_ROOT || 'C:\\trendbase\\mgmt\\logs'
   };
 }

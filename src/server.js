@@ -27,8 +27,7 @@ const branch = process.env.MACHINE_BASE_GIT_BRANCH || "main";
 const identityPath = path.join(root, "identity.json");
 const setupPath = path.join(root, "setup.json");
 const configuredPort = Number.isInteger(Number(process.env.PORT)) ? Math.max(0, Number(process.env.PORT)) : 3100;
-const peerHost = fs.existsSync("C:\\Users\\Qub\\harness");
-const runtimeCwd = process.env.MACHINE_BASE_RUNTIME_CWD || (peerHost ? "C:\\retry" : "C:\\Users\\rhyse\\Qwen3-ASR");
+const runtimeCwd = process.env.MACHINE_BASE_RUNTIME_CWD || "";
 const relayBaseUrl = process.env.TUNNEL_DISABLED === "1" ? "" : String(process.env.TUNNEL_RELAY_BASE_URL || "https://dev-sitex2082572611.wixdev-sites.org/").replace(/\/+$/, "");
 const relayUrl = relayBaseUrl ? `${relayBaseUrl}${process.env.TUNNEL_RELAY_PATH || "/_functions/tunnelRelay"}` : "";
 
@@ -78,7 +77,7 @@ let ticketRuntime = null;
 let ticketStop = null;
 
 function configureTickets() {
-  const ticketEnv = { ...process.env, TICKETS_BASE_URL: process.env.TICKETS_BASE_URL || "https://dev-sitex2082572611.wixdev-sites.org", TICKETS_ENABLED: process.env.TICKETS_ENABLED || "0", TICKETS_WORKER_ENABLED: process.env.TICKETS_WORKER_ENABLED || "0", TICKETS_PROJECT_KEY: process.env.TICKETS_PROJECT_KEY || (peerHost ? "main-app" : "qwen-asr"), MACHINE_BASE_RUNTIME_CWD: runtimeCwd, TICKETS_LOG_ROOT: process.env.TICKETS_LOG_ROOT || "C:\\trendbase\\mgmt\\logs" };
+  const ticketEnv = { ...process.env, TICKETS_BASE_URL: process.env.TICKETS_BASE_URL || "https://dev-sitex2082572611.wixdev-sites.org", TICKETS_ENABLED: process.env.TICKETS_ENABLED || "0", TICKETS_WORKER_ENABLED: process.env.TICKETS_WORKER_ENABLED || "0", TICKETS_PROJECT_KEY: process.env.TICKETS_PROJECT_KEY || "", MACHINE_BASE_RUNTIME_CWD: runtimeCwd, TICKETS_LOG_ROOT: process.env.TICKETS_LOG_ROOT || "C:\\trendbase\\mgmt\\logs" };
   if (ticketEnv.TICKETS_ENABLED !== "1" || !ticketEnv.TICKETS_BASE_URL) return null;
   const identity = readTicketIdentity({ env: ticketEnv });
   const project = readTicketProject(identity.projectKey);
