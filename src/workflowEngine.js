@@ -21,8 +21,15 @@ export function createWorkflow({ manifest, store = createRunStore({ runId: manif
     const nextState = reduceRun({ ...state, evidence: { ...state.evidence, [stepId]: evidence }, steps: { ...state.steps, [stepId]: { ...state.steps[stepId], status: 'succeeded', gateId: result.gateId } } }, manifest);
     store.append({ type: 'step_accepted', runId: state.runId, stepId, artifactId: evidence.artifactId, gateId: result.gateId }); return store.write(nextState);
   }
+  function skipStep(stepId, { artifactId, reason, verifier } = {}) {
+    const state = snapshot(); const step = manifest.steps.find((item) => item.stepId === stepId); const current = state.steps[stepId];
+    if (!step || step.optionalPolicy !== 'conditional' || current?.status !== 'runnable') throw new Error(`step_skip_denied:${stepId}`);
+    if (!/^[0-9a-f]{64}$/.test(artifactId || '') || !reason || !verifier) throw new Error('skip_evidence_invalid');
+    const nextState = { ...state, steps: { ...state.steps, [stepId]: { ...current, status: 'skipped', skipReason: reason, skipArtifactId: artifactId, skipVerifier: verifier } } };
+    store.append({ type: 'step_skipped', runId: state.runId, stepId, artifactId, reason }); return store.write(reduceRun(nextState, manifest));
+  }
   function cancel(reason = 'operator_cancelled') { const state = snapshot(); const nextState = { ...state, status: 'cancelled', cancelReason: reason, cancelledAt: new Date().toISOString() }; store.append({ type: 'run_cancelled', runId: state.runId, reason }); return store.write(nextState); }
   function retryStep(stepId, reason = 'corrective_attempt') { const state = snapshot(); const current = state.steps[stepId]; const limit = manifest.limits?.maxCorrectiveAttemptsPerGate ?? 0; const correctiveAttempts = current?.correctiveAttempts ?? 0; if (!current || current.status !== 'blocked' || correctiveAttempts >= limit) throw new Error(`step_retry_denied:${stepId}`); const nextState = { ...state, status: 'running', steps: { ...state.steps, [stepId]: { ...current, status: 'runnable', correctiveAttempts: correctiveAttempts + 1, retryReason: reason } } }; store.append({ type: 'step_retried', runId: state.runId, stepId, reason }); return store.write(nextState); }
   function resume(resolution) { const state = snapshot(); const step = Object.values(state.steps).find((item) => item.status === 'blocked' && item.blockArtifactId === resolution); if (!step) throw new Error('resolution_not_found'); return retryStep(step.stepId, `resolution:${resolution}`); }
-  return { snapshot, next, begin, heartbeat, accept, cancel, retryStep, resume, store };
+  return { snapshot, next, begin, heartbeat, accept, skipStep, cancel, retryStep, resume, store };
 }

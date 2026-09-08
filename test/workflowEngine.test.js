@@ -47,3 +47,7 @@ test('reconstructed workflow rejects a state from another manifest revision', ()
 test('workflow persists the immutable manifest beside durable state', () => {
   const root = mkdtempSync(path.join(tmpdir(), 'workflow-manifest-')); const store = createRunStore({ root, runId: manifest.runId }); createWorkflow({ manifest, store }); const saved = JSON.parse(readFileSync(store.manifestFile, 'utf8')); assert.equal(saved.planDigest, manifest.planDigest); assert.throws(() => createWorkflow({ manifest: { ...manifest, planDigest: 'b'.repeat(64) }, store }), /manifest_fence_mismatch/);
 });
+
+test('conditional steps can be skipped only with durable evidence', () => {
+  const optional = { ...manifest, steps: manifest.steps.map((step) => step.stepId === 'Q0' ? { ...step, optionalPolicy: 'conditional' } : step) }; const run = createWorkflow({ manifest: optional, store: createRunStore({ root: mkdtempSync(path.join(tmpdir(), 'workflow-skip-')), runId: optional.runId }) }); run.begin('A0'); run.accept('A0', { runId: optional.runId, stepId: 'A0', planDigest: optional.planDigest, verdict: 'pass', outputTypes: ['acceptance'], artifactId: 'a'.repeat(64), verifier: { exitCode: 0 } }); assert.throws(() => run.skipStep('Q0', { reason: 'not_justified', verifier: { profile: 'focused' } }), /skip_evidence_invalid/); const state = run.skipStep('Q0', { artifactId: 'b'.repeat(64), reason: 'inference_not_dominant', verifier: { profile: 'q4-disposition', exitCode: 0 } }); assert.equal(state.steps.Q0.status, 'skipped'); assert.equal(state.status, 'accepted');
+});
