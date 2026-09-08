@@ -16,6 +16,7 @@ export async function runCommand(commandName, manifestFile) {
   if (commandName === 'inspect') return { ok: true, state: workflow.snapshot(), next: workflow.next() };
   if (commandName === 'explain-block') return { ok: true, blocked: Object.values(workflow.snapshot().steps).filter((step) => step.status === 'blocked').map(({ stepId, blockReason }) => ({ stepId, blockReason })) };
   if (commandName === 'report') return { ok: true, runId: manifest.runId, status: workflow.snapshot().status, steps: workflow.snapshot().steps };
+  if (commandName === 'cancel') return { ok: true, state: workflow.cancel(value('--reason') || 'operator_cancelled') };
   if (commandName === 'rehearse') { if (value('--fixture') !== '1') throw new Error('synthetic_rehearsal_requires_fixture'); return runRehearsal({ manifest }).then((result) => ({ ...result, report: renderRunReport({ manifest, result }) })); }
   throw new Error('run_command_invalid');
 }

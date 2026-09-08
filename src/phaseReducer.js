@@ -7,5 +7,5 @@ export function reduceRun(state, manifest) {
     if (!dependenciesReady) return { ...current, stepId: step.stepId, status: 'waiting_inputs' };
     return { ...current, stepId: step.stepId, status: current.status === 'verifying' ? 'verifying' : 'runnable' };
   });
-  return { ...state, steps: Object.fromEntries(steps.map((step) => [step.stepId, step])), status: steps.some((step) => step.status === 'blocked' || step.status === 'failed') ? 'blocked' : steps.every((step) => step.status === 'succeeded') ? 'accepted' : 'running' };
+  return { ...state, steps: Object.fromEntries(steps.map((step) => [step.stepId, step])), status: state.status === 'cancelled' || steps.some((step) => step.status === 'cancelled') ? 'cancelled' : steps.some((step) => step.status === 'blocked' || step.status === 'failed') ? 'blocked' : steps.every((step) => step.status === 'succeeded') ? 'accepted' : 'running' };
 }
