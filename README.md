@@ -41,7 +41,8 @@ Invoke-RestMethod http://127.0.0.1:3100/api/machine-base/peer-ping -Method Post 
 The server resolves the current peer URL through the Wix `tunnels` endpoint and
 contacts only its validated HTTPS quick-tunnel URL.
 
-Remote prompts are bounded and route only by an exact peer key. Set
+Remote prompt payloads are bounded and route only by an exact peer key; remote
+processing is polled until terminal or cancelled. Set
 `MACHINE_BASE_REMOTE_PROMPTS_ENABLED=0` to disable the receiving route and set
 `MACHINE_BASE_PEER_REQUEST_SENDER_ENABLED=0` to disable the sender operation.
 The existing general worker route remains disabled unless
