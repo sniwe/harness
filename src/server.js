@@ -76,7 +76,8 @@ function configureTickets() {
   const log = createTicketLog({ root: identity.logRoot, machineKey: identity.machineKey, projectKey: identity.projectKey });
   const client = createTicketClient({ baseUrl: process.env.TICKETS_BASE_URL });
   const worker = process.env.TICKETS_WORKER_ENABLED === "1" ? createTicketWorker({ client, pool, identity, log: (event) => log.append(event), lockRoot: path.join(identity.logRoot, "tickets", "locks") }) : null;
-  const reconciler = createTicketReconciler({ client, identity, log: (event) => log.append(event), onTicket: worker ? (ticket) => worker.run(ticket) : undefined });
+  const onReceipt = async (receipt) => { log.append({ event: 'receipt_observed', ticketId: receipt.ticketId, parentTicketId: receipt.parentTicketId, outcomeHash: receipt.outcomeHash }); const current = await client.get(receipt.ticketId); await client.mutate(receipt.ticketId, { operationId: `ack:${receipt.ticketId}`, expectedRevision: current.ticket.revision, previousHash: current.ticket.headHash, actor: identity, action: 'ack', data: { outcomeHash: receipt.outcomeHash } }); log.append({ event: 'receipt_acked', ticketId: receipt.ticketId, parentTicketId: receipt.parentTicketId }); };
+  const reconciler = createTicketReconciler({ client, identity, log: (event) => log.append(event), onTicket: worker ? (ticket) => worker.run(ticket) : undefined, onReceipt });
   return { identity, reconciler, worker, log, enabled: true };
 }
 
