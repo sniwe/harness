@@ -19,7 +19,7 @@ test('attempt identities are contained and durable writes are complete JSON reco
 });
 
 test('operation identities are contained and outbox records are atomically persisted', () => {
-  const root = mkdtempSync(path.join(tmpdir(), 'operation-safe-')); const outbox = createOperationOutbox(root); assert.throws(() => outbox.intent('../escape', { action: 'claim' }), /operation_id_invalid/); outbox.intent('op-safe', { action: 'claim' }); const complete = outbox.result('op-safe', { status: 200 }); assert.equal(complete.status, 'complete'); assert.match(fs.readFileSync(path.join(root, 'operations', 'op-safe.json'), 'utf8'), /"complete"/);
+  const root = mkdtempSync(path.join(tmpdir(), 'operation-safe-')); const outbox = createOperationOutbox(root); assert.throws(() => outbox.intent('../escape', { action: 'claim' }), /operation_id_invalid/); outbox.intent('op-safe', { action: 'claim' }); assert.throws(() => outbox.intent('op-safe', { action: 'complete' }), /operation_id_reuse_conflict/); const complete = outbox.result('op-safe', { status: 200 }); assert.equal(complete.status, 'complete'); assert.match(fs.readFileSync(path.join(root, 'operations', 'op-safe.json'), 'utf8'), /"complete"/);
 });
 
 test('project lease excludes a second owner and releases only its owner', () => {
