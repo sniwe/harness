@@ -16,3 +16,9 @@ test('deployment health waits by observation and supports cancellation without a
   assert.equal(healthy.state, 'healthy'); assert.equal(polls, 2);
   const controller = new AbortController(); controller.abort(); await assert.rejects(() => manager.waitForHealthy({ observe: async () => ({ state: 'starting' }), signal: controller.signal }), /deployment_health_wait_cancelled/);
 });
+
+test('deployment rollback records an observation failure without a deadline claim', () => {
+  const file = path.join(mkdtempSync(path.join(tmpdir(), 'deploy-rollback-')), 'deployment.json'); const manager = createDeploymentManager(file);
+  manager.stage({ runId: 'r', projectKey: 'main-app', previous: { commit: 'old' }, desired: { commit: 'new' }, configDigest: 'c'.repeat(64), rollbackCommand: ['restore', 'old'] }); manager.activate();
+  assert.equal(manager.rollback().reason, 'health_not_observed');
+});
