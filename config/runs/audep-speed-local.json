@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "runId": "audep-speed-local-260908",
-  "planDigest": "dbe18cd2b8ea6e62740595155cf2f92d6f628228a07eca90a953ae09063d9f34",
+  "planDigest": "b8b079e1d8a867839f41c4b7e8dc6846ed58510ab180a768bbd431c2918aa1a0",
   "controller": { "machineKey": "machine-base-controller" },
   "inputs": [
     { "role": "app-plan", "sha256": "c3ad9059934e84d3f3c55ce11d7fd3e083b0e19ca9947bd8b8aed8ddd7e9b461" },
@@ -20,7 +20,8 @@
     },
     "qwen-asr": {
       "python": "C:\\Users\\rhyse\\.conda\\envs\\qwen3-asr\\python.exe",
-      "tracer": "scripts\\audep_http_fixture_tracer.py"
+      "tracer": "scripts\\audep_http_fixture_tracer.py",
+      "fixtureJob": "dev\\audep-speed-tracer-work\\jobs\\audep-speed-tracer-260906-d00a1078c0bf2ae9bf46273d6a882f4e886c7de7419a287e31ecd4e32f9d7bfa"
     }
   },
   "runtimes": {
