@@ -4,7 +4,7 @@ const REQUIRED_RESTARTS = Object.freeze(['app-during-upload', 'app-after-seal', 
 const HASH = /^[0-9a-f]{64}$/;
 
 function validRestartEvidence(item) {
-  return item?.verdict === 'pass' && HASH.test(item.artifactId || '') && item.trigger?.predicate && item.before?.runtimeGeneration && item.before?.jobId && item.after?.runtimeGeneration && item.after?.jobId && item.before.jobId === item.after.jobId;
+  return item?.verdict === 'pass' && HASH.test(item.artifactId || '') && item.trigger?.predicate && item.before?.runtimeGeneration && item.before?.jobId && item.after?.runtimeGeneration && item.after?.jobId && item.before.runtimeGeneration !== item.after.runtimeGeneration && item.before.jobId === item.after.jobId;
 }
 
 export function evaluateFinalAcceptance({ app, qwen, restarts = [], minimumRealtime = 0.5 } = {}) {
