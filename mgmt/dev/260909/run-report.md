@@ -48,4 +48,6 @@ The run state contains pass evidence for every phase, including benchmark output
 
 The scoped service controller now records `unknown/process_ownership_lost` when termination ownership is unavailable instead of claiming a clean stop. Focused restart/deployment verification passed 13/13; the complete harness suite passed 156 tests, with 1 platform-skipped test and 0 failures. This closes the ownership-fencing implementation defect, but does not substitute for the six live application/Qwen restart tracers above.
 
+The deployment manager now has a durable `executeRollback` path: it executes the persisted scoped restore command once, persistently observes the previous healthy generation, and preserves an explicit running/cancelled state. Focused deployment verification is 6/6; the latest complete harness suite is 158 passed, 1 skipped, 0 failed.
+
 No end-to-end PASS is claimed from phase completion, upload completion, model readiness, or local test results alone.
