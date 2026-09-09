@@ -16,6 +16,13 @@ test('ticket client retries transient responses with the same request', async ()
   assert.deepEqual(await client.get('t1'), { ok: true }); assert.equal(calls, 2);
 });
 
+test('ticket client keeps polling transient outage until cancellation or recovery', async () => {
+  let calls = 0;
+  const client = createTicketClient({ baseUrl: 'https://example.test', sleep: async () => {}, fetchFn: async () => { calls += 1; return calls < 6 ? { ok: false, status: 503, json: async () => ({ code: 'busy' }) } : { ok: true, status: 200, json: async () => ({ ok: true }) }; } });
+  assert.deepEqual(await client.get('ticket-1'), { ok: true });
+  assert.equal(calls, 6);
+});
+
 test('ticket log persists metadata and exact body bytes without lease token', () => {
   const root = mkdtempSync(path.join(tmpdir(), 'ticket-log-')); const log = createTicketLog({ root, machineKey: 'machine-base-a', projectKey: 'project' }); const result = log.append({ event: 'created', body: 'secret task', leaseToken: 'secret lease' });
   const line = readFileSync(result.file, 'utf8'); assert.equal(line.includes('secret task'), false); assert.equal(line.includes('secret lease'), false); assert.equal(line.includes(result.bodyHash), true); assert.equal(readFileSync(result.bodyFile, 'utf8'), 'secret task');

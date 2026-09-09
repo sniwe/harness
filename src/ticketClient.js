@@ -5,7 +5,7 @@ export function createTicketClient({ baseUrl = process.env.TICKETS_BASE_URL, fet
     for (let attempt = 0; ; attempt += 1) {
       const result = await fetchFn(`${root}/_functions/tickets${route || ''}`, { method, headers: { 'Content-Type': 'application/json' }, body: payload === undefined ? undefined : JSON.stringify(payload), ...(signal ? { signal } : {}) });
       const body = await result.json().catch(() => ({}));
-      if (!result.ok) { if ([429, 502, 503, 504].includes(result.status) && attempt < 4) { await sleep([1000, 5000, 30000, 120000][attempt]); continue; } const error = new Error(body.code || `ticket_http_${result.status}`); error.status = result.status; error.body = body; throw error; }
+      if (!result.ok) { if ([429, 502, 503, 504].includes(result.status)) { await sleep(Math.min(120000, [1000, 5000, 30000, 120000][Math.min(attempt, 3)])); continue; } const error = new Error(body.code || `ticket_http_${result.status}`); error.status = result.status; error.body = body; throw error; }
       return body;
     }
   }
