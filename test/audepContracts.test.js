@@ -12,7 +12,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-const passEvidence = { browserEvidence: { normalBrowser: true }, localization: { valid: true }, metrics: { committedRealtime: 0.5 }, correctness: { canonicalHash: 'c'.repeat(64), sourceTimeProbes: true, beyondFrontierNotReady: true }, timings: { firstCommittedMs: 1, finalReadyMs: 2 }, finalAcceptance: { status: 'accepted', eventId: 'event-1' } };
+const passEvidence = { source: { basename: '987.wav', durationMs: 1000, sha256: 'b'.repeat(64), revision: 'source-revision-1', planVersion: '12.5s-primary-plus-5s-boundary-v1', callCount: 103 }, manifestDigest: 'd'.repeat(64), browserEvidence: { normalBrowser: true, selection: true, persisted: true }, localization: { valid: true, revision: 'e'.repeat(64) }, metrics: { committedRealtime: 0.5 }, correctness: { canonicalHash: 'c'.repeat(64), sourceTimeProbes: true, beyondFrontierNotReady: true }, timings: { firstCommittedMs: 1, finalReadyMs: 2, steadyInterval: { committedAudioMs: 100, elapsedMs: 200 } }, finalAcceptance: { status: 'accepted', eventId: 'event-1' } };
 
 test('AudEp filename aliases are exact and canonicalized', () => {
   assert.equal(canonicalArtifactName('main-app-speed-a5-adaptive-boundary-v2-acceptance.md'), 'main-app-speed-a6-adaptive-boundary-v2-acceptance.md');
@@ -82,6 +82,6 @@ test('final acceptance requires throughput and durable evidence for all six rest
 });
 
 test('final acceptance recorder persists a correlation event without raw payloads', () => {
-  const events = []; const result = recordFinalAcceptance({ store: { append: (event) => events.push(event) }, app: { ...passEvidence, schemaVersion: 1, benchmarkId: 'b', runId: 'r', requestArtifactId: 'a'.repeat(64), source: { basename: '987.wav', durationMs: 1000 }, job: { remoteJobId: 'j' }, runtime: { appGeneration: 'a1', qwenGeneration: 'q1' }, verdict: 'pass' }, qwen: { ...passEvidence, schemaVersion: 1, benchmarkId: 'b', runId: 'r', requestArtifactId: 'a'.repeat(64), source: { basename: '987.wav', durationMs: 1000 }, job: { remoteJobId: 'j' }, runtime: { appGeneration: 'a1', qwenGeneration: 'q1' }, verdict: 'pass' }, restarts: [] });
+  const events = []; const result = recordFinalAcceptance({ store: { append: (event) => events.push(event) }, app: { ...passEvidence, schemaVersion: 1, benchmarkId: 'b', runId: 'r', requestArtifactId: 'a'.repeat(64), job: { remoteJobId: 'j' }, runtime: { appGeneration: 'a1', qwenGeneration: 'q1' }, verdict: 'pass' }, qwen: { ...passEvidence, schemaVersion: 1, benchmarkId: 'b', runId: 'r', requestArtifactId: 'a'.repeat(64), job: { remoteJobId: 'j' }, runtime: { appGeneration: 'a1', qwenGeneration: 'q1' }, verdict: 'pass' }, restarts: [] });
   assert.equal(result.verdict, 'blocked'); assert.equal(events[0].type, 'final_acceptance_evaluated'); assert.equal(events[0].remoteJobId, 'j'); assert.equal('app' in events[0], false);
 });
