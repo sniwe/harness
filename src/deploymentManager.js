@@ -16,7 +16,8 @@ export function createDeploymentManager(file) {
     if (!state || state.state !== 'rollback_required' || !state.restore) throw new Error('deployment_rollback_not_required');
     if (signal?.aborted) throw new Error('deployment_rollback_cancelled');
     if (state.rollbackExecution?.state === 'restored') return state;
-    if (!state.rollbackExecution || state.rollbackExecution.state === 'failed') {
+    if (state.rollbackExecution?.state === 'failed') throw new Error('deployment_rollback_execution_failed');
+    if (!state.rollbackExecution) {
       state = write({ ...state, rollbackExecution: { state: 'running', command: state.rollbackCommand, startedAt: new Date().toISOString() } });
       try { await execute(state.rollbackCommand, state); }
       catch (error) { write({ ...read(), rollbackExecution: { state: 'failed', command: state.rollbackCommand, error: error.message, failedAt: new Date().toISOString() } }); throw error; }
