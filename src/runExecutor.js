@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import fs from 'node:fs';
 import { createAttemptStore } from './attemptStore.js';
 import { runCommand } from './commandRunner.js';
 import { evaluateEvidence } from './gateEvaluator.js';
@@ -7,7 +8,8 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function evidenceFromCommand(step, result) {
   if (result.state !== 'succeeded') throw new Error(result.error || `step_command_${result.state}`);
-  const lines = String(result.output || '').trim().split(/\r?\n/).filter(Boolean);
+  const retainedOutput = result.outputFile && fs.existsSync(result.outputFile) ? fs.readFileSync(result.outputFile, 'utf8') : result.output;
+  const lines = String(retainedOutput || '').trim().split(/\r?\n/).filter(Boolean);
   if (!lines.length) throw new Error('step_evidence_missing');
   let evidence;
   try { evidence = JSON.parse(lines.at(-1)); } catch { throw new Error('step_evidence_invalid_json'); }

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { readRunManifest } from '../src/runManifest.js';
 import { createRunStore } from '../src/runStore.js';
@@ -141,4 +141,11 @@ test('run executor persists and resumes a durable command identity', async () =>
   secondAttempts.begin({ attemptId: started.steps.A0.attemptId, runId: manifest.runId, planDigest: manifest.planDigest, stepId: 'A0', operationId: 'operation-recovered', commandId });
   const recoveredExecutor = createRunExecutor({ workflow: secondWorkflow, manifest: recoveryManifest, attemptStore: secondAttempts, durableCommandController: controller, resolveCommand: () => ({ command: process.execPath, args: [], cwd: process.cwd() }) });
   const recovered = await recoveredExecutor.run(); assert.equal(recovered.status, 'accepted'); assert.equal(recovered.steps.A0.status, 'succeeded');
+});
+
+test('run executor reads complete evidence from a durable command output artifact', async () => {
+  const manifest = readRunManifest('config/runs/audep-speed-local.json', { verifyInputs: false }); const root = mkdtempSync(path.join(tmpdir(), 'executor-output-artifact-')); const runStore = createRunStore({ root, runId: manifest.runId }); const workflow = createWorkflow({ manifest, store: runStore });
+  const evidence = { runId: manifest.runId, stepId: 'A0', planDigest: manifest.planDigest, verdict: 'pass', outputTypes: ['acceptance'], artifactId: '8'.repeat(64), verifier: { profile: 'a0-observability', exitCode: 0 } }; const outputFile = path.join(root, 'command.output.log'); writeFileSync(outputFile, `${'x'.repeat(1024 * 1024)}\n${JSON.stringify(evidence)}\n`);
+  const controller = { start: () => ({ commandId: 'artifact-command', state: 'running' }), wait: async () => ({ commandId: 'artifact-command', state: 'succeeded', output: 'truncated', outputFile }), inspect: () => ({ commandId: 'artifact-command', state: 'succeeded', output: 'truncated', outputFile }) };
+  const executor = createRunExecutor({ workflow, manifest, durableCommandController: controller, resolveCommand: () => ({ command: process.execPath, args: [], cwd: process.cwd() }) }); const state = await executor.run(); assert.equal(state.steps.A0.status, 'succeeded');
 });
