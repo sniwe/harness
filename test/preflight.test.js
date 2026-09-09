@@ -34,4 +34,6 @@ test('manifest command validation rejects unresolved or cross-project execution'
   assert.deepEqual(validateManifestCommands(mismatch), { ok: false, missing: [{ stepId: 'A0', error: 'execution_cwd_mismatch:A0' }] });
   const timeout = { ...base, commands: { A0: { command: 'node', args: [], cwd: 'C:\\project', timeoutMs: 1000 } } };
   assert.deepEqual(validateManifestCommands(timeout), { ok: false, missing: [{ stepId: 'A0', error: 'execution_hard_timeout_forbidden:A0' }] });
+  const staleDigest = { ...base, planDigest: 'a'.repeat(64), commands: { A0: { command: 'node', args: ['--plan-digest', 'b'.repeat(64)], cwd: 'C:\\project' } } };
+  assert.deepEqual(validateManifestCommands(staleDigest), { ok: false, missing: [{ stepId: 'A0', error: 'execution_plan_digest_mismatch:A0' }] });
 });

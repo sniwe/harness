@@ -1,17 +1,41 @@
 {
   "schemaVersion": 1,
   "runId": "audep-speed-260908",
-  "planDigest": "238560d4a559b58b9af6c267e0b2d8028f56f477a360089c0568b165cffd157e",
-  "controller": { "machineKey": "machine-base-73182d23f660c3880e7e" },
+  "planDigest": "b36f688e4d0c98749e4140c71027ab66c1803aa4926d67e84db9094566d28c75",
+  "controller": {
+    "machineKey": "machine-base-73182d23f660c3880e7e"
+  },
   "inputs": [
-    { "role": "harness-plan", "path": "C:\\Users\\Admin\\Downloads\\Harness-Unattended-audEp-Implementation-Plan (1).md", "sha256": "5eef5bccad0710df77588cf1a4ee173df773217690ea12613382a20b1960547f" },
-    { "role": "app-plan", "path": "C:\\Users\\Admin\\Downloads\\Main-App audEp Processing-Speed Phased Vertical Tracer-Bullet Implementation Plan.md", "sha256": "c3ad9059934e84d3f3c55ce11d7fd3e083b0e19ca9947bd8b8aed8ddd7e9b461" },
-    { "role": "qwen-plan", "path": "C:\\Users\\Admin\\Downloads\\QwenASR audEp Processing-Speed Phased Vertical Tracer-Bullet Implementation Plan.md", "sha256": "d325d9407caf1ff9705cbb3d476255e130907ab4ae4574c506f184bf487ae50a" }
+    {
+      "role": "harness-plan",
+      "path": "C:\\Users\\Admin\\Downloads\\Harness-Unattended-audEp-Implementation-Plan (1).md",
+      "sha256": "5eef5bccad0710df77588cf1a4ee173df773217690ea12613382a20b1960547f"
+    },
+    {
+      "role": "app-plan",
+      "path": "C:\\Users\\Admin\\Downloads\\Main-App audEp Processing-Speed Phased Vertical Tracer-Bullet Implementation Plan.md",
+      "sha256": "c3ad9059934e84d3f3c55ce11d7fd3e083b0e19ca9947bd8b8aed8ddd7e9b461"
+    },
+    {
+      "role": "qwen-plan",
+      "path": "C:\\Users\\Admin\\Downloads\\QwenASR audEp Processing-Speed Phased Vertical Tracer-Bullet Implementation Plan.md",
+      "sha256": "d325d9407caf1ff9705cbb3d476255e130907ab4ae4574c506f184bf487ae50a"
+    }
   ],
   "handoffMode": "verified-byte-transfer",
   "projects": {
-    "main-app": { "machineKey": "machine-base-caf45342b1d0acc9b938", "profile": "C:\\retry-harness-run", "origin": "https://github.com/sniwe/wordmap.git", "branch": "main" },
-    "qwen-asr": { "machineKey": "machine-base-73182d23f660c3880e7e", "profile": "C:\\Users\\rhyse\\Qwen3-ASR", "origin": "https://github.com/QwenLM/Qwen3-ASR.git", "branch": "main" }
+    "main-app": {
+      "machineKey": "machine-base-caf45342b1d0acc9b938",
+      "profile": "C:\\retry-harness-run",
+      "origin": "https://github.com/sniwe/wordmap.git",
+      "branch": "main"
+    },
+    "qwen-asr": {
+      "machineKey": "machine-base-73182d23f660c3880e7e",
+      "profile": "C:\\Users\\rhyse\\Qwen3-ASR",
+      "origin": "https://github.com/QwenLM/Qwen3-ASR.git",
+      "branch": "main"
+    }
   },
   "adapters": {
     "main-app": {
@@ -28,47 +52,619 @@
     }
   },
   "commands": {
-    "A0": { "command": "C:\\Program Files\\nodejs\\node.exe", "args": ["C:\\harness\\src\\phaseCommand.js", "--step", "A0", "--run-id", "audep-speed-260908", "--plan-digest", "c57c1e1a5e5873cec610f36aafeaf77fa5925041cae28b6cc4a3d0ea1c3f4376", "--verifier-profile", "a0-observability"] },
-    "Q0": { "command": "C:\\Program Files\\nodejs\\node.exe", "args": ["C:\\harness\\src\\phaseCommand.js", "--step", "Q0", "--run-id", "audep-speed-260908", "--plan-digest", "c57c1e1a5e5873cec610f36aafeaf77fa5925041cae28b6cc4a3d0ea1c3f4376", "--verifier-profile", "q0-baseline"], "env": { "QWEN_PYTHON": "C:\\Users\\rhyse\\.conda\\envs\\qwen3-asr\\python.exe" } },
-    "A1": { "command": "C:\\Program Files\\nodejs\\node.exe", "args": ["C:\\harness\\src\\phaseCommand.js", "--step", "A1", "--run-id", "audep-speed-260908", "--plan-digest", "c57c1e1a5e5873cec610f36aafeaf77fa5925041cae28b6cc4a3d0ea1c3f4376", "--verifier-profile", "a1-byte-hash"] },
-    "Q1": { "command": "C:\\Program Files\\nodejs\\node.exe", "args": ["C:\\harness\\src\\phaseCommand.js", "--step", "Q1", "--run-id", "audep-speed-260908", "--plan-digest", "c57c1e1a5e5873cec610f36aafeaf77fa5925041cae28b6cc4a3d0ea1c3f4376", "--verifier-profile", "q1-long-poll"] , "env": { "QWEN_PYTHON": "C:\\Users\\rhyse\\.conda\\envs\\qwen3-asr\\python.exe" } },
-    "A2A": { "command": "C:\\Program Files\\nodejs\\node.exe", "args": ["C:\\harness\\src\\phaseCommand.js", "--step", "A2A", "--run-id", "audep-speed-260908", "--plan-digest", "c57c1e1a5e5873cec610f36aafeaf77fa5925041cae28b6cc4a3d0ea1c3f4376", "--verifier-profile", "a2a-partial"] },
-    "A2B": { "command": "C:\\Program Files\\nodejs\\node.exe", "args": ["C:\\harness\\src\\phaseCommand.js", "--step", "A2B", "--run-id", "audep-speed-260908", "--plan-digest", "c57c1e1a5e5873cec610f36aafeaf77fa5925041cae28b6cc4a3d0ea1c3f4376", "--verifier-profile", "a2b-adoption"] },
-    "A3": { "command": "C:\\Program Files\\nodejs\\node.exe", "args": ["C:\\harness\\src\\phaseCommand.js", "--step", "A3", "--run-id", "audep-speed-260908", "--plan-digest", "c57c1e1a5e5873cec610f36aafeaf77fa5925041cae28b6cc4a3d0ea1c3f4376", "--verifier-profile", "a3-concurrency"] },
-    "A4": { "command": "C:\\Program Files\\nodejs\\node.exe", "args": ["C:\\harness\\src\\phaseCommand.js", "--step", "A4", "--run-id", "audep-speed-260908", "--plan-digest", "c57c1e1a5e5873cec610f36aafeaf77fa5925041cae28b6cc4a3d0ea1c3f4376", "--verifier-profile", "a4-browser"] },
-    "Q2": { "command": "C:\\Program Files\\nodejs\\node.exe", "args": ["C:\\harness\\src\\phaseCommand.js", "--step", "Q2", "--run-id", "audep-speed-260908", "--plan-digest", "c57c1e1a5e5873cec610f36aafeaf77fa5925041cae28b6cc4a3d0ea1c3f4376", "--verifier-profile", "q2-slow-constructor"], "env": { "QWEN_PYTHON": "C:\\Users\\rhyse\\.conda\\envs\\qwen3-asr\\python.exe" } },
-    "Q3": { "command": "C:\\Program Files\\nodejs\\node.exe", "args": ["C:\\harness\\src\\phaseCommand.js", "--step", "Q3", "--run-id", "audep-speed-260908", "--plan-digest", "c57c1e1a5e5873cec610f36aafeaf77fa5925041cae28b6cc4a3d0ea1c3f4376", "--verifier-profile", "q3-late-correction"], "env": { "QWEN_PYTHON": "C:\\Users\\rhyse\\.conda\\envs\\qwen3-asr\\python.exe" } },
-    "Q4": { "command": "C:\\Program Files\\nodejs\\node.exe", "args": ["C:\\harness\\src\\phaseCommand.js", "--step", "Q4", "--run-id", "audep-speed-260908", "--plan-digest", "c57c1e1a5e5873cec610f36aafeaf77fa5925041cae28b6cc4a3d0ea1c3f4376", "--verifier-profile", "q4-quality-vram"], "env": { "QWEN_PYTHON": "C:\\Users\\rhyse\\.conda\\envs\\qwen3-asr\\python.exe" } },
-    "Q5": { "command": "C:\\Program Files\\nodejs\\node.exe", "args": ["C:\\harness\\src\\phaseCommand.js", "--step", "Q5", "--run-id", "audep-speed-260908", "--plan-digest", "c57c1e1a5e5873cec610f36aafeaf77fa5925041cae28b6cc4a3d0ea1c3f4376", "--verifier-profile", "q5-localization"], "env": { "QWEN_PYTHON": "C:\\Users\\rhyse\\.conda\\envs\\qwen3-asr\\python.exe" } },
-    "A5": { "command": "C:\\Program Files\\nodejs\\node.exe", "args": ["C:\\harness\\src\\phaseCommand.js", "--step", "A5", "--run-id", "audep-speed-260908", "--plan-digest", "c57c1e1a5e5873cec610f36aafeaf77fa5925041cae28b6cc4a3d0ea1c3f4376", "--verifier-profile", "a5-persistence"] },
-    "Q6": { "command": "C:\\Program Files\\nodejs\\node.exe", "args": ["C:\\harness\\src\\phaseCommand.js", "--step", "Q6", "--run-id", "audep-speed-260908", "--plan-digest", "c57c1e1a5e5873cec610f36aafeaf77fa5925041cae28b6cc4a3d0ea1c3f4376", "--verifier-profile", "q6-boundary"] , "env": { "QWEN_PYTHON": "C:\\Users\\rhyse\\.conda\\envs\\qwen3-asr\\python.exe" } },
-    "A6": { "command": "C:\\Program Files\\nodejs\\node.exe", "args": ["C:\\harness\\src\\phaseCommand.js", "--step", "A6", "--run-id", "audep-speed-260908", "--plan-digest", "c57c1e1a5e5873cec610f36aafeaf77fa5925041cae28b6cc4a3d0ea1c3f4376", "--verifier-profile", "a6-acceptance"] },
-    "Q7": { "command": "C:\\Program Files\\nodejs\\node.exe", "args": ["C:\\harness\\src\\phaseCommand.js", "--step", "Q7", "--run-id", "audep-speed-260908", "--plan-digest", "c57c1e1a5e5873cec610f36aafeaf77fa5925041cae28b6cc4a3d0ea1c3f4376", "--verifier-profile", "q7-release"], "env": { "QWEN_PYTHON": "C:\\Users\\rhyse\\.conda\\envs\\qwen3-asr\\python.exe" } },
-    "A7": { "command": "C:\\Program Files\\nodejs\\node.exe", "args": ["C:\\harness\\src\\phaseCommand.js", "--step", "A7", "--run-id", "audep-speed-260908", "--plan-digest", "c57c1e1a5e5873cec610f36aafeaf77fa5925041cae28b6cc4a3d0ea1c3f4376", "--verifier-profile", "a7-final"] }
+    "A0": {
+      "command": "C:\\Program Files\\nodejs\\node.exe",
+      "args": [
+        "C:\\harness\\src\\phaseCommand.js",
+        "--step",
+        "A0",
+        "--run-id",
+        "audep-speed-260908",
+        "--plan-digest",
+        "b36f688e4d0c98749e4140c71027ab66c1803aa4926d67e84db9094566d28c75",
+        "--verifier-profile",
+        "a0-observability"
+      ]
+    },
+    "Q0": {
+      "command": "C:\\Program Files\\nodejs\\node.exe",
+      "args": [
+        "C:\\harness\\src\\phaseCommand.js",
+        "--step",
+        "Q0",
+        "--run-id",
+        "audep-speed-260908",
+        "--plan-digest",
+        "b36f688e4d0c98749e4140c71027ab66c1803aa4926d67e84db9094566d28c75",
+        "--verifier-profile",
+        "q0-baseline"
+      ],
+      "env": {
+        "QWEN_PYTHON": "C:\\Users\\rhyse\\.conda\\envs\\qwen3-asr\\python.exe"
+      }
+    },
+    "A1": {
+      "command": "C:\\Program Files\\nodejs\\node.exe",
+      "args": [
+        "C:\\harness\\src\\phaseCommand.js",
+        "--step",
+        "A1",
+        "--run-id",
+        "audep-speed-260908",
+        "--plan-digest",
+        "b36f688e4d0c98749e4140c71027ab66c1803aa4926d67e84db9094566d28c75",
+        "--verifier-profile",
+        "a1-byte-hash"
+      ]
+    },
+    "Q1": {
+      "command": "C:\\Program Files\\nodejs\\node.exe",
+      "args": [
+        "C:\\harness\\src\\phaseCommand.js",
+        "--step",
+        "Q1",
+        "--run-id",
+        "audep-speed-260908",
+        "--plan-digest",
+        "b36f688e4d0c98749e4140c71027ab66c1803aa4926d67e84db9094566d28c75",
+        "--verifier-profile",
+        "q1-long-poll"
+      ],
+      "env": {
+        "QWEN_PYTHON": "C:\\Users\\rhyse\\.conda\\envs\\qwen3-asr\\python.exe"
+      }
+    },
+    "A2A": {
+      "command": "C:\\Program Files\\nodejs\\node.exe",
+      "args": [
+        "C:\\harness\\src\\phaseCommand.js",
+        "--step",
+        "A2A",
+        "--run-id",
+        "audep-speed-260908",
+        "--plan-digest",
+        "b36f688e4d0c98749e4140c71027ab66c1803aa4926d67e84db9094566d28c75",
+        "--verifier-profile",
+        "a2a-partial"
+      ]
+    },
+    "A2B": {
+      "command": "C:\\Program Files\\nodejs\\node.exe",
+      "args": [
+        "C:\\harness\\src\\phaseCommand.js",
+        "--step",
+        "A2B",
+        "--run-id",
+        "audep-speed-260908",
+        "--plan-digest",
+        "b36f688e4d0c98749e4140c71027ab66c1803aa4926d67e84db9094566d28c75",
+        "--verifier-profile",
+        "a2b-adoption"
+      ]
+    },
+    "A3": {
+      "command": "C:\\Program Files\\nodejs\\node.exe",
+      "args": [
+        "C:\\harness\\src\\phaseCommand.js",
+        "--step",
+        "A3",
+        "--run-id",
+        "audep-speed-260908",
+        "--plan-digest",
+        "b36f688e4d0c98749e4140c71027ab66c1803aa4926d67e84db9094566d28c75",
+        "--verifier-profile",
+        "a3-concurrency"
+      ]
+    },
+    "A4": {
+      "command": "C:\\Program Files\\nodejs\\node.exe",
+      "args": [
+        "C:\\harness\\src\\phaseCommand.js",
+        "--step",
+        "A4",
+        "--run-id",
+        "audep-speed-260908",
+        "--plan-digest",
+        "b36f688e4d0c98749e4140c71027ab66c1803aa4926d67e84db9094566d28c75",
+        "--verifier-profile",
+        "a4-browser"
+      ]
+    },
+    "Q2": {
+      "command": "C:\\Program Files\\nodejs\\node.exe",
+      "args": [
+        "C:\\harness\\src\\phaseCommand.js",
+        "--step",
+        "Q2",
+        "--run-id",
+        "audep-speed-260908",
+        "--plan-digest",
+        "b36f688e4d0c98749e4140c71027ab66c1803aa4926d67e84db9094566d28c75",
+        "--verifier-profile",
+        "q2-slow-constructor"
+      ],
+      "env": {
+        "QWEN_PYTHON": "C:\\Users\\rhyse\\.conda\\envs\\qwen3-asr\\python.exe"
+      }
+    },
+    "Q3": {
+      "command": "C:\\Program Files\\nodejs\\node.exe",
+      "args": [
+        "C:\\harness\\src\\phaseCommand.js",
+        "--step",
+        "Q3",
+        "--run-id",
+        "audep-speed-260908",
+        "--plan-digest",
+        "b36f688e4d0c98749e4140c71027ab66c1803aa4926d67e84db9094566d28c75",
+        "--verifier-profile",
+        "q3-late-correction"
+      ],
+      "env": {
+        "QWEN_PYTHON": "C:\\Users\\rhyse\\.conda\\envs\\qwen3-asr\\python.exe"
+      }
+    },
+    "Q4": {
+      "command": "C:\\Program Files\\nodejs\\node.exe",
+      "args": [
+        "C:\\harness\\src\\phaseCommand.js",
+        "--step",
+        "Q4",
+        "--run-id",
+        "audep-speed-260908",
+        "--plan-digest",
+        "b36f688e4d0c98749e4140c71027ab66c1803aa4926d67e84db9094566d28c75",
+        "--verifier-profile",
+        "q4-quality-vram"
+      ],
+      "env": {
+        "QWEN_PYTHON": "C:\\Users\\rhyse\\.conda\\envs\\qwen3-asr\\python.exe"
+      }
+    },
+    "Q5": {
+      "command": "C:\\Program Files\\nodejs\\node.exe",
+      "args": [
+        "C:\\harness\\src\\phaseCommand.js",
+        "--step",
+        "Q5",
+        "--run-id",
+        "audep-speed-260908",
+        "--plan-digest",
+        "b36f688e4d0c98749e4140c71027ab66c1803aa4926d67e84db9094566d28c75",
+        "--verifier-profile",
+        "q5-localization"
+      ],
+      "env": {
+        "QWEN_PYTHON": "C:\\Users\\rhyse\\.conda\\envs\\qwen3-asr\\python.exe"
+      }
+    },
+    "A5": {
+      "command": "C:\\Program Files\\nodejs\\node.exe",
+      "args": [
+        "C:\\harness\\src\\phaseCommand.js",
+        "--step",
+        "A5",
+        "--run-id",
+        "audep-speed-260908",
+        "--plan-digest",
+        "b36f688e4d0c98749e4140c71027ab66c1803aa4926d67e84db9094566d28c75",
+        "--verifier-profile",
+        "a5-persistence"
+      ]
+    },
+    "Q6": {
+      "command": "C:\\Program Files\\nodejs\\node.exe",
+      "args": [
+        "C:\\harness\\src\\phaseCommand.js",
+        "--step",
+        "Q6",
+        "--run-id",
+        "audep-speed-260908",
+        "--plan-digest",
+        "b36f688e4d0c98749e4140c71027ab66c1803aa4926d67e84db9094566d28c75",
+        "--verifier-profile",
+        "q6-boundary"
+      ],
+      "env": {
+        "QWEN_PYTHON": "C:\\Users\\rhyse\\.conda\\envs\\qwen3-asr\\python.exe"
+      }
+    },
+    "A6": {
+      "command": "C:\\Program Files\\nodejs\\node.exe",
+      "args": [
+        "C:\\harness\\src\\phaseCommand.js",
+        "--step",
+        "A6",
+        "--run-id",
+        "audep-speed-260908",
+        "--plan-digest",
+        "b36f688e4d0c98749e4140c71027ab66c1803aa4926d67e84db9094566d28c75",
+        "--verifier-profile",
+        "a6-acceptance"
+      ]
+    },
+    "Q7": {
+      "command": "C:\\Program Files\\nodejs\\node.exe",
+      "args": [
+        "C:\\harness\\src\\phaseCommand.js",
+        "--step",
+        "Q7",
+        "--run-id",
+        "audep-speed-260908",
+        "--plan-digest",
+        "b36f688e4d0c98749e4140c71027ab66c1803aa4926d67e84db9094566d28c75",
+        "--verifier-profile",
+        "q7-release"
+      ],
+      "env": {
+        "QWEN_PYTHON": "C:\\Users\\rhyse\\.conda\\envs\\qwen3-asr\\python.exe"
+      }
+    },
+    "A7": {
+      "command": "C:\\Program Files\\nodejs\\node.exe",
+      "args": [
+        "C:\\harness\\src\\phaseCommand.js",
+        "--step",
+        "A7",
+        "--run-id",
+        "audep-speed-260908",
+        "--plan-digest",
+        "b36f688e4d0c98749e4140c71027ab66c1803aa4926d67e84db9094566d28c75",
+        "--verifier-profile",
+        "a7-final"
+      ]
+    }
   },
   "runtimes": {
-    "main-app": { "baseUrl": "http://127.0.0.1:3102", "requiredPath": "/health", "required": { "tunnelKey": "chinApp" } },
-    "qwen-asr": { "baseUrl": "http://127.0.0.1:8000", "requiredPath": "/health", "required": { "runtime.server_role": "english" } }
+    "main-app": {
+      "baseUrl": "http://127.0.0.1:3102",
+      "requiredPath": "/health",
+      "required": {
+        "tunnelKey": "chinApp"
+      }
+    },
+    "qwen-asr": {
+      "baseUrl": "http://127.0.0.1:8000",
+      "requiredPath": "/health",
+      "required": {
+        "runtime.server_role": "english"
+      }
+    }
   },
   "protocolBaseline": "12.5s-primary-plus-5s-boundary-v1",
-  "limits": { "maxCorrectiveAttemptsPerGate": 2, "maxConcurrentBenchmarks": 1 },
+  "limits": {
+    "maxCorrectiveAttemptsPerGate": 2,
+    "maxConcurrentBenchmarks": 1
+  },
   "steps": [
-    { "stepId": "A0", "owner": "main-app", "dependsOn": [], "commandProfile": "app-focused", "verifierProfile": "a0-observability", "immutableInputs": [], "resourceBudget": {}, "retryClass": "bounded", "requiredOutputTypes": ["acceptance"], "rollbackProfile": "preserve", "optionalPolicy": "required" },
-    { "stepId": "Q0", "owner": "qwen-asr", "dependsOn": [], "commandProfile": "qwen-focused", "verifierProfile": "q0-baseline", "immutableInputs": [], "resourceBudget": {}, "retryClass": "bounded", "requiredOutputTypes": ["acceptance"], "rollbackProfile": "preserve", "optionalPolicy": "required" },
-    { "stepId": "A1", "owner": "main-app", "dependsOn": ["A0"], "commandProfile": "app-focused", "verifierProfile": "a1-byte-hash", "immutableInputs": ["A0"], "resourceBudget": {}, "retryClass": "bounded", "requiredOutputTypes": ["acceptance"], "rollbackProfile": "preserve", "optionalPolicy": "required" },
-    { "stepId": "Q1", "owner": "qwen-asr", "dependsOn": ["Q0"], "commandProfile": "qwen-focused", "verifierProfile": "q1-long-poll", "immutableInputs": ["Q0"], "resourceBudget": {}, "retryClass": "bounded", "requiredOutputTypes": ["acceptance"], "rollbackProfile": "preserve", "optionalPolicy": "required" },
-    { "stepId": "A2A", "owner": "main-app", "dependsOn": ["A1"], "commandProfile": "app-focused", "verifierProfile": "a2a-partial", "immutableInputs": ["A1"], "resourceBudget": {}, "retryClass": "bounded", "requiredOutputTypes": ["acceptance"], "rollbackProfile": "preserve", "optionalPolicy": "required" },
-    { "stepId": "A2B", "owner": "main-app", "dependsOn": ["A2A", "Q1"], "commandProfile": "app-focused", "verifierProfile": "a2b-adoption", "immutableInputs": ["A2A", "Q1"], "resourceBudget": {}, "retryClass": "bounded", "requiredOutputTypes": ["acceptance"], "rollbackProfile": "preserve", "optionalPolicy": "required" },
-    { "stepId": "A3", "owner": "main-app", "dependsOn": ["A2B"], "commandProfile": "app-focused", "verifierProfile": "a3-concurrency", "immutableInputs": ["A2B"], "resourceBudget": {}, "retryClass": "bounded", "requiredOutputTypes": ["acceptance"], "rollbackProfile": "preserve", "optionalPolicy": "required" },
-    { "stepId": "A4", "owner": "main-app", "dependsOn": ["A3"], "commandProfile": "app-browser", "verifierProfile": "a4-browser", "immutableInputs": ["A3"], "resourceBudget": {}, "retryClass": "bounded", "requiredOutputTypes": ["acceptance"], "rollbackProfile": "preserve", "optionalPolicy": "required" },
-    { "stepId": "Q2", "owner": "qwen-asr", "dependsOn": ["Q1", "A4"], "commandProfile": "qwen-benchmark", "verifierProfile": "q2-987", "immutableInputs": ["Q1", "A4"], "resourceBudget": {}, "retryClass": "bounded", "requiredOutputTypes": ["benchmark", "acceptance"], "rollbackProfile": "preserve", "optionalPolicy": "required" },
-    { "stepId": "Q3", "owner": "qwen-asr", "dependsOn": ["Q2"], "commandProfile": "qwen-benchmark", "verifierProfile": "q3-correction", "immutableInputs": ["Q2"], "resourceBudget": {}, "retryClass": "bounded", "requiredOutputTypes": ["benchmark", "acceptance"], "rollbackProfile": "preserve", "optionalPolicy": "required" },
-    { "stepId": "Q4", "owner": "qwen-asr", "dependsOn": ["Q3"], "commandProfile": "qwen-benchmark", "verifierProfile": "q4-quality-vram", "immutableInputs": ["Q3"], "resourceBudget": {}, "retryClass": "bounded", "requiredOutputTypes": ["benchmark", "acceptance"], "rollbackProfile": "preserve", "optionalPolicy": "conditional" },
-    { "stepId": "Q5", "owner": "qwen-asr", "dependsOn": ["Q4"], "commandProfile": "qwen-benchmark", "verifierProfile": "q5-localization", "immutableInputs": ["Q4"], "resourceBudget": {}, "retryClass": "bounded", "requiredOutputTypes": ["benchmark", "acceptance"], "rollbackProfile": "preserve", "optionalPolicy": "required" },
-    { "stepId": "A5", "owner": "main-app", "dependsOn": ["A4"], "commandProfile": "app-browser", "verifierProfile": "a5-persistence", "immutableInputs": ["A4"], "resourceBudget": {}, "retryClass": "bounded", "requiredOutputTypes": ["acceptance"], "rollbackProfile": "preserve", "optionalPolicy": "conditional" },
-    { "stepId": "Q6", "owner": "qwen-asr", "dependsOn": ["Q5", "A5"], "commandProfile": "qwen-focused", "verifierProfile": "q6-contract", "immutableInputs": ["Q5", "A5"], "resourceBudget": {}, "retryClass": "bounded", "requiredOutputTypes": ["contract", "acceptance"], "rollbackProfile": "preserve", "optionalPolicy": "conditional" },
-    { "stepId": "A6", "owner": "main-app", "dependsOn": ["Q6"], "commandProfile": "app-browser", "verifierProfile": "a6-acceptance", "immutableInputs": ["Q6"], "resourceBudget": {}, "retryClass": "bounded", "requiredOutputTypes": ["acceptance"], "rollbackProfile": "preserve", "optionalPolicy": "conditional" },
-    { "stepId": "Q7", "owner": "qwen-asr", "dependsOn": ["A6"], "commandProfile": "qwen-benchmark", "verifierProfile": "q7-final", "immutableInputs": ["A6"], "resourceBudget": {}, "retryClass": "bounded", "requiredOutputTypes": ["release", "acceptance"], "rollbackProfile": "preserve", "optionalPolicy": "required" },
-    { "stepId": "A7", "owner": "main-app", "dependsOn": ["Q7"], "commandProfile": "app-browser", "verifierProfile": "a7-final", "immutableInputs": ["Q7"], "resourceBudget": {}, "retryClass": "bounded", "requiredOutputTypes": ["acceptance", "benchmark"], "rollbackProfile": "preserve", "optionalPolicy": "required" }
+    {
+      "stepId": "A0",
+      "owner": "main-app",
+      "dependsOn": [],
+      "commandProfile": "app-focused",
+      "verifierProfile": "a0-observability",
+      "immutableInputs": [],
+      "resourceBudget": {},
+      "retryClass": "bounded",
+      "requiredOutputTypes": [
+        "acceptance"
+      ],
+      "rollbackProfile": "preserve",
+      "optionalPolicy": "required"
+    },
+    {
+      "stepId": "Q0",
+      "owner": "qwen-asr",
+      "dependsOn": [],
+      "commandProfile": "qwen-focused",
+      "verifierProfile": "q0-baseline",
+      "immutableInputs": [],
+      "resourceBudget": {},
+      "retryClass": "bounded",
+      "requiredOutputTypes": [
+        "acceptance"
+      ],
+      "rollbackProfile": "preserve",
+      "optionalPolicy": "required"
+    },
+    {
+      "stepId": "A1",
+      "owner": "main-app",
+      "dependsOn": [
+        "A0"
+      ],
+      "commandProfile": "app-focused",
+      "verifierProfile": "a1-byte-hash",
+      "immutableInputs": [
+        "A0"
+      ],
+      "resourceBudget": {},
+      "retryClass": "bounded",
+      "requiredOutputTypes": [
+        "acceptance"
+      ],
+      "rollbackProfile": "preserve",
+      "optionalPolicy": "required"
+    },
+    {
+      "stepId": "Q1",
+      "owner": "qwen-asr",
+      "dependsOn": [
+        "Q0"
+      ],
+      "commandProfile": "qwen-focused",
+      "verifierProfile": "q1-long-poll",
+      "immutableInputs": [
+        "Q0"
+      ],
+      "resourceBudget": {},
+      "retryClass": "bounded",
+      "requiredOutputTypes": [
+        "acceptance"
+      ],
+      "rollbackProfile": "preserve",
+      "optionalPolicy": "required"
+    },
+    {
+      "stepId": "A2A",
+      "owner": "main-app",
+      "dependsOn": [
+        "A1"
+      ],
+      "commandProfile": "app-focused",
+      "verifierProfile": "a2a-partial",
+      "immutableInputs": [
+        "A1"
+      ],
+      "resourceBudget": {},
+      "retryClass": "bounded",
+      "requiredOutputTypes": [
+        "acceptance"
+      ],
+      "rollbackProfile": "preserve",
+      "optionalPolicy": "required"
+    },
+    {
+      "stepId": "A2B",
+      "owner": "main-app",
+      "dependsOn": [
+        "A2A",
+        "Q1"
+      ],
+      "commandProfile": "app-focused",
+      "verifierProfile": "a2b-adoption",
+      "immutableInputs": [
+        "A2A",
+        "Q1"
+      ],
+      "resourceBudget": {},
+      "retryClass": "bounded",
+      "requiredOutputTypes": [
+        "acceptance"
+      ],
+      "rollbackProfile": "preserve",
+      "optionalPolicy": "required"
+    },
+    {
+      "stepId": "A3",
+      "owner": "main-app",
+      "dependsOn": [
+        "A2B"
+      ],
+      "commandProfile": "app-focused",
+      "verifierProfile": "a3-concurrency",
+      "immutableInputs": [
+        "A2B"
+      ],
+      "resourceBudget": {},
+      "retryClass": "bounded",
+      "requiredOutputTypes": [
+        "acceptance"
+      ],
+      "rollbackProfile": "preserve",
+      "optionalPolicy": "required"
+    },
+    {
+      "stepId": "A4",
+      "owner": "main-app",
+      "dependsOn": [
+        "A3"
+      ],
+      "commandProfile": "app-browser",
+      "verifierProfile": "a4-browser",
+      "immutableInputs": [
+        "A3"
+      ],
+      "resourceBudget": {},
+      "retryClass": "bounded",
+      "requiredOutputTypes": [
+        "acceptance"
+      ],
+      "rollbackProfile": "preserve",
+      "optionalPolicy": "required"
+    },
+    {
+      "stepId": "Q2",
+      "owner": "qwen-asr",
+      "dependsOn": [
+        "Q1",
+        "A4"
+      ],
+      "commandProfile": "qwen-benchmark",
+      "verifierProfile": "q2-987",
+      "immutableInputs": [
+        "Q1",
+        "A4"
+      ],
+      "resourceBudget": {},
+      "retryClass": "bounded",
+      "requiredOutputTypes": [
+        "benchmark",
+        "acceptance"
+      ],
+      "rollbackProfile": "preserve",
+      "optionalPolicy": "required"
+    },
+    {
+      "stepId": "Q3",
+      "owner": "qwen-asr",
+      "dependsOn": [
+        "Q2"
+      ],
+      "commandProfile": "qwen-benchmark",
+      "verifierProfile": "q3-correction",
+      "immutableInputs": [
+        "Q2"
+      ],
+      "resourceBudget": {},
+      "retryClass": "bounded",
+      "requiredOutputTypes": [
+        "benchmark",
+        "acceptance"
+      ],
+      "rollbackProfile": "preserve",
+      "optionalPolicy": "required"
+    },
+    {
+      "stepId": "Q4",
+      "owner": "qwen-asr",
+      "dependsOn": [
+        "Q3"
+      ],
+      "commandProfile": "qwen-benchmark",
+      "verifierProfile": "q4-quality-vram",
+      "immutableInputs": [
+        "Q3"
+      ],
+      "resourceBudget": {},
+      "retryClass": "bounded",
+      "requiredOutputTypes": [
+        "benchmark",
+        "acceptance"
+      ],
+      "rollbackProfile": "preserve",
+      "optionalPolicy": "conditional"
+    },
+    {
+      "stepId": "Q5",
+      "owner": "qwen-asr",
+      "dependsOn": [
+        "Q4"
+      ],
+      "commandProfile": "qwen-benchmark",
+      "verifierProfile": "q5-localization",
+      "immutableInputs": [
+        "Q4"
+      ],
+      "resourceBudget": {},
+      "retryClass": "bounded",
+      "requiredOutputTypes": [
+        "benchmark",
+        "acceptance"
+      ],
+      "rollbackProfile": "preserve",
+      "optionalPolicy": "required"
+    },
+    {
+      "stepId": "A5",
+      "owner": "main-app",
+      "dependsOn": [
+        "A4"
+      ],
+      "commandProfile": "app-browser",
+      "verifierProfile": "a5-persistence",
+      "immutableInputs": [
+        "A4"
+      ],
+      "resourceBudget": {},
+      "retryClass": "bounded",
+      "requiredOutputTypes": [
+        "acceptance"
+      ],
+      "rollbackProfile": "preserve",
+      "optionalPolicy": "conditional"
+    },
+    {
+      "stepId": "Q6",
+      "owner": "qwen-asr",
+      "dependsOn": [
+        "Q5",
+        "A5"
+      ],
+      "commandProfile": "qwen-focused",
+      "verifierProfile": "q6-contract",
+      "immutableInputs": [
+        "Q5",
+        "A5"
+      ],
+      "resourceBudget": {},
+      "retryClass": "bounded",
+      "requiredOutputTypes": [
+        "contract",
+        "acceptance"
+      ],
+      "rollbackProfile": "preserve",
+      "optionalPolicy": "conditional"
+    },
+    {
+      "stepId": "A6",
+      "owner": "main-app",
+      "dependsOn": [
+        "Q6"
+      ],
+      "commandProfile": "app-browser",
+      "verifierProfile": "a6-acceptance",
+      "immutableInputs": [
+        "Q6"
+      ],
+      "resourceBudget": {},
+      "retryClass": "bounded",
+      "requiredOutputTypes": [
+        "acceptance"
+      ],
+      "rollbackProfile": "preserve",
+      "optionalPolicy": "conditional"
+    },
+    {
+      "stepId": "Q7",
+      "owner": "qwen-asr",
+      "dependsOn": [
+        "A6"
+      ],
+      "commandProfile": "qwen-benchmark",
+      "verifierProfile": "q7-final",
+      "immutableInputs": [
+        "A6"
+      ],
+      "resourceBudget": {},
+      "retryClass": "bounded",
+      "requiredOutputTypes": [
+        "release",
+        "acceptance"
+      ],
+      "rollbackProfile": "preserve",
+      "optionalPolicy": "required"
+    },
+    {
+      "stepId": "A7",
+      "owner": "main-app",
+      "dependsOn": [
+        "Q7"
+      ],
+      "commandProfile": "app-browser",
+      "verifierProfile": "a7-final",
+      "immutableInputs": [
+        "Q7"
+      ],
+      "resourceBudget": {},
+      "retryClass": "bounded",
+      "requiredOutputTypes": [
+        "acceptance",
+        "benchmark"
+      ],
+      "rollbackProfile": "preserve",
+      "optionalPolicy": "required"
+    }
   ]
 }
+

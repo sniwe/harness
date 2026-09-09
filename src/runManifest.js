@@ -9,6 +9,16 @@ export function sha256File(file) {
   return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 }
 
+function manifestDigestInput(manifest) {
+  const copy = { ...manifest, planDigest: undefined, commands: manifest.commands && Object.fromEntries(Object.entries(manifest.commands).map(([stepId, command]) => {
+    const args = Array.isArray(command.args) ? [...command.args] : command.args;
+    const index = Array.isArray(args) ? args.indexOf('--plan-digest') : -1;
+    if (index >= 0) args[index + 1] = '__PLAN_DIGEST__';
+    return [stepId, { ...command, ...(Array.isArray(args) ? { args } : {}) }];
+  })) };
+  return JSON.stringify(copy);
+}
+
 export function readRunManifest(file) {
   const manifest = JSON.parse(fs.readFileSync(file, 'utf8'));
   validateRunManifest(manifest);
@@ -35,13 +45,13 @@ export function validateRunManifest(manifest, { verifyInputs = true } = {}) {
     visiting.add(stepId); for (const dependency of manifest.steps.find((step) => step.stepId === stepId).dependsOn) visit(dependency); visiting.delete(stepId); visited.add(stepId);
   }
   for (const step of manifest.steps) visit(step.stepId);
-  const digest = crypto.createHash('sha256').update(JSON.stringify({ ...manifest, planDigest: undefined })).digest('hex');
+  const digest = crypto.createHash('sha256').update(manifestDigestInput(manifest)).digest('hex');
   if (manifest.planDigest !== digest) throw new Error('run_manifest_digest_invalid');
   return { ok: true, runId: manifest.runId, planDigest: digest, steps: manifest.steps.length };
 }
 
 export function createManifestDigest(manifest) {
-  return crypto.createHash('sha256').update(JSON.stringify({ ...manifest, planDigest: undefined })).digest('hex');
+  return crypto.createHash('sha256').update(manifestDigestInput(manifest)).digest('hex');
 }
 
 export function resolveManifestPath(value) { return path.resolve(String(value || '')); }

@@ -13,6 +13,8 @@ export function resolveManifestCommand({ manifest, step } = {}) {
     const commandPath = path.isAbsolute(spec.command) ? spec.command : path.resolve(cwd, spec.command);
     if (!fs.existsSync(commandPath)) throw new Error(`execution_command_missing:${step.stepId}`);
   }
+  const digestIndex = (spec.args || []).indexOf('--plan-digest');
+  if (manifest.planDigest && (digestIndex < 0 || spec.args[digestIndex + 1] !== manifest.planDigest)) throw new Error(`execution_plan_digest_mismatch:${step.stepId}`);
   return { command: spec.command, args: spec.args || [], cwd, env: { ...process.env, ...(spec.env || {}) } };
 }
 
