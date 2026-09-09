@@ -86,9 +86,11 @@ test('benchmark join rejects mismatched job or runtime identity', () => {
 
 test('final acceptance requires throughput and durable evidence for all six restart tracers', () => {
   const base = { schemaVersion: 1, benchmarkId: 'b', runId: 'r', requestArtifactId: 'a'.repeat(64), source: { basename: '987.wav', durationMs: 1000 }, job: { remoteJobId: 'j' }, runtime: { appGeneration: 'a1', qwenGeneration: 'q1' }, verdict: 'pass', ...passEvidence };
+  const warmCohort = { app: { ok: true, verdict: 'pass', observedRuns: 3, medianRealtime: 0.7, range: { minimum: 0.6, maximum: 0.8 } }, qwen: { ok: true, verdict: 'pass', observedRuns: 3, medianRealtime: 0.7, range: { minimum: 0.6, maximum: 0.8 } } };
   const incomplete = evaluateFinalAcceptance({ app: base, qwen: base, restarts: [] }); assert.equal(incomplete.verdict, 'blocked');
   const restarts = REQUIRED_RESTARTS.map((name) => ({ name, verdict: 'pass', artifactId: 'd'.repeat(64), trigger: { predicate: name }, before: { runtimeGeneration: 'before', jobId: 'j' }, after: { runtimeGeneration: 'after', jobId: 'j' } }));
-  const complete = evaluateFinalAcceptance({ app: base, qwen: base, restarts }); assert.equal(complete.ok, true);
+  const complete = evaluateFinalAcceptance({ app: base, qwen: base, restarts, warmCohort }); assert.equal(complete.ok, true);
+  assert.equal(evaluateFinalAcceptance({ app: base, qwen: base, restarts }).reason, 'warm_cohort_missing_or_failed');
   assert.equal(evaluateFinalAcceptance({ app: { ...base, metrics: { committedRealtime: 0.49 } }, qwen: base, restarts }).verdict, 'failed');
   assert.equal(evaluateFinalAcceptance({ app: base, qwen: { ...base, metrics: { committedRealtime: 0.49 } }, restarts }).verdict, 'failed');
   assert.equal(evaluateFinalAcceptance({ app: base, qwen: base, restarts: restarts.map((item) => ({ ...item, before: { ...item.before, jobId: 'old' } })) }).missing.length, 6);
