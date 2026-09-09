@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "projects": {
-    "main-app": { "root": "C:\\retry", "enabled": true },
+    "main-app": { "root": "C:\\retry-harness-run", "enabled": true },
     "qwen-asr": { "root": "C:\\Users\\rhyse\\Qwen3-ASR", "enabled": true }
   }
 }
