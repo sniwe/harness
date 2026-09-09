@@ -56,6 +56,8 @@ attempts; remote processing has no encoded time limit.
 
 Commit coordination is automatic at startup and follows tunnel rotation by key, with bounded retries and post-relaunch confirmation.
 
+`node src/ticketCli.js reconcile --scan-only` performs an intentional scan-only reconciliation. Normal configured reconciliation runs through the local server route so the configured worker and recovery callbacks are used.
+
 `npm start` runs the relaunch supervisor, waits for worker prime and commit
 confirmation, checks registered peers, and reports convergence only after a
 peer pull/relaunch has confirmed the target commit and tunnel. Set
