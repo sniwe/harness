@@ -1,9 +1,10 @@
 import crypto from 'node:crypto';
 import { createWorkflow } from './workflowEngine.js';
+import { recordFinalAcceptance } from './finalAcceptance.js';
 
 const RESTART_TRACERS = Object.freeze(['app-during-upload', 'app-after-seal', 'qwen-during-asr', 'qwen-during-constructor', 'qwen-during-alignment', 'app-after-partial-localization']);
 
-export async function runRehearsal({ manifest, store, runner = async ({ step }) => { const declared = manifest.steps.find((item) => item.stepId === step.stepId); return { runId: manifest.runId, stepId: step.stepId, planDigest: manifest.planDigest, verdict: 'pass', outputTypes: declared.requiredOutputTypes, artifactId: crypto.createHash('sha256').update(step.stepId).digest('hex'), verifier: { profile: declared.verifierProfile, exitCode: 0 } }; }, skipSteps = [], retrySteps = {}, restartAfterStep = false } = {}) {
+export async function runRehearsal({ manifest, store, runner = async ({ step }) => { const declared = manifest.steps.find((item) => item.stepId === step.stepId); return { runId: manifest.runId, stepId: step.stepId, planDigest: manifest.planDigest, verdict: 'pass', outputTypes: declared.requiredOutputTypes, artifactId: crypto.createHash('sha256').update(step.stepId).digest('hex'), verifier: { profile: declared.verifierProfile, exitCode: 0 } }; }, skipSteps = [], retrySteps = {}, restartAfterStep = false, acceptanceEvidence } = {}) {
   let workflow = createWorkflow({ manifest, store }); const trace = []; const skips = new Set(skipSteps); const retries = new Map(Object.entries(retrySteps));
   while (true) { const step = workflow.next(); if (!step) break;
     if (skips.has(step.stepId)) { const artifactId = crypto.createHash('sha256').update(`skip:${manifest.runId}:${step.stepId}`).digest('hex'); workflow.skipStep(step.stepId, { artifactId, reason: 'rehearsal_optional_disposition', verifier: { profile: step.verifierProfile, exitCode: 0 } }); trace.push({ stepId: step.stepId, state: 'skipped' }); if (restartAfterStep) workflow = createWorkflow({ manifest, store, initialize: false }); continue; }
@@ -12,7 +13,8 @@ export async function runRehearsal({ manifest, store, runner = async ({ step }) 
     if (state.steps[step.stepId].status === 'blocked' && Number(retries.get(step.stepId) || 0) > 0) { retries.set(step.stepId, Number(retries.get(step.stepId)) - 1); workflow.retryStep(step.stepId, 'rehearsal_corrective_attempt'); trace.push({ stepId: step.stepId, state: 'retry_wait' }); }
     if (restartAfterStep) workflow = createWorkflow({ manifest, store, initialize: false });
   }
-  return { ok: workflow.snapshot().status === 'accepted', runId: manifest.runId, trace, state: workflow.snapshot() };
+  const state = workflow.snapshot(); const finalAcceptance = acceptanceEvidence ? recordFinalAcceptance({ store, ...acceptanceEvidence }) : undefined;
+  return { ok: state.status === 'accepted' && (!finalAcceptance || finalAcceptance.ok), runId: manifest.runId, trace, state, finalAcceptance };
 }
 
 export function renderRunReport({ manifest, result }) {
