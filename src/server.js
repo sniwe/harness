@@ -213,8 +213,7 @@ async function stop() {
   pool.stop();
   await new Promise((resolve) => {
     if (!server?.listening) return resolve();
-    const timer = setTimeout(() => { server.closeAllConnections?.(); resolve(); }, 5000);
-    server.close(() => { clearTimeout(timer); resolve(); });
+    server.close(() => resolve());
     server.closeIdleConnections?.();
   });
 }
