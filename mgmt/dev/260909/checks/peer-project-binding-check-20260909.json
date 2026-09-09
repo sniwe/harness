@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "manifestProject": {
+    "projectKey": "main-app",
+    "machineKey": "machine-base-caf45342b1d0acc9b938",
+    "profile": "C:\\retry-harness-run"
+  },
+  "peerObserved": {
+    "machineBaseUrl": "https://rod-watched-jackie-living.trycloudflare.com",
+    "harnessCommit": "96ad30fc6699fe21ea4411ec67374c16b85471e4",
+    "workerCwd": "C:\\Users\\Qub\\orderBot\\obv\\app",
+    "workerProjectKey": "main-app",
+    "workerCommitConfirmed": true
+  },
+  "verdict": "blocked_project_binding_mismatch",
+  "reason": "The peer worker is healthy and commit-confirmed, but its runtime cwd does not equal the manifest's addressed retry checkout.",
+  "requiredResolution": "Configure the peer machine-base runtime cwd and project registration for C:\\retry-harness-run before dispatching main-app phases."
+}
