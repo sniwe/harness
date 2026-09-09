@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 
 const digest = (value) => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
 
-export async function runRestartTracer({ name, predicate, observe, restart, ready, sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)), pollMs = 1000, signal, record = async () => {} } = {}) {
+export async function runRestartTracer({ name, predicate, observe, restart, ready, sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)), pollMs = 1000, signal, recordIntent = async () => {}, record = async () => {} } = {}) {
   if (!name || !predicate || !observe || !restart || !ready) throw new Error('restart_tracer_invalid');
   let before;
   while (true) {
@@ -11,6 +11,7 @@ export async function runRestartTracer({ name, predicate, observe, restart, read
     if (await predicate(before)) break;
     await sleep(pollMs);
   }
+  await recordIntent({ name, state: 'restart_intent', before: { runtimeGeneration: before.runtimeGeneration, jobId: before.jobId } });
   await restart(before);
   let after;
   while (true) {

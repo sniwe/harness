@@ -9,7 +9,7 @@ export const RESTART_TRACERS = Object.freeze([
   'app-after-partial-localization',
 ]);
 
-export async function runRestartMatrix({ observe, restart, ready, sleep, pollMs, signal, record, priorEvidence = [] } = {}) {
+export async function runRestartMatrix({ observe, restart, ready, sleep, pollMs, signal, recordIntent, record, priorEvidence = [] } = {}) {
   if (typeof observe !== 'function' || typeof restart !== 'function' || typeof ready !== 'function') throw new Error('restart_matrix_invalid');
   const evidence = [];
   for (const name of RESTART_TRACERS) {
@@ -24,6 +24,7 @@ export async function runRestartMatrix({ observe, restart, ready, sleep, pollMs,
       sleep,
       pollMs,
       signal,
+      recordIntent: (item) => recordIntent?.(item),
       record: (item) => record?.(item),
     }));
   }

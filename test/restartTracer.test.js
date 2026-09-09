@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { runRestartTracer } from '../src/restartTracer.js';
 import { RESTART_TRACERS, runRestartMatrix } from '../src/restartMatrix.js';
+import { createRestartCoordinator } from '../src/restartCoordinator.js';
 
 test('restart tracer waits on observed stages and preserves the durable job identity', async () => {
   let phase = 0; let restarts = 0; const observations = () => ({ runtimeGeneration: phase < 2 ? 'g1' : 'g2', jobId: 'job-1', stage: phase++ });
@@ -41,4 +42,16 @@ test('restart matrix does not trust evidence bound to a different predicate', as
   const mismatched = { name: 'app-during-upload', verdict: 'pass', artifactId: 'a'.repeat(64), trigger: { predicate: 'app-after-seal' }, before: { runtimeGeneration: 'g1', jobId: 'job-1' }, after: { runtimeGeneration: 'g2', jobId: 'job-1' } };
   let restarted = false; const generations = new Set(); const evidence = await runRestartMatrix({ priorEvidence: [mismatched], observe: async (name) => ({ observedPredicate: name, runtimeGeneration: generations.has(name) ? 'after' : 'before', jobId: 'job-2' }), restart: async (name) => { restarted = true; generations.add(name); }, ready: async (_name, state) => state.runtimeGeneration === 'after', sleep: async () => {} });
   assert.equal(restarted, true); assert.notEqual(evidence[0], mismatched); assert.equal(evidence[0].name, 'app-during-upload');
+});
+
+test('restart tracer records intent before the side effect and pass after recovery', async () => {
+  const order = []; const generations = new Set();
+  await runRestartMatrix({ observe: async (name) => ({ observedPredicate: name, runtimeGeneration: generations.has(name) ? 'after' : 'before', jobId: `job-${name}` }), restart: async (name) => { order.push(`restart:${name}`); generations.add(name); }, ready: async (name, state) => state.runtimeGeneration === 'after', sleep: async () => {}, recordIntent: async (item) => order.push(`intent:${item.name}`), record: async (item) => order.push(`pass:${item.name}`) });
+  assert.deepEqual(order.slice(0, 3), ['intent:app-during-upload', 'restart:app-during-upload', 'pass:app-during-upload']);
+});
+
+test('restart coordinator blocks an unresolved restart intent instead of replaying it', async () => {
+  const events = [{ type: 'restart_tracer_intent', name: 'app-during-upload' }]; const store = { events: () => events, append: (event) => events.push(event) };
+  const coordinator = createRestartCoordinator({ store, observe: async () => ({}), restart: async () => {}, ready: async () => true, sleep: async () => {} });
+  await assert.rejects(() => coordinator.run(), /restart_tracer_unknown_after_restart:app-during-upload/);
 });
