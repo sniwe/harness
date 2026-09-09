@@ -44,4 +44,8 @@ The run state contains pass evidence for every phase, including benchmark output
 - No three-warm-run baseline/candidate cohort or fixed steady-interval performance report exists.
 - Reboot-with-logon and boot-without-logon capabilities remain unverified and must remain distinct from process restart.
 
+## Harness verification update
+
+The scoped service controller now records `unknown/process_ownership_lost` when termination ownership is unavailable instead of claiming a clean stop. Focused restart/deployment verification passed 13/13; the complete harness suite passed 156 tests, with 1 platform-skipped test and 0 failures. This closes the ownership-fencing implementation defect, but does not substitute for the six live application/Qwen restart tracers above.
+
 No end-to-end PASS is claimed from phase completion, upload completion, model readiness, or local test results alone.
