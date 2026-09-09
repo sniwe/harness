@@ -10,6 +10,23 @@ export function createDeploymentManager(file) {
   function activate() { const state = read(); if (!state || state.state !== 'staged') throw new Error('deployment_not_staged'); return write({ ...state, state: 'active', activatedAt: new Date().toISOString() }); }
   function markHealthy({ runtimeGeneration, commit }) { const state = read(); if (!state || state.state !== 'active' || !runtimeGeneration || !commit) throw new Error('deployment_health_invalid'); if (state.desired.commit && state.desired.commit !== commit) throw new Error('deployment_commit_mismatch'); return write({ ...state, state: 'healthy', runtimeGeneration, commit, healthyAt: new Date().toISOString() }); }
   function rollback(reason) { const state = read(); if (!state || !['active', 'healthy'].includes(state.state)) throw new Error('deployment_rollback_invalid'); return write({ ...state, state: 'rollback_required', reason: String(reason || 'health_not_observed'), rollbackAt: new Date().toISOString(), restore: state.previous }); }
+  async function executeRollback({ execute, observe, sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)), pollMs = 1000, signal } = {}) {
+    if (typeof execute !== 'function' || typeof observe !== 'function') throw new Error('deployment_rollback_executor_invalid');
+    let state = read();
+    if (!state || state.state !== 'rollback_required' || !state.restore) throw new Error('deployment_rollback_not_required');
+    if (state.rollbackExecution?.state === 'restored') return state;
+    if (!state.rollbackExecution || state.rollbackExecution.state === 'failed') {
+      state = write({ ...state, rollbackExecution: { state: 'running', command: state.rollbackCommand, startedAt: new Date().toISOString() } });
+      try { await execute(state.rollbackCommand, state); }
+      catch (error) { write({ ...read(), rollbackExecution: { state: 'failed', command: state.rollbackCommand, error: error.message, failedAt: new Date().toISOString() } }); throw error; }
+    }
+    while (true) {
+      if (signal?.aborted) throw new Error('deployment_rollback_cancelled');
+      const observed = await observe(state.restore);
+      if (observed?.state === 'healthy' && observed.commit === state.restore.commit && observed.runtimeGeneration) return write({ ...read(), state: 'restored', runtimeGeneration: observed.runtimeGeneration, commit: observed.commit, rollbackExecution: { state: 'restored', completedAt: new Date().toISOString() } });
+      await sleep(pollMs);
+    }
+  }
   async function waitForHealthy({ observe, sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)), pollMs = 1000, signal } = {}) {
     if (typeof observe !== 'function') throw new Error('deployment_observer_required');
     while (true) {
@@ -22,5 +39,5 @@ export function createDeploymentManager(file) {
       await sleep(pollMs);
     }
   }
-  return { read, stage, activate, markHealthy, waitForHealthy, rollback };
+  return { read, stage, activate, markHealthy, waitForHealthy, rollback, executeRollback };
 }

@@ -29,3 +29,17 @@ test('deployment health rejects a healthy process from the wrong generation and 
   let polls = 0; const healthy = await manager.waitForHealthy({ observe: async () => (++polls === 1 ? { state: 'healthy', runtimeGeneration: 'wrong', commit: 'old' } : { state: 'healthy', runtimeGeneration: 'right', commit: 'new' }), sleep: async () => {} });
   assert.equal(healthy.commit, 'new'); assert.equal(polls, 2); assert.equal(manager.read().lastHealthObservation.commit, 'old');
 });
+
+test('deployment rollback executes once and persistently observes the restored generation', async () => {
+  const file = path.join(mkdtempSync(path.join(tmpdir(), 'deploy-execute-')), 'deployment.json'); const manager = createDeploymentManager(file); let executions = 0; let polls = 0;
+  manager.stage({ runId: 'r', projectKey: 'main-app', previous: { commit: 'old' }, desired: { commit: 'new' }, configDigest: 'e'.repeat(64), rollbackCommand: ['restore-scoped', 'old'] }); manager.activate(); manager.rollback('unhealthy_candidate');
+  const restored = await manager.executeRollback({ execute: async (command) => { executions += 1; assert.deepEqual(command, ['restore-scoped', 'old']); }, observe: async (previous) => (++polls < 2 ? { state: 'starting', commit: previous.commit } : { state: 'healthy', commit: previous.commit, runtimeGeneration: 'old:2' }), sleep: async () => {} });
+  assert.equal(executions, 1); assert.equal(polls, 2); assert.equal(restored.state, 'restored'); assert.equal(manager.read().rollbackExecution.state, 'restored');
+});
+
+test('deployment rollback execution cancellation preserves the running execution record', async () => {
+  const file = path.join(mkdtempSync(path.join(tmpdir(), 'deploy-cancel-')), 'deployment.json'); const manager = createDeploymentManager(file); const controller = new AbortController();
+  manager.stage({ runId: 'r', projectKey: 'main-app', previous: { commit: 'old' }, desired: { commit: 'new' }, configDigest: 'f'.repeat(64), rollbackCommand: ['restore', 'old'] }); manager.activate(); manager.rollback(); controller.abort();
+  await assert.rejects(() => manager.executeRollback({ execute: async () => {}, observe: async () => ({ state: 'starting' }), signal: controller.signal }), /deployment_rollback_cancelled/);
+  assert.equal(manager.read().rollbackExecution.state, 'running');
+});
