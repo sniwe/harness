@@ -17,5 +17,12 @@ export function evaluateFinalAcceptance({ app, qwen, restarts = [], minimumRealt
   return { ok: true, verdict: 'pass', joined, restartCount: REQUIRED_RESTARTS.length, minimumRealtime };
 }
 
+export function recordFinalAcceptance({ store, app, qwen, restarts = [], minimumRealtime = 0.5 } = {}) {
+  if (!store?.append) throw new Error('final_acceptance_store_required');
+  const result = evaluateFinalAcceptance({ app, qwen, restarts, minimumRealtime });
+  store.append({ type: 'final_acceptance_evaluated', runId: result.joined.runId, benchmarkId: result.joined.benchmarkId, remoteJobId: result.joined.remoteJobId, verdict: result.verdict, reason: result.reason, missing: result.missing || [], restartCount: restarts.length });
+  return result;
+}
+
 export { REQUIRED_RESTARTS };
 export { validRestartEvidence };

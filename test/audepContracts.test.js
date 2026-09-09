@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { adaptAudepSteps, canonicalArtifactName, isExactArtifactMatch } from '../src/audepPlanAdapter.js';
 import { validateBenchmarkResult } from '../src/benchmarkSchema.js';
 import { joinBenchmarkResults } from '../src/benchmarkJoin.js';
-import { evaluateFinalAcceptance, REQUIRED_RESTARTS } from '../src/finalAcceptance.js';
+import { evaluateFinalAcceptance, recordFinalAcceptance, REQUIRED_RESTARTS } from '../src/finalAcceptance.js';
 import { validateHandoff } from '../src/handoffSchemas.js';
 import { createBenchmarkCoordinator } from '../src/benchmarkCoordinator.js';
 import { createRunStore } from '../src/runStore.js';
@@ -70,4 +70,9 @@ test('final acceptance requires throughput and durable evidence for all six rest
   assert.equal(evaluateFinalAcceptance({ app: base, qwen: base, restarts: restarts.map((item) => ({ ...item, after: { ...item.after, runtimeGeneration: item.before.runtimeGeneration } })) }).missing.length, 6);
   assert.equal(evaluateFinalAcceptance({ app: base, qwen: base, restarts: [...restarts, restarts[0]] }).reason, 'restart_matrix_invalid');
   assert.equal(evaluateFinalAcceptance({ app: base, qwen: base, restarts: [...restarts, { ...restarts[0], name: 'unknown-stage' }] }).reason, 'restart_matrix_invalid');
+});
+
+test('final acceptance recorder persists a correlation event without raw payloads', () => {
+  const events = []; const result = recordFinalAcceptance({ store: { append: (event) => events.push(event) }, app: { ...passEvidence, schemaVersion: 1, benchmarkId: 'b', runId: 'r', requestArtifactId: 'a'.repeat(64), source: { basename: '987.wav', durationMs: 1000 }, job: { remoteJobId: 'j' }, runtime: { appGeneration: 'a1', qwenGeneration: 'q1' }, verdict: 'pass' }, qwen: { ...passEvidence, schemaVersion: 1, benchmarkId: 'b', runId: 'r', requestArtifactId: 'a'.repeat(64), source: { basename: '987.wav', durationMs: 1000 }, job: { remoteJobId: 'j' }, runtime: { appGeneration: 'a1', qwenGeneration: 'q1' }, verdict: 'pass' }, restarts: [] });
+  assert.equal(result.verdict, 'blocked'); assert.equal(events[0].type, 'final_acceptance_evaluated'); assert.equal(events[0].remoteJobId, 'j'); assert.equal('app' in events[0], false);
 });
