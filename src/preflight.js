@@ -5,6 +5,7 @@ import { readTicketProject } from './ticketProjects.js';
 import { resolveAppBenchmarkAdapter } from './appAdapter.js';
 import { resolveQwenBenchmarkAdapter } from './qwenAdapter.js';
 import { probeRuntime } from './runtimeProbe.js';
+import { validateManifestCommands } from './manifestExecutor.js';
 
 export function validateRuntimeContracts(manifest, runtimes) {
   const qwen = runtimes?.['qwen-asr']; const runtime = qwen?.body?.runtime; const plans = runtime?.audep_capabilities?.plans || [];
@@ -23,6 +24,7 @@ export async function preflightManifest(file, { projectConfig = path.resolve('co
     for (const [key, resolver] of [['main-app', resolveAppBenchmarkAdapter], ['qwen-asr', resolveQwenBenchmarkAdapter]]) { try { adapters[key] = resolver({ projectRoot: manifest.projects[key]?.profile, ...manifest.adapters?.[key] }); } catch (error) { adapters[key] = { state: 'blocked', error: error.message }; } }
     const runtimes = {}; for (const [key, runtime] of Object.entries(manifest.runtimes || {})) runtimes[key] = await probeRuntime(runtime);
     const adapterMissing = Object.values(adapters).filter((adapter) => adapter.state === 'blocked'); const runtimeMissing = Object.values(runtimes).filter((runtime) => runtime.state === 'blocked'); const contractReady = validateRuntimeContracts(manifest, runtimes);
-    return { ok: missing.length === 0 && adapterMissing.length === 0 && runtimeMissing.length === 0 && contractReady, state: missing.length || adapterMissing.length || runtimeMissing.length || !contractReady ? 'blocked' : 'ready', manifest: { runId: manifest.runId, planDigest: manifest.planDigest }, projects, missing, adapters, runtimes, contractReady };
+    const commands = validateManifestCommands(manifest);
+    return { ok: missing.length === 0 && adapterMissing.length === 0 && runtimeMissing.length === 0 && contractReady && commands.ok, state: missing.length || adapterMissing.length || runtimeMissing.length || !contractReady || !commands.ok ? 'blocked' : 'ready', manifest: { runId: manifest.runId, planDigest: manifest.planDigest }, projects, missing, adapters, runtimes, contractReady, commands };
   } catch (error) { return { ok: false, state: 'blocked', error: error.message }; }
 }

@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { createWorkflow } from './workflowEngine.js';
 import { runRehearsal, renderRunReport } from './rehearsal.js';
 import { evaluateFinalAcceptance } from './finalAcceptance.js';
+import { createManifestExecutor } from './manifestExecutor.js';
 import { writeFileSync } from 'node:fs';
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -27,8 +28,7 @@ export async function runCommand(commandName, manifestFile, { store, outFile, ac
   const manifest = readRunManifest(manifestFile); const readOnly = ['inspect', 'explain-block', 'report', 'resume'].includes(commandName); const workflow = createWorkflow({ manifest, store, initialize: !readOnly });
   if (commandName === 'start') {
     if (!execute) return { ok: true, command: commandName, state: workflow.snapshot(), next: workflow.next() };
-    if (typeof executorFactory !== 'function') throw new Error('run_executor_factory_required');
-    const executor = executorFactory({ manifest, workflow });
+    const executor = typeof executorFactory === 'function' ? executorFactory({ manifest, workflow }) : createManifestExecutor({ manifest, workflow });
     if (!executor?.run) throw new Error('run_executor_invalid');
     return { ok: true, command: commandName, state: await executor.run({ signal }) };
   }
