@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "runId": "audep-speed-260908",
-  "planDigest": "d7c2dc4ed9f11dda9ca3c7620c2f3e7eddb416baf5fa8b186f06f96a682e5238",
+  "planDigest": "174aa420c55537733fc1bdddd6f2bd1a4de68e3c7bfdf7260cb17cd913142149",
   "controller": { "machineKey": "machine-base-73182d23f660c3880e7e" },
   "inputs": [
     { "role": "harness-plan", "path": "C:\\Users\\Admin\\Downloads\\Harness-Unattended-audEp-Implementation-Plan (1).md", "sha256": "5eef5bccad0710df77588cf1a4ee173df773217690ea12613382a20b1960547f" },
@@ -25,6 +25,25 @@
       "tracer": "scripts\\audep_http_fixture_tracer.py",
       "fixtureJob": "C:\\Users\\rhyse\\Qwen3-ASR\\dev\\audep-work\\jobs\\audep-0bc09b95-ec39-4fc2-b7e3-63c12043cabe-corrected-644655"
     }
+  },
+  "commands": {
+    "A0": { "command": "C:\\Program Files\\nodejs\\node.exe", "args": ["C:\\harness\\src\\phaseCommand.js", "--step", "A0", "--run-id", "audep-speed-260908", "--plan-digest", "d7c2dc4ed9f11dda9ca3c7620c2f3e7eddb416baf5fa8b186f06f96a682e5238", "--verifier-profile", "a0-observability"] },
+    "Q0": { "command": "C:\\Program Files\\nodejs\\node.exe", "args": ["C:\\harness\\src\\phaseCommand.js", "--step", "Q0", "--run-id", "audep-speed-260908", "--plan-digest", "d7c2dc4ed9f11dda9ca3c7620c2f3e7eddb416baf5fa8b186f06f96a682e5238", "--verifier-profile", "q0-baseline"], "env": { "QWEN_PYTHON": "C:\\Users\\rhyse\\.conda\\envs\\qwen3-asr\\python.exe" } },
+    "A1": { "command": "C:\\Program Files\\nodejs\\node.exe", "args": ["C:\\harness\\src\\phaseCommand.js", "--step", "A1", "--run-id", "audep-speed-260908", "--plan-digest", "d7c2dc4ed9f11dda9ca3c7620c2f3e7eddb416baf5fa8b186f06f96a682e5238", "--verifier-profile", "a1-byte-hash"] },
+    "Q1": { "command": "C:\\Program Files\\nodejs\\node.exe", "args": ["C:\\harness\\src\\phaseCommand.js", "--step", "Q1", "--run-id", "audep-speed-260908", "--plan-digest", "d7c2dc4ed9f11dda9ca3c7620c2f3e7eddb416baf5fa8b186f06f96a682e5238", "--verifier-profile", "q1-long-poll"] , "env": { "QWEN_PYTHON": "C:\\Users\\rhyse\\.conda\\envs\\qwen3-asr\\python.exe" } },
+    "A2A": { "command": "C:\\Program Files\\nodejs\\node.exe", "args": ["C:\\harness\\src\\phaseCommand.js", "--step", "A2A", "--run-id", "audep-speed-260908", "--plan-digest", "d7c2dc4ed9f11dda9ca3c7620c2f3e7eddb416baf5fa8b186f06f96a682e5238", "--verifier-profile", "a2a-partial"] },
+    "A2B": { "command": "C:\\Program Files\\nodejs\\node.exe", "args": ["C:\\harness\\src\\phaseCommand.js", "--step", "A2B", "--run-id", "audep-speed-260908", "--plan-digest", "d7c2dc4ed9f11dda9ca3c7620c2f3e7eddb416baf5fa8b186f06f96a682e5238", "--verifier-profile", "a2b-adoption"] },
+    "A3": { "command": "C:\\Program Files\\nodejs\\node.exe", "args": ["C:\\harness\\src\\phaseCommand.js", "--step", "A3", "--run-id", "audep-speed-260908", "--plan-digest", "d7c2dc4ed9f11dda9ca3c7620c2f3e7eddb416baf5fa8b186f06f96a682e5238", "--verifier-profile", "a3-concurrency"] },
+    "A4": { "command": "C:\\Program Files\\nodejs\\node.exe", "args": ["C:\\harness\\src\\phaseCommand.js", "--step", "A4", "--run-id", "audep-speed-260908", "--plan-digest", "d7c2dc4ed9f11dda9ca3c7620c2f3e7eddb416baf5fa8b186f06f96a682e5238", "--verifier-profile", "a4-browser"] },
+    "Q2": { "command": "C:\\Program Files\\nodejs\\node.exe", "args": ["C:\\harness\\src\\phaseCommand.js", "--step", "Q2", "--run-id", "audep-speed-260908", "--plan-digest", "d7c2dc4ed9f11dda9ca3c7620c2f3e7eddb416baf5fa8b186f06f96a682e5238", "--verifier-profile", "q2-slow-constructor"], "env": { "QWEN_PYTHON": "C:\\Users\\rhyse\\.conda\\envs\\qwen3-asr\\python.exe" } },
+    "Q3": { "command": "C:\\Program Files\\nodejs\\node.exe", "args": ["C:\\harness\\src\\phaseCommand.js", "--step", "Q3", "--run-id", "audep-speed-260908", "--plan-digest", "d7c2dc4ed9f11dda9ca3c7620c2f3e7eddb416baf5fa8b186f06f96a682e5238", "--verifier-profile", "q3-late-correction"], "env": { "QWEN_PYTHON": "C:\\Users\\rhyse\\.conda\\envs\\qwen3-asr\\python.exe" } },
+    "Q4": { "command": "C:\\Program Files\\nodejs\\node.exe", "args": ["C:\\harness\\src\\phaseCommand.js", "--step", "Q4", "--run-id", "audep-speed-260908", "--plan-digest", "d7c2dc4ed9f11dda9ca3c7620c2f3e7eddb416baf5fa8b186f06f96a682e5238", "--verifier-profile", "q4-quality-vram"], "env": { "QWEN_PYTHON": "C:\\Users\\rhyse\\.conda\\envs\\qwen3-asr\\python.exe" } },
+    "Q5": { "command": "C:\\Program Files\\nodejs\\node.exe", "args": ["C:\\harness\\src\\phaseCommand.js", "--step", "Q5", "--run-id", "audep-speed-260908", "--plan-digest", "d7c2dc4ed9f11dda9ca3c7620c2f3e7eddb416baf5fa8b186f06f96a682e5238", "--verifier-profile", "q5-localization"], "env": { "QWEN_PYTHON": "C:\\Users\\rhyse\\.conda\\envs\\qwen3-asr\\python.exe" } },
+    "A5": { "command": "C:\\Program Files\\nodejs\\node.exe", "args": ["C:\\harness\\src\\phaseCommand.js", "--step", "A5", "--run-id", "audep-speed-260908", "--plan-digest", "d7c2dc4ed9f11dda9ca3c7620c2f3e7eddb416baf5fa8b186f06f96a682e5238", "--verifier-profile", "a5-persistence"] },
+    "Q6": { "command": "C:\\Program Files\\nodejs\\node.exe", "args": ["C:\\harness\\src\\phaseCommand.js", "--step", "Q6", "--run-id", "audep-speed-260908", "--plan-digest", "d7c2dc4ed9f11dda9ca3c7620c2f3e7eddb416baf5fa8b186f06f96a682e5238", "--verifier-profile", "q6-boundary"] , "env": { "QWEN_PYTHON": "C:\\Users\\rhyse\\.conda\\envs\\qwen3-asr\\python.exe" } },
+    "A6": { "command": "C:\\Program Files\\nodejs\\node.exe", "args": ["C:\\harness\\src\\phaseCommand.js", "--step", "A6", "--run-id", "audep-speed-260908", "--plan-digest", "d7c2dc4ed9f11dda9ca3c7620c2f3e7eddb416baf5fa8b186f06f96a682e5238", "--verifier-profile", "a6-acceptance"] },
+    "Q7": { "command": "C:\\Program Files\\nodejs\\node.exe", "args": ["C:\\harness\\src\\phaseCommand.js", "--step", "Q7", "--run-id", "audep-speed-260908", "--plan-digest", "d7c2dc4ed9f11dda9ca3c7620c2f3e7eddb416baf5fa8b186f06f96a682e5238", "--verifier-profile", "q7-release"], "env": { "QWEN_PYTHON": "C:\\Users\\rhyse\\.conda\\envs\\qwen3-asr\\python.exe" } },
+    "A7": { "command": "C:\\Program Files\\nodejs\\node.exe", "args": ["C:\\harness\\src\\phaseCommand.js", "--step", "A7", "--run-id", "audep-speed-260908", "--plan-digest", "d7c2dc4ed9f11dda9ca3c7620c2f3e7eddb416baf5fa8b186f06f96a682e5238", "--verifier-profile", "a7-final"] }
   },
   "runtimes": {
     "main-app": { "baseUrl": "http://127.0.0.1:3102", "requiredPath": "/health", "required": { "tunnelKey": "chinApp" } },
