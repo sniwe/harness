@@ -57,3 +57,8 @@ test('durable command returns an ID and persists terminal output', async () => {
 test('reconstructed durable command treats a missing process as unknown', () => {
   const root = path.join(mkdtempSync(path.join(tmpdir(), 'durable-command-')), 'commands'); const controller = createDurableCommandController({ root, spawnImpl: () => ({ pid: 777, unref() {}, on() {}, stdout: null, stderr: null }), probe: () => true }); const started = controller.start({ command: 'test', cwd: process.cwd() }); const restarted = createDurableCommandController({ root, probe: () => false }); assert.equal(restarted.inspect(started.commandId).state, 'unknown');
 });
+
+test('durable command cancellation uses the owned process supervisor', () => {
+  const root = path.join(mkdtempSync(path.join(tmpdir(), 'durable-command-owner-')), 'commands'); const calls = []; const supervisor = { own: (pid, metadata) => calls.push(['own', pid, metadata.commandId]), release: (pid) => calls.push(['release', pid]), list: () => [{ pid: 42, commandId: 'command-1', processStart: 7 }], terminate: (pid) => calls.push(['terminate', pid]) }; const controller = createDurableCommandController({ root, now: () => 7, supervisor, spawnImpl: () => ({ pid: 42, unref() {}, on() { return this; }, stdout: null, stderr: null }) });
+  const started = controller.start({ command: 'test', cwd: process.cwd() }); assert.equal(started.processStart, 7); controller.stop(started.commandId); assert.deepEqual(calls[0], ['own', 42, started.commandId]); assert.deepEqual(calls.at(-1), ['terminate', 42]);
+});
