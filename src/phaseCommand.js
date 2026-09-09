@@ -33,7 +33,8 @@ const checks = {
   Q7: [process.env.QWEN_PYTHON || 'python', ['-m', 'unittest', 'discover', '-s', 'tests', '-p', 'test_*.py', '-v'], qwenRoot],
 };
 
-if (!checks[stepId]) { console.error(`phase_command_unknown:${stepId}`); process.exitCode = 2; }
+if (requestedPlanDigest !== planDigest) { console.error(`phase_command_plan_digest_mismatch:${requestedPlanDigest}:${planDigest}`); process.exitCode = 2; }
+else if (!checks[stepId]) { console.error(`phase_command_unknown:${stepId}`); process.exitCode = 2; }
 else {
   const [command, args, cwd] = checks[stepId];
   const child = spawn(command, args, { cwd, env: { ...process.env, AUDEP_APP_URL: process.env.AUDEP_APP_URL || manifest.adapters?.['main-app']?.appUrl || 'http://127.0.0.1:3102', AUDEP_987_SOURCE: source }, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
@@ -44,7 +45,7 @@ else {
   child.on('close', (code, signal) => {
     if (code !== 0) { process.exitCode = code || 1; return; }
     const artifactId = crypto.createHash('sha256').update(output).digest('hex');
-    const outputTypes = stepId === 'A7' ? ['acceptance', 'benchmark'] : ['acceptance'];
+    const outputTypes = stepId === 'A7' ? ['acceptance', 'benchmark'] : stepId === 'Q7' ? ['release', 'acceptance'] : stepId === 'Q6' ? ['contract', 'acceptance'] : ['acceptance'];
     console.log(JSON.stringify({ runId, stepId, planDigest, verdict: 'pass', outputTypes, artifactId, verifier: { profile: verifierProfile, exitCode: 0, command, args, cwd } }));
   });
 }
