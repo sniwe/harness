@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "runId": "audep-speed-260908",
-  "planDigest": "8463114243f1eb1223f67f6d7e8cf2b510911489a3a3652f0a9de3e352258696",
+  "planDigest": "f98639d3e351c62ac0f5033a1fa57502d90d8f636de215390bc8489df4d36a61",
   "controller": { "machineKey": "machine-base-73182d23f660c3880e7e" },
   "inputs": [
     { "role": "harness-plan", "path": "C:\\Users\\Admin\\Downloads\\Harness-Unattended-audEp-Implementation-Plan (1).md", "sha256": "5eef5bccad0710df77588cf1a4ee173df773217690ea12613382a20b1960547f" },
@@ -16,7 +16,9 @@
   "adapters": {
     "main-app": {
       "verifier": "mgmt\\dev\\260906\\verify-upload-987-browser.mjs",
-      "source": "C:\\retry\\src\\backend\\data\\media\\1788683394546-ebc52030-3330-4ddb-92dc-b95d9c76a26d-987-mtmo3aqe-c4b8b6ddfda248.mp3"
+      "source": "C:\\retry\\src\\backend\\data\\media\\1788683394546-ebc52030-3330-4ddb-92dc-b95d9c76a26d-987-mtmo3aqe-c4b8b6ddfda248.mp3",
+      "sourceAudioRevision": "sha256:a1e71260a1c05ac574f02e9cc1a00eba6da332ed1dd430225796c6ce7bc816d4",
+      "durationMs": 644702
     },
     "qwen-asr": {
       "python": "C:\\Users\\rhyse\\.conda\\envs\\qwen3-asr\\python.exe",
