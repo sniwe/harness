@@ -28,6 +28,12 @@ test('valid evidence unlocks the dependent step after restart', () => {
   assert.equal(run.snapshot().steps.Q0.status, 'runnable');
 });
 
+test('candidate work can wait for peer acceptance without becoming blocked', () => {
+  const run = workflow(); run.begin('A0'); const waiting = run.waitForPeer('A0', { reason: 'awaiting_qwen_contract', artifactId: 'a'.repeat(64) });
+  assert.equal(waiting.steps.A0.status, 'waiting_peer'); assert.equal(run.next(), undefined); const restored = createWorkflow({ manifest, store: run.store }); assert.equal(restored.snapshot().steps.A0.status, 'waiting_peer');
+  const accepted = run.accept('A0', { runId: manifest.runId, stepId: 'A0', planDigest: manifest.planDigest, verdict: 'pass', outputTypes: ['acceptance'], artifactId: 'b'.repeat(64), verifier: { command: 'peer-acceptance', exitCode: 0 } }); assert.equal(accepted.steps.A0.status, 'succeeded');
+});
+
 test('cancellation is durable and prevents further dispatch', () => {
   const run = workflow(); run.cancel('test_cancel'); assert.equal(run.snapshot().status, 'cancelled'); assert.equal(run.next(), undefined); assert.throws(() => run.begin('A0'), /step_not_runnable/);
 });

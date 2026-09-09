@@ -3,7 +3,7 @@ export function reduceRun(state, manifest) {
   const steps = manifest.steps.map((step) => {
     const current = state.steps?.[step.stepId] || { status: 'queued', attempts: 0 };
     const dependenciesReady = step.dependsOn.every((id) => ['succeeded', 'skipped'].includes(state.steps?.[id]?.status));
-    if (['running', 'verifying', 'retry_wait', 'succeeded', 'skipped', 'blocked', 'failed', 'cancelled'].includes(current.status)) return { ...current, stepId: step.stepId };
+    if (['running', 'verifying', 'waiting_peer', 'retry_wait', 'succeeded', 'skipped', 'blocked', 'failed', 'cancelled'].includes(current.status)) return { ...current, stepId: step.stepId };
     if (!dependenciesReady) return { ...current, stepId: step.stepId, status: 'waiting_inputs' };
     return { ...current, stepId: step.stepId, status: current.status === 'verifying' ? 'verifying' : 'runnable' };
   });
