@@ -144,7 +144,7 @@ server = http.createServer(async (request, response) => {
       if (payload.expectedCommit === launch.commit) return json(response, 200, { ok: true, state: "already_current", ...(await commitStatus()) });
       syncInProgress = true;
       try {
-        deployment.stage({ runId: payload.runId, projectKey: "harness", previous: { commit: launch.commit, branch }, desired: { commit: payload.expectedCommit, branch }, configDigest: crypto.createHash("sha256").update(JSON.stringify({ commit: payload.expectedCommit, branch })).digest("hex"), rollbackCommand: ["git", "restore", "previous-scoped-generation"] });
+        deployment.stage({ runId: payload.runId, projectKey: "harness", previous: { commit: launch.commit, branch }, desired: { commit: payload.expectedCommit, branch }, configDigest: crypto.createHash("sha256").update(JSON.stringify({ commit: payload.expectedCommit, branch })).digest("hex"), rollbackCommand: ["restore-scoped-deployment", launch.commit] });
         deployment.activate();
         const updated = syncCheckout({ repoRoot, expectedCommit: payload.expectedCommit, branch });
         const confirmation = await pool.request({ task: "check-project-commit" });
