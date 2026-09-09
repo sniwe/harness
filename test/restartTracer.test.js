@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { runRestartTracer } from '../src/restartTracer.js';
+import { RESTART_TRACERS, runRestartMatrix } from '../src/restartMatrix.js';
 
 test('restart tracer waits on observed stages and preserves the durable job identity', async () => {
   let phase = 0; let restarts = 0; const observations = () => ({ runtimeGeneration: phase < 2 ? 'g1' : 'g2', jobId: 'job-1', stage: phase++ });
@@ -17,4 +18,15 @@ test('restart tracer supports cancellation while polling an indeterminate stage'
 test('restart tracer rejects a restart that loses or reuses identity', async () => {
   let phase = 0;
   await assert.rejects(() => runRestartTracer({ name: 'app-after-seal', predicate: () => true, observe: async () => ({ runtimeGeneration: 'same', jobId: phase++ ? 'job-2' : 'job-1' }), restart: async () => {}, ready: () => true, sleep: async () => {} }), /restart_tracer_identity_invalid/);
+});
+
+test('restart matrix runs all six observed predicates with persistent polling', async () => {
+  const counts = new Map(); const generations = new Map();
+  const evidence = await runRestartMatrix({
+    observe: async (name) => { const count = (counts.get(name) || 0) + 1; counts.set(name, count); return { observedPredicate: count === 2 ? name : '', runtimeGeneration: generations.get(name) || 'before', jobId: 'job-1', ready: count >= 3 }; },
+    restart: async (name) => { generations.set(name, 'after'); },
+    ready: async (name, state) => state.ready && generations.get(name) === 'after',
+    sleep: async () => {},
+  });
+  assert.deepEqual(evidence.map((item) => item.name), [...RESTART_TRACERS]); assert.ok(evidence.every((item) => item.verdict === 'pass')); assert.ok([...counts.values()].every((count) => count >= 3));
 });
