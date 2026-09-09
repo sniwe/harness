@@ -45,7 +45,7 @@ else {
   child.on('close', (code, signal) => {
     if (code !== 0) { process.exitCode = code || 1; return; }
     const artifactId = crypto.createHash('sha256').update(output).digest('hex');
-    const outputTypes = stepId === 'A7' ? ['acceptance', 'benchmark'] : stepId === 'Q7' ? ['release', 'acceptance'] : stepId === 'Q6' ? ['contract', 'acceptance'] : ['acceptance'];
+    const outputTypes = ['Q2', 'Q3', 'Q4', 'Q5'].includes(stepId) ? ['benchmark', 'acceptance'] : stepId === 'A7' ? ['acceptance', 'benchmark'] : stepId === 'Q7' ? ['release', 'acceptance'] : stepId === 'Q6' ? ['contract', 'acceptance'] : ['acceptance'];
     console.log(JSON.stringify({ runId, stepId, planDigest, verdict: 'pass', outputTypes, artifactId, verifier: { profile: verifierProfile, exitCode: 0, command, args, cwd } }));
   });
 }
