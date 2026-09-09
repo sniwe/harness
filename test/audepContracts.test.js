@@ -6,6 +6,7 @@ import { joinBenchmarkResults } from '../src/benchmarkJoin.js';
 import { evaluateFinalAcceptance, recordFinalAcceptance, REQUIRED_RESTARTS } from '../src/finalAcceptance.js';
 import { validateHandoff } from '../src/handoffSchemas.js';
 import { createBenchmarkCoordinator } from '../src/benchmarkCoordinator.js';
+import { evaluateWarmBenchmarkCohort } from '../src/benchmarkCohort.js';
 import { createRunStore } from '../src/runStore.js';
 import { evaluateEvidence } from '../src/gateEvaluator.js';
 import { mkdtempSync } from 'node:fs';
@@ -40,6 +41,13 @@ test('benchmark pass requires independent correctness, timing, and bilateral acc
   const result = { schemaVersion: 1, benchmarkId: 'b', runId: 'r', requestArtifactId: 'a'.repeat(64), source: { basename: '987.wav', durationMs: 1000 }, job: { remoteJobId: 'j' }, runtime: { appGeneration: 'a1', qwenGeneration: 'q1' }, verdict: 'pass', ...passEvidence };
   assert.equal(validateBenchmarkResult(result), true); assert.throws(() => validateBenchmarkResult({ ...result, localization: { valid: false } }), /pass_evidence_invalid/);
   assert.throws(() => validateBenchmarkResult({ ...result, verdict: 'done' }), /benchmark_result_invalid/); assert.throws(() => validateBenchmarkResult({ ...result, source: { ...result.source, durationMs: -1 } }), /benchmark_result_invalid/);
+});
+
+test('warm benchmark cohort requires pinned comparable runs and reports median/range', () => {
+  const base = { schemaVersion: 1, benchmarkId: 'b', runId: 'r', requestArtifactId: 'a'.repeat(64), source: { basename: '987.wav', durationMs: 1000 }, job: { remoteJobId: 'j' }, runtime: { appGeneration: 'a1', qwenGeneration: 'q1' }, verdict: 'pass', warm: true, configurationDigest: 'f'.repeat(64), ...passEvidence };
+  const runs = [0.6, 0.8, 0.7].map((rate, index) => ({ ...base, benchmarkId: `b${index}`, metrics: { ...base.metrics, committedRealtime: rate } })); const cohort = evaluateWarmBenchmarkCohort(runs);
+  assert.equal(cohort.ok, true); assert.equal(cohort.medianRealtime, 0.7); assert.deepEqual(cohort.range, { minimum: 0.6, maximum: 0.8 }); assert.equal(evaluateWarmBenchmarkCohort(runs.slice(0, 2)).reason, 'warm_cohort_insufficient_runs');
+  assert.equal(evaluateWarmBenchmarkCohort(runs.map((run, index) => index === 1 ? { ...run, configurationDigest: 'e'.repeat(64) } : run)).reason, 'warm_cohort_identity_mismatch'); assert.equal(evaluateWarmBenchmarkCohort(runs.map((run, index) => index === 0 ? { ...run, metrics: { ...run.metrics, committedRealtime: 0.49 } } : run)).verdict, 'failed');
 });
 
 test('benchmark execution identity and running state survive coordinator reconstruction', async () => {
