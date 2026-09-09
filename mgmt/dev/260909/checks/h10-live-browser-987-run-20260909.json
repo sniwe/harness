@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "observedAt": null,
+  "run": {
+    "verifier": "C:\\retry-harness-run\\mgmt\\dev\\260906\\verify-upload-987-browser.mjs",
+    "appUrl": "http://127.0.0.1:3102",
+    "appRuntimeGeneration": "380c622ae081bb234156d45c9973d495c41b3cd7:25700",
+    "sourceBasename": "1788683394546-ebc52030-3330-4ddb-92dc-b95d9c76a26d-987-mtmo3aqe-c4b8b6ddfda248.mp3",
+    "sourceAudioRevision": "sha256:a1e71260a1c05ac574f02e9cc1a00eba6da332ed1dd430225796c6ce7bc816d4",
+    "durationMs": 644655,
+    "normalBrowser": true,
+    "browserUploadTriggered": true,
+    "itemId": "bbac74de-9298-4ae4-8048-f0ce4ce1a374",
+    "status": "ready",
+    "semanticTree": true,
+    "treeNodes": 52,
+    "elapsedMs": 966743,
+    "marks": [
+      { "elapsedMs": 1275, "audioTranscriptStatus": "processing", "semanticTranscriptStatus": "processing", "hasSemTree": false },
+      { "elapsedMs": 725547, "audioTranscriptStatus": "partial", "semanticTranscriptStatus": "partial", "hasSemTree": true },
+      { "elapsedMs": 966742, "audioTranscriptStatus": "ready", "semanticTranscriptStatus": "ready", "hasSemTree": true }
+    ]
+  },
+  "verdict": "observed_browser_success_not_final_acceptance",
+  "limitations": [
+    "The app runtime was the pre-existing 380c622 generation; pushed app polling fix is ffc0431.",
+    "This verifier does not emit the bilateral benchmark schema.",
+    "Qwen join, warm cohorts, six restart tracers, and rollback remain unproven."
+  ]
+}
