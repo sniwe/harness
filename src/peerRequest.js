@@ -2,7 +2,6 @@ import crypto from "node:crypto";
 import { createPeerPing } from "./peerPing.js";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const TRANSPORT_TIMEOUT_MS = 30000;
 const MAX_PROMPT_CHARS = 32768;
 const MAX_RESULT_BYTES = 256 * 1024;
 const MAX_BODY_BYTES = 64 * 1024;
@@ -18,17 +17,17 @@ export function validateRemotePromptEnvelope(payload, { targetKey, maxPromptChar
 }
 
 export function createPeerRequestClient({ registryUrl, localKey, callerKey = localKey, fetchImpl = fetch, pollMs = 2000, sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)), requestId = () => crypto.randomUUID() } = {}) {
-  const peerPing = createPeerPing({ registryUrl, localKey, fetchImpl, timeoutMs: TRANSPORT_TIMEOUT_MS });
+  const peerPing = createPeerPing({ registryUrl, localKey, fetchImpl });
   return { send: (peerKey, prompt, options = {}) => sendPeerRequest({ peerPing, peerKey, prompt, callerKey, fetchImpl, pollMs, sleep, requestId, signal: options.signal }) };
 }
 
 async function sendPeerRequest({ peerPing, peerKey, prompt, callerKey, fetchImpl, pollMs, sleep, requestId, signal }) {
   throwIfCancelled(signal);
   if (typeof prompt !== "string" || prompt.trim() === "" || prompt.length > MAX_PROMPT_CHARS) throw peerRequestError(400, "prompt_invalid");
-  const peer = await peerPing.lookup(peerKey);
+  const peer = await peerPing.lookup(peerKey, { signal });
   const id = requestId();
   const payload = validateRemotePromptEnvelope({ requestId: id, targetTunnelKey: peer.tunnelKey, prompt }, { targetKey: peer.tunnelKey });
-  const accepted = await fetchPeer(fetchImpl, `${peer.tunnelUrl}/api/machine-base/peer-request`, { method: "POST", headers: { Accept: "application/json", "Content-Type": "application/json", "X-Machine-Base-Caller-Key": callerKey }, body: JSON.stringify(payload), redirect: "error" }, TRANSPORT_TIMEOUT_MS);
+  const accepted = await fetchPeer(fetchImpl, `${peer.tunnelUrl}/api/machine-base/peer-request`, { method: "POST", headers: { Accept: "application/json", "Content-Type": "application/json", "X-Machine-Base-Caller-Key": callerKey }, body: JSON.stringify(payload), redirect: "error" }, signal);
   if (!accepted.response.ok) throw peerRequestError(accepted.response.status >= 500 ? 502 : accepted.response.status, accepted.body?.error || `peer_http_${accepted.response.status}`, { requestId: id, state: accepted.body?.state || "not_started" });
   if (!accepted.body || accepted.body.requestId !== id || accepted.body.targetKey !== peer.tunnelKey || accepted.body.callerKey !== callerKey) throw peerRequestError(502, "peer_accept_invalid", { requestId: id, state: "unknown_execution_state" });
   if (accepted.body.state === "completed") return { ...accepted.body, peer };
@@ -38,10 +37,10 @@ async function sendPeerRequest({ peerPing, peerKey, prompt, callerKey, fetchImpl
     throwIfCancelled(signal);
     await sleep(pollMs);
     let currentPeer;
-    try { currentPeer = await peerPing.lookup(peerKey); } catch { continue; }
+    try { currentPeer = await peerPing.lookup(peerKey, { signal }); } catch { continue; }
     try {
       const statusUrl = `${currentPeer.tunnelUrl}/api/machine-base/peer-request-status?requestId=${encodeURIComponent(id)}&targetTunnelKey=${encodeURIComponent(currentPeer.tunnelKey)}`;
-      const observed = await fetchPeer(fetchImpl, statusUrl, { method: "GET", headers: { Accept: "application/json", "X-Machine-Base-Caller-Key": callerKey }, redirect: "error" }, TRANSPORT_TIMEOUT_MS);
+      const observed = await fetchPeer(fetchImpl, statusUrl, { method: "GET", headers: { Accept: "application/json", "X-Machine-Base-Caller-Key": callerKey }, redirect: "error" }, signal);
       if (observed.response.status === 404) continue;
       if (!observed.response.ok) throw peerRequestError(observed.response.status >= 500 ? 502 : observed.response.status, observed.body?.error || `peer_status_http_${observed.response.status}`, { requestId: id, state: observed.body?.state || "unknown_execution_state" });
       const body = observed.body;
@@ -54,18 +53,16 @@ async function sendPeerRequest({ peerPing, peerKey, prompt, callerKey, fetchImpl
   }
 }
 
-async function fetchPeer(fetchImpl, url, init, timeoutMs) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+async function fetchPeer(fetchImpl, url, init, signal) {
   try {
-    const response = await fetchImpl(url, { ...init, signal: controller.signal });
+    const response = await fetchImpl(url, { ...init, ...(signal ? { signal } : {}) });
     let body;
     try { body = await readBoundedJson(response); } catch (error) { throw peerRequestError(502, error.message === "peer_response_too_large" ? error.message : "peer_invalid_json"); }
     return { response, body };
   } catch (error) {
-    if (error.name === "AbortError") throw peerRequestError(504, "peer_request_timeout", { state: "unknown_execution_state" });
+    if (error.name === "AbortError") throw peerRequestError(499, "peer_request_cancelled", { state: "cancelled" });
     throw error;
-  } finally { clearTimeout(timer); }
+  }
 }
 
 export function createPeerRequestHandler({ pool, targetKey, enabled = true, maxInFlight = 1, maxPromptChars = MAX_PROMPT_CHARS, now = () => new Date().toISOString() } = {}) {
@@ -122,4 +119,4 @@ function failure(status, error, requestId, targetKey, state, callerKey = "", sta
 function peerRequestError(status, message, extra = {}) { return Object.assign(new Error(message), { status, ...extra }); }
 function throwIfCancelled(signal) { if (signal?.aborted) throw peerRequestError(499, "peer_request_cancelled", { state: "cancelled" }); }
 
-export const peerRequestLimits = { MAX_PROMPT_CHARS, TRANSPORT_TIMEOUT_MS, MAX_BODY_BYTES };
+export const peerRequestLimits = { MAX_PROMPT_CHARS, MAX_BODY_BYTES };
