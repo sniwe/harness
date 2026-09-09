@@ -31,5 +31,5 @@ export async function runRestartMatrix({ observe, restart, ready, sleep, pollMs,
 }
 
 function isValidRestartEvidence(item) {
-  return item?.verdict === 'pass' && /^[0-9a-f]{64}$/.test(item.artifactId || '') && item.trigger?.predicate && item.before?.runtimeGeneration && item.after?.runtimeGeneration && item.before.runtimeGeneration !== item.after.runtimeGeneration && item.before.jobId === item.after.jobId;
+  return item?.verdict === 'pass' && /^[0-9a-f]{64}$/.test(item.artifactId || '') && item.trigger?.predicate === item.name && item.before?.runtimeGeneration && item.after?.runtimeGeneration && item.before?.jobId && item.after?.jobId && item.before.runtimeGeneration !== item.after.runtimeGeneration && item.before.jobId === item.after.jobId;
 }

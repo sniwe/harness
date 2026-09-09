@@ -36,3 +36,9 @@ test('restart matrix resumes validated completed tracers without replaying them'
   const restarted = []; const generations = new Set(); const evidence = await runRestartMatrix({ priorEvidence: [completed], observe: async (name) => ({ observedPredicate: name, runtimeGeneration: generations.has(name) ? 'after' : 'before', jobId: `job-${name}` }), restart: async (name) => { restarted.push(name); generations.add(name); }, ready: async (name, state) => state.runtimeGeneration === 'after', sleep: async () => {} });
   assert.equal(evidence[0], completed); assert.equal(restarted.includes('app-during-upload'), false); assert.equal(restarted.length, 5);
 });
+
+test('restart matrix does not trust evidence bound to a different predicate', async () => {
+  const mismatched = { name: 'app-during-upload', verdict: 'pass', artifactId: 'a'.repeat(64), trigger: { predicate: 'app-after-seal' }, before: { runtimeGeneration: 'g1', jobId: 'job-1' }, after: { runtimeGeneration: 'g2', jobId: 'job-1' } };
+  let restarted = false; const generations = new Set(); const evidence = await runRestartMatrix({ priorEvidence: [mismatched], observe: async (name) => ({ observedPredicate: name, runtimeGeneration: generations.has(name) ? 'after' : 'before', jobId: 'job-2' }), restart: async (name) => { restarted = true; generations.add(name); }, ready: async (_name, state) => state.runtimeGeneration === 'after', sleep: async () => {} });
+  assert.equal(restarted, true); assert.notEqual(evidence[0], mismatched); assert.equal(evidence[0].name, 'app-during-upload');
+});
