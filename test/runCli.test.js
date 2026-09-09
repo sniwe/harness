@@ -76,3 +76,10 @@ test('report returns failure when final acceptance evidence blocks the run', asy
   assert.equal(report.ok, false);
   assert.match(report.report, /bilateral_benchmark_failed/);
 });
+
+test('report refuses accepted workflow without bilateral final acceptance', async () => {
+  const store = createRunStore({ root: mkdtempSync(path.join(tmpdir(), 'report-no-acceptance-')), runId: 'audep-speed-local-260908' });
+  await runCommand('rehearse', 'config/runs/audep-speed-local.json', { store, fixture: true });
+  const report = await runCommand('report', 'config/runs/audep-speed-local.json', { store });
+  assert.equal(report.ok, false); assert.equal(report.finalAcceptance, undefined); assert.match(report.report, /NOT_EVALUATED/);
+});
