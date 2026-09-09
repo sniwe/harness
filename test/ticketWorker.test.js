@@ -49,6 +49,14 @@ test('recovery fences incomplete attempts after restart', async () => {
   assert.deepEqual(await worker.recover(), [{ ticketId: 't-recover', attemptId: 'attempt-1', state: 'unknown_after_crash' }]); assert.equal(patches[0].action, 'block'); assert.equal(patches[0].data.reason, 'unknown_after_crash'); assert.equal(attempt.outcome.state, 'unknown_after_crash'); assert.equal(workerOutboxPending(root), 0);
 });
 
+test('recovery publishes a durable known outcome without rerunning work', async () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'ticket-worker-known-outcome-')); const outbox = createOperationOutbox(root); const calls = []; const state = { ticketId: 't-known', revision: 4, headHash: 'h4', status: 'in_progress', sender: { machineKey: 'machine-a', projectKey: 'project-a' }, conversationId: 'conversation', correlationId: 'correlation', testRunId: 'run' }; const outcomeHash = 'a'.repeat(64);
+  const client = { async get() { return { ticket: { ...state } }; }, async create(payload) { calls.push({ create: payload }); return { ticket: payload }; }, async mutate(_id, patch) { calls.push(patch); state.status = 'completed'; state.revision += 1; return { ticket: { ...state } }; } };
+  const attempt = { input: { attemptId: 'attempt-known', ticketId: state.ticketId, sender: state.sender, conversationId: state.conversationId, correlationId: state.correlationId, testRunId: state.testRunId, leaseToken: 'lease-known' }, outcome: { state: 'succeeded', outcomeHash } };
+  const worker = createTicketWorker({ client, pool: { request: async () => { throw new Error('must_not_rerun'); } }, identity: { machineKey: 'machine-b', projectKey: 'project-b' }, lockRoot: root, attemptStore: { recover: () => [attempt] }, operationOutbox: outbox, log: () => {} });
+  assert.deepEqual(await worker.recover(), [{ ticketId: state.ticketId, attemptId: 'attempt-known', state: 'succeeded', recovered: true }]); assert.equal(calls.filter((call) => call.create).length, 1); assert.equal(calls.at(-1).action, 'complete'); assert.equal(outbox.pending().length, 0);
+});
+
 function workerOutboxPending(root) {
   return createOperationOutbox(root).pending().length;
 }

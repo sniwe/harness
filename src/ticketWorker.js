@@ -11,10 +11,32 @@ export function createTicketWorker({ client, pool, identity, log, lockRoot, jour
   async function recover() {
     const recovered = [];
     for (const record of attemptStore?.recover?.() || []) {
-      if (record.outcome || !record.input?.ticketId) continue;
+      if (!record.input?.ticketId) continue;
       const ticketId = record.input.ticketId;
       try {
         const current = (await client.get(ticketId)).ticket;
+        if (record.outcome?.state === 'succeeded') {
+          const outcomeHash = record.outcome.outcomeHash;
+          const leaseToken = record.input.leaseToken;
+          if (!outcomeHash || !leaseToken) throw new Error('known_outcome_context_missing');
+          const receiptTicketId = crypto.createHash('sha256').update(`receipt/${ticketId}`).digest('hex');
+          const receiptOperationId = `receipt:${ticketId}`;
+          const receiptPayload = { ticketId: receiptTicketId, operationId: receiptOperationId, kind: 'receipt', sender: identity, target: record.input.sender || current.sender, conversationId: record.input.conversationId || current.conversationId, correlationId: record.input.correlationId || current.correlationId, parentTicketId: ticketId, testRunId: record.input.testRunId || current.testRunId, subject: `Receipt ${ticketId}`, body: 'Ticket completed.', sourceTicketId: ticketId, resultCode: 'success', resultSummary: 'Worker completed.', outcomeHash };
+          operationOutbox?.intent(receiptOperationId, { ticketId: receiptTicketId, action: 'create', parentTicketId: ticketId, outcomeHash });
+          const receipt = await client.create(receiptPayload);
+          operationOutbox?.result(receiptOperationId, { replay: receipt.replay === true, recovered: true });
+          if (['claimed', 'in_progress'].includes(current.status)) {
+            const completeOperationId = `complete:${ticketId}`;
+            const patch = { operationId: completeOperationId, expectedRevision: current.revision, previousHash: current.headHash, actor: identity, action: 'complete', data: { leaseToken, receiptTicketId, outcomeHash } };
+            operationOutbox?.intent(completeOperationId, { ticketId, action: 'complete', expectedRevision: current.revision });
+            const result = await client.mutate(ticketId, patch);
+            operationOutbox?.result(completeOperationId, { revision: result.ticket?.revision, status: result.ticket?.status, recovered: true });
+          }
+          log({ event: 'execution_recovered_success', ticketId, attemptId: record.input.attemptId });
+          recovered.push({ ticketId, attemptId: record.input.attemptId, state: 'succeeded', recovered: true });
+          continue;
+        }
+        if (record.outcome) continue;
         if (['claimed', 'in_progress'].includes(current.status)) {
           const operationId = `recover-block:${ticketId}:${record.input.attemptId}`;
           const patch = { operationId, expectedRevision: current.revision, previousHash: current.headHash, actor: identity, action: 'block', data: { reason: 'unknown_after_crash', attemptId: record.input.attemptId } };
@@ -40,7 +62,7 @@ export function createTicketWorker({ client, pool, identity, log, lockRoot, jour
     const create = async (operationId, payload) => { operationOutbox?.intent(operationId, { ticketId: payload.ticketId, action: 'create' }); const result = await client.create(payload); operationOutbox?.result(operationId, { replay: result.replay === true }); return result; };
     try {
       if (leaseRoot) { try { projectLease = acquireProjectLease(leaseRoot, { projectKey: identity.projectKey }); } catch (error) { if (error.message === 'project_lease_busy') { log({ event: 'project_lease_busy', ticketId: ticket.ticketId }); return { skipped: true, projectBusy: true }; } throw error; } }
-      leaseToken = crypto.randomUUID(); attempt = attemptStore?.begin({ ticketId: ticket.ticketId, executionId: `ticket:${ticket.ticketId}`, projectKey: identity.projectKey }); journal?.append({ event: 'execution_intent', ticketId: ticket.ticketId, executionId: `ticket:${ticket.ticketId}`, attemptId: attempt?.attemptId }); log({ event: 'execution_intent', ticketId: ticket.ticketId, executionId: `ticket:${ticket.ticketId}` }); const head = (await client.get(ticket.ticketId)).ticket;
+      leaseToken = crypto.randomUUID(); attempt = attemptStore?.begin({ ticketId: ticket.ticketId, executionId: `ticket:${ticket.ticketId}`, projectKey: identity.projectKey, sender: ticket.sender, conversationId: ticket.conversationId, correlationId: ticket.correlationId, testRunId: ticket.testRunId, leaseToken }); journal?.append({ event: 'execution_intent', ticketId: ticket.ticketId, executionId: `ticket:${ticket.ticketId}`, attemptId: attempt?.attemptId }); log({ event: 'execution_intent', ticketId: ticket.ticketId, executionId: `ticket:${ticket.ticketId}` }); const head = (await client.get(ticket.ticketId)).ticket;
       const claimOperationId = `claim:${ticket.ticketId}`; const claimed = await mutate(ticket.ticketId, claimOperationId, { operationId: claimOperationId, expectedRevision: head.revision, previousHash: head.headHash, actor, action: 'claim', data: { leaseToken } });
       const startOperationId = `start:${ticket.ticketId}`; await mutate(ticket.ticketId, startOperationId, { operationId: startOperationId, expectedRevision: claimed.ticket.revision, previousHash: claimed.ticket.headHash, actor, action: 'start', data: { leaseToken } }); log({ event: 'execution_started', ticketId: ticket.ticketId, executionId: `ticket:${ticket.ticketId}` }); started = true;
       const result = requireWorkerSuccess(await pool.request({ task: 'remote-prompt', requestId: `ticket:${ticket.ticketId}`, prompt: ticketPrompt(ticket) })); const outcomeHash = crypto.createHash('sha256').update(JSON.stringify(result)).digest('hex'); journal?.append({ event: 'execution_outcome', ticketId: ticket.ticketId, executionId: `ticket:${ticket.ticketId}`, outcomeHash }); attemptStore?.finish(attempt?.attemptId, { state: 'succeeded', outcomeHash, outcome: result });
