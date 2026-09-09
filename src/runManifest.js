@@ -23,6 +23,18 @@ export function validateRunManifest(manifest, { verifyInputs = true } = {}) {
     if (!KEY.test(input.role || '') || !HASH.test(input.sha256 || '') || (verifyInputs && input.path && sha256File(input.path) !== input.sha256)) throw new Error(`run_manifest_input_invalid:${input.role || 'unknown'}`);
   }
   for (const step of manifest.steps) if (!KEY.test(step.stepId || '') || !step.owner || !Array.isArray(step.dependsOn) || !step.commandProfile || !step.verifierProfile || !Array.isArray(step.immutableInputs) || !step.resourceBudget || !step.retryClass || !Array.isArray(step.requiredOutputTypes) || !step.rollbackProfile || !step.optionalPolicy) throw new Error(`run_manifest_step_invalid:${step.stepId || 'unknown'}`);
+  const ids = new Set();
+  for (const step of manifest.steps) { if (ids.has(step.stepId)) throw new Error(`run_manifest_step_duplicate:${step.stepId}`); ids.add(step.stepId); }
+  for (const step of manifest.steps) {
+    for (const dependency of [...step.dependsOn, ...step.immutableInputs]) if (!ids.has(dependency)) throw new Error(`run_manifest_step_reference_invalid:${step.stepId}:${dependency}`);
+  }
+  const visiting = new Set(); const visited = new Set();
+  function visit(stepId) {
+    if (visiting.has(stepId)) throw new Error(`run_manifest_cycle:${stepId}`);
+    if (visited.has(stepId)) return;
+    visiting.add(stepId); for (const dependency of manifest.steps.find((step) => step.stepId === stepId).dependsOn) visit(dependency); visiting.delete(stepId); visited.add(stepId);
+  }
+  for (const step of manifest.steps) visit(step.stepId);
   const digest = crypto.createHash('sha256').update(JSON.stringify({ ...manifest, planDigest: undefined })).digest('hex');
   if (manifest.planDigest !== digest) throw new Error('run_manifest_digest_invalid');
   return { ok: true, runId: manifest.runId, planDigest: digest, steps: manifest.steps.length };
