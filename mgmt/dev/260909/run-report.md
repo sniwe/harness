@@ -56,4 +56,6 @@ Final acceptance now requires independently evaluated app and Qwen warm cohorts,
 
 Current validation: `node src/runCli.js validate --manifest config/runs/audep-speed-260909-r3.json` passed; the durable r3 state is terminal with all 17 scheduled steps accepted. The source scan found no action-timeout configuration; hard-timeout keys remain explicitly rejected at manifest validation.
 
+Live H8 deployment evidence: the machine-base supervisor accepted scoped commit-sync from the prior `e041b91:1` generation, relaunched, and reconnected at exact commit `e34e38222c7e39f8aec284f742d39a90478ec348:2` (PID `19120`). `/status` reported deployment `healthy` at that generation with two ready workers. Startup peer coordination remained `coordination_failed`; this proves scoped healthy upgrade/reconnect, not bilateral plan acceptance or rollback.
+
 No end-to-end PASS is claimed from phase completion, upload completion, model readiness, or local test results alone.
