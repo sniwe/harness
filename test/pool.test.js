@@ -9,7 +9,7 @@ test("active and standby workers become ready and answer JSONL", async () => {
   const pool = createWorkerPool({ workerEntry: path.resolve("mgmt/machine-base-worker/src/index.js"), cwd: path.resolve("mgmt/machine-base-worker"), env: { ...process.env, MACHINE_BASE_FAKE: "1" } });
   await pool.start();
   assert.deepEqual(pool.slots.map((slot) => slot.state), ["ready", "ready"]);
-  assert.deepEqual(await pool.request({ task: "ping" }), { ok: true, task: "ping", machineBase: true });
+  const ping = await pool.request({ task: "ping" }); assert.equal(ping.ok, true); assert.equal(ping.task, "ping"); assert.equal(ping.machineBase, true); assert.ok(ping.execution.threadId); assert.ok(ping.execution.runtimeGeneration);
   const result = await pool.request({ task: "remote-prompt", requestId: "id", prompt: "anything" }); assert.equal(result.ok, true); assert.equal(result.status, "succeeded"); assert.equal(result.result, "READY"); assert.equal(result.execution.cwd, process.env.MACHINE_BASE_RUNTIME_CWD || path.resolve("mgmt/machine-base-worker"));
   pool.stop();
 });
@@ -19,7 +19,7 @@ test("failed active worker fails over and is repaired", async () => {
   await pool.start();
   pool.slots[0].child.kill();
   await new Promise((resolve) => setTimeout(resolve, 20));
-  assert.deepEqual(await pool.request({ task: "after-failure" }), { ok: true, task: "after-failure", machineBase: true });
+  const result = await pool.request({ task: "after-failure" }); assert.equal(result.ok, true); assert.equal(result.task, "after-failure"); assert.equal(result.machineBase, true); assert.ok(result.execution.threadId); assert.ok(result.execution.runtimeGeneration);
   await new Promise((resolve) => setTimeout(resolve, 400));
   assert.equal(pool.slots[0].state, "ready");
   pool.stop();

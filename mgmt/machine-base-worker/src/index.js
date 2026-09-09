@@ -79,9 +79,9 @@ async function handle(payload) {
     const run = (args) => execFileSync("git", ["-C", root, ...args], { encoding: "utf8" }).trim();
     const commit = run(["rev-parse", "HEAD"]).toLowerCase();
     const branch = run(["branch", "--show-current"]);
-    return { task: "check-project-commit", commit, branch, confirmed: /^[0-9a-f]{40}$/.test(commit) && Boolean(branch) };
+    return { task: "check-project-commit", commit, branch, confirmed: /^[0-9a-f]{40}$/.test(commit) && Boolean(branch), execution: executionIdentity() };
   }
-  return fake ? { ok: true, task: payload.task || "ping", machineBase: true } : turn(JSON.stringify(payload));
+  return fake ? { ok: true, task: payload.task || "ping", machineBase: true, execution: executionIdentity() } : turn(JSON.stringify(payload));
 }
 
 function executionIdentity() {
