@@ -19,6 +19,7 @@ const checks = {
   A3: [process.execPath, [`${appRoot}\\mgmt\\dev\\260905\\verify-qwen-audep-client.mjs`], appRoot],
   A4: [process.execPath, [appVerifier], appRoot],
   A5: [process.execPath, [`${appRoot}\\mgmt\\dev\\260829\\verify-audep-semantic-quality-gate.mjs`], appRoot],
+  A6: [process.execPath, [appVerifier], appRoot],
   A7: [process.execPath, [appVerifier], appRoot],
   Q0: [process.env.QWEN_PYTHON || 'python', ['-m', 'unittest', 'discover', '-s', 'tests', '-p', 'test_audep*.py', '-v'], qwenRoot],
   Q1: [process.env.QWEN_PYTHON || 'python', ['-m', 'unittest', 'discover', '-s', 'tests', '-p', 'test_audep*.py', '-v'], qwenRoot],
