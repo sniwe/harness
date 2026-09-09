@@ -7,7 +7,7 @@ import { resolveManifestFile, runCommand } from '../src/runCli.js';
 import { createRunStore } from '../src/runStore.js';
 
 test('start refuses an unverified real manifest before creating workflow state', async () => {
-  const result = await runCommand('start', 'config/runs/audep-speed.json'); assert.equal(result.ok, false); assert.equal(result.state, 'blocked'); assert.equal(result.command, 'start');
+  const result = await runCommand('start', 'config/runs/audep-speed.json', { preflight: async () => ({ ok: false, state: 'blocked', error: 'unverified' }) }); assert.equal(result.ok, false); assert.equal(result.state, 'blocked'); assert.equal(result.command, 'start');
 });
 
 test('report is read-only and does not create a missing run', async () => {
@@ -26,6 +26,12 @@ test('durable run IDs cannot escape the run root', () => {
 
 test('start initializes a workflow after successful preflight', async () => {
   const store = createRunStore({ root: mkdtempSync(path.join(tmpdir(), 'run-start-')), runId: 'audep-speed-260908' }); const result = await runCommand('start', 'config/runs/audep-speed.json', { store, preflight: async () => ({ ok: true, state: 'ready' }) }); assert.equal(result.ok, true); assert.equal(result.command, 'start'); assert.equal(result.state.status, 'running'); assert.equal(result.next.stepId, 'A0'); const report = await runCommand('report', 'config/runs/audep-speed.json', { store }); assert.match(report.report, /run_initialized/);
+});
+
+test('start asks preflight to persistently observe runtime readiness', async () => {
+  const store = createRunStore({ root: mkdtempSync(path.join(tmpdir(), 'run-start-poll-')), runId: 'audep-speed-260908' }); let options;
+  const result = await runCommand('start', 'config/runs/audep-speed.json', { store, preflight: async (_file, received) => { options = received; return { ok: true, state: 'ready' }; } });
+  assert.equal(result.ok, true); assert.equal(options.waitForReady, true); assert.equal(options.signal, undefined);
 });
 
 test('start can hand the initialized workflow to a persistent executor', async () => {

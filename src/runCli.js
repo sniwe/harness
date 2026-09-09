@@ -24,7 +24,7 @@ export async function runCommand(commandName, manifestFile, { store, outFile, ac
   if (!manifestFile) throw new Error('manifest_required');
   if (commandName === 'validate') return readRunManifest(manifestFile) && { ok: true, command: commandName, manifest: manifestFile };
   if (commandName === 'preflight') return preflight(manifestFile);
-  if (commandName === 'start') { const check = await preflight(manifestFile); if (!check.ok) return { ...check, command: commandName }; }
+  if (commandName === 'start') { const check = await preflight(manifestFile, { waitForReady: true, signal }); if (!check.ok) return { ...check, command: commandName }; }
   const manifest = readRunManifest(manifestFile); const readOnly = ['inspect', 'explain-block', 'report', 'resume'].includes(commandName); const workflow = createWorkflow({ manifest, store, initialize: !readOnly });
   if (commandName === 'start') {
     if (!execute) return { ok: true, command: commandName, state: workflow.snapshot(), next: workflow.next() };
