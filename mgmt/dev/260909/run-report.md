@@ -50,6 +50,6 @@ The scoped service controller now records `unknown/process_ownership_lost` when 
 
 The deployment manager now has a durable `executeRollback` path: it executes the persisted scoped restore command once, persistently observes the previous healthy generation, and preserves an explicit running/cancelled state. Focused deployment verification is 6/6; the latest complete harness suite is 158 passed, 1 skipped, 0 failed.
 
-The restart matrix now has a durable coordinator: it records each restart intent before the side effect, records full completion evidence afterward, resumes validated completed tracers, and blocks unresolved post-crash intents instead of replaying them. The latest complete harness suite is 164 passed, 1 skipped, 0 failed.
+The restart matrix now has a durable coordinator: it records each restart intent before the side effect, records full completion evidence afterward, resumes validated completed tracers, and blocks unresolved post-crash intents instead of replaying them. Rehearsal now accepts that coordinator and carries its six-tracer output into the report/final-acceptance path. The latest complete harness suite is 166 passed, 1 skipped, 0 failed.
 
 No end-to-end PASS is claimed from phase completion, upload completion, model readiness, or local test results alone.
