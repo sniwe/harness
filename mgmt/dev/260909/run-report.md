@@ -16,6 +16,7 @@ Observed browser elapsed times:
 
 - A4: `669697 ms`; source duration `644655 ms`; observed rate `0.9626x` realtime.
 - A6/A7 final pass: `661397 ms`; source duration `644655 ms`; observed rate `0.9747x` realtime.
+- Isolated candidate warm run 3: `1083114 ms`; source duration `644655 ms`; observed rate `0.5954x` realtime; audio/semantic `ready`, 52 tree nodes. The item briefly remained partial while Qwen was ready, then converged through persistent polling.
 
 These observations exceed the mandatory `0.50x` threshold, but they are not a three-warm-run steady-state cohort.
 
@@ -38,6 +39,7 @@ The run state contains pass evidence for every phase, including benchmark output
 - The pushed app commit `584d980` was independently started and health-verified as an isolated candidate on port 3103 (`runtimeGeneration=584d980:2660`), then cleanly stopped. This proves candidate startup, not live replacement or rollback.
 - The same candidate completed a fresh exact-987 normal-browser run: `678269 ms`, audio/semantic `ready`, 52 tree nodes, observed rate `0.9504x` realtime. This is a second single-run observation, not the required three-warm-run cohort.
 - A second isolated-candidate warm run also completed: `918827 ms`, audio/semantic `ready`, 52 tree nodes, observed rate `0.7016x` realtime. The spread demonstrates why a fixed steady-interval cohort and pinned resource conditions are still required.
+- A third isolated-candidate warm run completed: `1083114 ms`, audio/semantic `ready`, 52 tree nodes, observed rate `0.5954x` realtime. Three observations now exist, but they span separate candidate processes and are not yet a formally controlled steady-state cohort.
 - Bilateral Qwen final-acceptance event and exact benchmark result join were not independently recorded.
 - No three-warm-run baseline/candidate cohort or fixed steady-interval performance report exists.
 - Reboot-with-logon and boot-without-logon capabilities remain unverified and must remain distinct from process restart.
