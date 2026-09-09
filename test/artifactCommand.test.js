@@ -32,6 +32,7 @@ test('artifact chunk transfer resumes from durable offset and publishes immutabl
   assert.equal(result.body.state, 'completed');
   assert.deepEqual(fs.readFileSync(path.join(root, 'received', 'evidence.md')), bytes);
   assert.throws(() => validateArtifactChunk({ transferId, targetKey: 'wrong', sha256, totalLength: bytes.length, offset: 0, chunkBase64: '', final: false }), /artifact_target_invalid/);
+  assert.equal(handler.handle({ transferId: crypto.randomUUID(), targetKey: 'peer', sha256, totalLength: bytes.length, offset: 0, chunkBase64: '', final: false, filename: '../escape.md' }).status, 400);
 });
 
 test('command runner reports real success and failure states', async () => {

@@ -39,10 +39,13 @@ export function createArtifactTransferHandler({ root, targetKey, enabled = true,
   const fileFor = (transferId) => path.join(partsRoot, `${transferId}.part`);
   const metadataFor = (transferId) => path.join(partsRoot, `${transferId}.json`);
   function handle(payload) {
-    if (!enabled) return { status: 403, body: { ok: false, error: "artifact_route_disabled" } };
+  if (!enabled) return { status: 403, body: { ok: false, error: "artifact_route_disabled" } };
     let request;
-    try { request = validateArtifactChunk(payload, { targetKey, maxChunkBytes }); } catch (error) { return { status: error.status || 400, body: { ok: false, error: error.message } }; }
-    const filename = safeFilename(request.filename || `${request.sha256}.artifact`);
+    let filename;
+    try {
+      request = validateArtifactChunk(payload, { targetKey, maxChunkBytes });
+      filename = safeFilename(request.filename || `${request.sha256}.artifact`);
+    } catch (error) { return { status: error.status || 400, body: { ok: false, error: error.message } }; }
     const part = fileFor(request.transferId);
     const metadata = metadataFor(request.transferId);
     let current = fs.existsSync(part) ? fs.statSync(part).size : 0;
@@ -69,6 +72,7 @@ export function createArtifactTransferHandler({ root, targetKey, enabled = true,
 export async function transferArtifactRemote({ peerPing, peerKey, descriptor, store, fetchImpl = fetch, chunkBytes = MAX_ARTIFACT_CHUNK_BYTES, signal, transferId = crypto.randomUUID() } = {}) {
   validateHandoff(descriptor);
   if (!store?.get || !peerPing?.lookup || !peerKey) throw new Error("artifact_transfer_client_invalid");
+  if (!Number.isInteger(chunkBytes) || chunkBytes < 1 || chunkBytes > MAX_ARTIFACT_CHUNK_BYTES) throw new Error("artifact_chunk_size_invalid");
   const bytes = store.get(descriptor.artifact.sha256);
   if (bytes.length !== descriptor.artifact.byteLength) throw new Error("artifact_length_mismatch");
   let offset = 0;
