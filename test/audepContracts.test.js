@@ -17,6 +17,7 @@ const passEvidence = { browserEvidence: { normalBrowser: true }, localization: {
 test('AudEp filename aliases are exact and canonicalized', () => {
   assert.equal(canonicalArtifactName('main-app-speed-a5-adaptive-boundary-v2-acceptance.md'), 'main-app-speed-a6-adaptive-boundary-v2-acceptance.md');
   assert.equal(isExactArtifactMatch('main-app-speed-a5-adaptive-boundary-v2-acceptance.md', 'main-app-speed-a6-adaptive-boundary-v2-acceptance.md'), true);
+  assert.equal(isExactArtifactMatch('main-app-speed-a6-adaptive-boundary-v2-acceptance.md', 'main-app-speed-a5-adaptive-boundary-v2-acceptance.md'), true);
   assert.equal(isExactArtifactMatch('bad-a5-adaptive-boundary-v2-acceptance.md', 'main-app-speed-a6-adaptive-boundary-v2-acceptance.md'), false);
   assert.equal(adaptAudepSteps([{ stepId: 'A6' }])[0].gateId, 'a6-adaptive-v2-acceptance');
 });

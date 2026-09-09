@@ -7,4 +7,4 @@ const ALIASES = Object.freeze({
 
 export function canonicalArtifactName(filename) { return ALIASES[filename] || filename; }
 export function adaptAudepSteps(steps) { return steps.map((step) => ({ ...step, gateId: gateFor(step.stepId), artifactFilename: canonicalArtifactName(step.artifactFilename || `${step.stepId.toLowerCase()}-acceptance.md`) })); }
-export function isExactArtifactMatch(expected, actual) { return canonicalArtifactName(expected) === canonicalArtifactName(actual) && expected === actual || canonicalArtifactName(expected) === actual; }
+export function isExactArtifactMatch(expected, actual) { return expected === actual || (canonicalArtifactName(expected) === canonicalArtifactName(actual) && (canonicalArtifactName(expected) === actual || canonicalArtifactName(actual) === expected)); }
