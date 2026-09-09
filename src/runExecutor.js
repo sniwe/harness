@@ -53,6 +53,12 @@ export function createRunExecutor({ workflow, manifest, attemptStore, operationO
       workflow.accept(step.stepId, evidence);
       return outcome;
     } catch (error) {
+      if (signal?.aborted) {
+        const outcome = attempts.finish(attempt.attemptId, { state: 'cancelled', reason: 'run_execution_cancelled', error: error.message });
+        try { operationOutbox?.result(attempt.operationId, { state: 'cancelled', attemptId: attempt.attemptId }); } catch { /* retain the durable cancellation intent */ }
+        workflow.cancel('run_execution_cancelled');
+        return outcome;
+      }
       const blockArtifactId = crypto.createHash('sha256').update(`${attempt.attemptId}:${error.message}`).digest('hex');
       const outcome = attempts.finish(attempt.attemptId, { state: 'blocked', reason: 'execution_failed', error: error.message, artifactId: blockArtifactId });
       try { operationOutbox?.result(attempt.operationId, { state: 'blocked', attemptId: attempt.attemptId, artifactId: blockArtifactId }); } catch { /* missing intent is retained as the blocker */ }
@@ -131,9 +137,9 @@ export function createRunExecutor({ workflow, manifest, attemptStore, operationO
       const state = workflow.snapshot(); attempts.finish(pending.attemptId, { state: 'blocked', reason: command.state === 'failed' ? 'execution_failed' : 'unknown_after_crash', error: command.error, commandId: pending.commandId }); workflow.store.write({ ...state, status: 'blocked', steps: { ...state.steps, [pending.stepId]: { ...state.steps[pending.stepId], status: 'blocked', blockReason: command.state === 'failed' ? 'execution_failed' : 'unknown_after_crash' } } }); return workflow.snapshot();
     }
     while (true) {
-      if (signal?.aborted) throw new Error('run_execution_cancelled');
       const state = workflow.snapshot();
       if (['accepted', 'blocked', 'cancelled'].includes(state.status)) return state;
+      if (signal?.aborted) throw new Error('run_execution_cancelled');
       const step = workflow.next();
       if (step && skipConditional.includes(step.stepId)) {
         const artifactId = crypto.createHash('sha256').update(`skip:${manifest.runId}:${step.stepId}`).digest('hex');
@@ -158,6 +164,7 @@ export function createRunExecutor({ workflow, manifest, attemptStore, operationO
     if (!durableCommandController) return commandRunner({ ...command, step: declared, signal });
     const started = durableCommandController.start(command);
     attempts.updateInput(attempt.attemptId, { commandId: started.commandId });
-    return durableCommandController.wait(started.commandId, { pollMs, signal });
+    try { return await durableCommandController.wait(started.commandId, { pollMs, signal }); }
+    catch (error) { if (signal?.aborted) { try { durableCommandController.stop(started.commandId); } catch { /* command state remains durable for recovery */ } } throw error; }
   }
 }

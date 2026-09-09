@@ -149,3 +149,9 @@ test('run executor reads complete evidence from a durable command output artifac
   const controller = { start: () => ({ commandId: 'artifact-command', state: 'running' }), wait: async () => ({ commandId: 'artifact-command', state: 'succeeded', output: 'truncated', outputFile }), inspect: () => ({ commandId: 'artifact-command', state: 'succeeded', output: 'truncated', outputFile }) };
   const executor = createRunExecutor({ workflow, manifest, durableCommandController: controller, resolveCommand: () => ({ command: process.execPath, args: [], cwd: process.cwd() }) }); const state = await executor.run(); assert.equal(state.steps.A0.status, 'succeeded');
 });
+
+test('run executor cancels an owned durable command instead of blocking the run', async () => {
+  const manifest = readRunManifest('config/runs/audep-speed-local.json', { verifyInputs: false }); const root = mkdtempSync(path.join(tmpdir(), 'executor-cancel-command-')); const workflow = createWorkflow({ manifest, store: createRunStore({ root, runId: manifest.runId }) }); const controller = new AbortController(); let stopped = 0;
+  const durable = { start: () => ({ commandId: 'cancel-command', state: 'running' }), wait: async () => { controller.abort(); throw new Error('command_wait_cancelled'); }, stop: () => { stopped += 1; } };
+  const executor = createRunExecutor({ workflow, manifest, durableCommandController: durable, resolveCommand: () => ({ command: process.execPath, args: [], cwd: process.cwd() }) }); const state = await executor.run({ signal: controller.signal }); assert.equal(state.status, 'cancelled'); assert.equal(stopped, 1);
+});
