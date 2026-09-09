@@ -62,6 +62,14 @@ test('benchmark wait persistently observes a durable identity after restart', as
   assert.equal(result.benchmarkId, 'wait-1'); assert.equal(polls, 2);
 });
 
+test('benchmark wait survives transient observer failures', async () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'benchmark-observer-')); const store = createRunStore({ root, runId: 'r' }); const first = createBenchmarkCoordinator({ store, runId: 'r' });
+  first.execute({}, async () => new Promise(() => {}), { benchmarkId: 'b1' });
+  await new Promise((resolve) => setImmediate(resolve)); let polls = 0; const rebuilt = createBenchmarkCoordinator({ store: createRunStore({ root, runId: 'r' }), runId: 'r' });
+  const result = await rebuilt.wait('b1', { pollMs: 0, sleep: async () => {}, observe: async () => { polls += 1; if (polls === 1) throw new Error('temporary_observer_failure'); return { status: 'succeeded', result: { schemaVersion: 1, benchmarkId: 'b1', runId: 'r', requestArtifactId: 'a'.repeat(64), source: { basename: '987.wav', durationMs: 1000 }, job: { remoteJobId: 'j' }, runtime: { appGeneration: 'a1', qwenGeneration: 'q1' }, verdict: 'pass', ...passEvidence } }; } });
+  assert.equal(result.benchmarkId, 'b1'); assert.equal(polls, 2);
+});
+
 test('benchmark join rejects mismatched job or runtime identity', () => {
   const base = { schemaVersion: 1, benchmarkId: 'b', runId: 'r', requestArtifactId: 'a'.repeat(64), source: { basename: '987.wav', durationMs: 1000 }, job: { remoteJobId: 'j' }, runtime: { appGeneration: 'a1', qwenGeneration: 'q1' }, verdict: 'pass', ...passEvidence };
   assert.equal(joinBenchmarkResults(base, { ...base }).verdict, 'pass');

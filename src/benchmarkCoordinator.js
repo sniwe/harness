@@ -26,7 +26,8 @@ export function createBenchmarkCoordinator({ store, runId, maxConcurrent = 1 } =
       const current = durable.inspect(benchmarkId); if (!current) throw new Error('benchmark_not_found');
       if (current.status === 'succeeded') return current.result;
       if (current.status === 'failed') throw new Error(current.error || 'benchmark_failed');
-      const observed = await observe({ benchmarkId, runId });
+      let observed;
+      try { observed = await observe({ benchmarkId, runId }); } catch { await sleep(pollMs); continue; }
       if (observed?.status === 'succeeded' && observed.result) { validateBenchmarkResult(observed.result); durable.finish(benchmarkId, observed.result); return observed.result; }
       if (observed?.status === 'failed') { durable.update(benchmarkId, { status: 'failed', error: observed.error || 'benchmark_failed' }); throw new Error(observed.error || 'benchmark_failed'); }
       await sleep(pollMs);
