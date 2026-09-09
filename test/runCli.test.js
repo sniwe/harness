@@ -90,3 +90,8 @@ test('report does not promote a compact persisted acceptance event to final acce
   const report = await runCommand('report', 'config/runs/audep-speed-local.json', { store });
   assert.equal(report.ok, false); assert.equal(report.finalAcceptance, undefined); assert.match(report.report, /NOT_EVALUATED/);
 });
+
+test('cohort command evaluates retained warm benchmark JSON without a manifest', async () => {
+  const input = path.join(mkdtempSync(path.join(tmpdir(), 'cohort-cli-')), 'runs.json'); const passEvidence = { source: { basename: '987.wav', durationMs: 1000, sha256: 'b'.repeat(64), revision: 'source-revision-1', planVersion: '12.5s-primary-plus-5s-boundary-v1', callCount: 103 }, manifestDigest: 'd'.repeat(64), browserEvidence: { normalBrowser: true, selection: true, persisted: true }, localization: { valid: true, revision: 'e'.repeat(64) }, metrics: { committedRealtime: 0.7 }, correctness: { canonicalHash: 'c'.repeat(64), sourceTimeProbes: true, beyondFrontierNotReady: true }, timings: { firstCommittedMs: 1, finalReadyMs: 2, steadyInterval: { committedAudioMs: 100, elapsedMs: 200 } }, finalAcceptance: { status: 'accepted', eventId: 'event-1' } }; const runs = [0, 1, 2].map((index) => ({ schemaVersion: 1, benchmarkId: `b${index}`, runId: 'r', requestArtifactId: 'a'.repeat(64), source: { basename: '987.wav', durationMs: 1000 }, job: { remoteJobId: `j${index}` }, runtime: { appGeneration: 'a1', qwenGeneration: 'q1' }, verdict: 'pass', warm: true, configurationDigest: 'f'.repeat(64), ...passEvidence })); writeFileSync(input, JSON.stringify(runs));
+  const result = await runCommand('cohort', '', { cohortFile: input }); assert.equal(result.ok, true); assert.equal(result.medianRealtime, 0.7);
+});

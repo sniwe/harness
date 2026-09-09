@@ -9,6 +9,7 @@ import { createDurableCommandController } from './durableCommand.js';
 import { writeFileSync } from 'node:fs';
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import { evaluateWarmBenchmarkCohort } from './benchmarkCohort.js';
 
 const [command, ...args] = process.argv.slice(2);
 const value = (name) => { const index = args.indexOf(name); return index >= 0 ? args[index + 1] : ''; };
@@ -21,7 +22,8 @@ export function resolveManifestFile({ manifestFile, runId, directory = 'config/r
   return path.join(directory, matches[0]);
 }
 
-export async function runCommand(commandName, manifestFile, { store, outFile, acceptanceFile, fixture = false, execute = false, executorFactory, signal, preflight = preflightManifest } = {}) {
+export async function runCommand(commandName, manifestFile, { store, outFile, acceptanceFile, cohortFile, fixture = false, execute = false, executorFactory, signal, preflight = preflightManifest } = {}) {
+  if (commandName === 'cohort') { if (!cohortFile) throw new Error('cohort_input_required'); return evaluateWarmBenchmarkCohort(JSON.parse(readFileSync(cohortFile, 'utf8'))); }
   if (!manifestFile) throw new Error('manifest_required');
   if (commandName === 'validate') return readRunManifest(manifestFile) && { ok: true, command: commandName, manifest: manifestFile };
   if (commandName === 'preflight') return preflight(manifestFile);
@@ -43,6 +45,6 @@ export async function runCommand(commandName, manifestFile, { store, outFile, ac
 }
 
 if (fileURLToPath(import.meta.url) === process.argv[1]) {
-    try { const result = await runCommand(command, resolveManifestFile({ manifestFile: value('--manifest'), runId: value('--run') }), { outFile: value('--out') || undefined, acceptanceFile: value('--acceptance') || undefined, execute: args.includes('--execute') }); console.log(JSON.stringify(result)); if (result.ok === false) process.exitCode = 2; }
+    try { const result = await runCommand(command, resolveManifestFile({ manifestFile: value('--manifest'), runId: value('--run') }), { outFile: value('--out') || undefined, acceptanceFile: value('--acceptance') || undefined, cohortFile: value('--input') || undefined, execute: args.includes('--execute') }); console.log(JSON.stringify(result)); if (result.ok === false) process.exitCode = 2; }
   catch (error) { console.log(JSON.stringify({ ok: false, error: error.message })); process.exitCode = 2; }
 }
