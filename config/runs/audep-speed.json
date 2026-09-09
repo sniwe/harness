@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "runId": "audep-speed-260908",
-  "planDigest": "cac3431f5ce5fd7432c940ca96ff3069e42c0377bc12be038c713161387a7d00",
+  "planDigest": "d7c2dc4ed9f11dda9ca3c7620c2f3e7eddb416baf5fa8b186f06f96a682e5238",
   "controller": { "machineKey": "machine-base-73182d23f660c3880e7e" },
   "inputs": [
     { "role": "harness-plan", "path": "C:\\Users\\Admin\\Downloads\\Harness-Unattended-audEp-Implementation-Plan (1).md", "sha256": "5eef5bccad0710df77588cf1a4ee173df773217690ea12613382a20b1960547f" },
@@ -18,12 +18,12 @@
       "verifier": "mgmt\\dev\\260906\\verify-upload-987-browser.mjs",
       "source": "C:\\retry-harness-run\\src\\backend\\data\\media\\1788683394546-ebc52030-3330-4ddb-92dc-b95d9c76a26d-987-mtmo3aqe-c4b8b6ddfda248.mp3",
       "sourceAudioRevision": "sha256:a1e71260a1c05ac574f02e9cc1a00eba6da332ed1dd430225796c6ce7bc816d4",
-      "durationMs": 644702
+      "durationMs": 644655
     },
     "qwen-asr": {
       "python": "C:\\Users\\rhyse\\.conda\\envs\\qwen3-asr\\python.exe",
       "tracer": "scripts\\audep_http_fixture_tracer.py",
-      "fixtureJob": "C:\\Users\\rhyse\\Qwen3-ASR\\dev\\audep-work\\jobs\\audep-0bc09b95-ec39-4fc2-b7e3-63c12043cabe-ae7b03a3b7927172d336f10e37f86b68cefd47d1a3eb8517dcdb1852134e8b11"
+      "fixtureJob": "C:\\Users\\rhyse\\Qwen3-ASR\\dev\\audep-work\\jobs\\audep-0bc09b95-ec39-4fc2-b7e3-63c12043cabe-corrected-644655"
     }
   },
   "runtimes": {
