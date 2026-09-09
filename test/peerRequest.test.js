@@ -65,6 +65,13 @@ test("peer handler accepts asynchronously, reports status, and rejects replay", 
   assert.equal((await handler.handle({ headers: {}, payload: { requestId: id, targetTunnelKey: "machine-base-peer", prompt: "READY" } })).body.error, "request_already_completed");
 });
 
+test("peer handler does not publish a failed worker envelope as completed", async () => {
+  const handler = createPeerRequestHandler({ pool: { request: async () => ({ ok: false, error: "turn_failed" }) }, targetKey: "peer", enabled: true });
+  await handler.handle({ headers: { "x-machine-base-caller-key": "local" }, payload: { requestId: id2, targetTunnelKey: "peer", prompt: "READY" } });
+  await new Promise((resolve) => setImmediate(resolve));
+  const status = handler.status({ requestId: id2, targetKey: "peer" }).body; assert.equal(status.state, "worker_failed"); assert.equal(status.ok, false); assert.equal(status.error, "turn_failed");
+});
+
 test("peer handler enforces in-flight capacity and never exposes prompt in state", async () => {
   let release;
   const pool = { request: () => new Promise((resolve) => { release = resolve; }) };
@@ -74,13 +81,13 @@ test("peer handler enforces in-flight capacity and never exposes prompt in state
   assert.equal(first.status, 202);
   assert.equal(second.status, 429);
   assert.equal(JSON.stringify(handler.state).includes("PRIVATE"), false);
-  release({ result: "READY" });
+  release({ ok: true, result: "READY" });
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(handler.status({ requestId: id, targetKey: "peer" }).body.state, "completed");
 });
 
 test("local sender and peer handler complete one HTTP async round trip", async () => {
-  const handler = createPeerRequestHandler({ pool: { request: async ({ prompt }) => ({ result: `echo:${prompt}` }) }, targetKey: "machine-base-peer", enabled: true });
+  const handler = createPeerRequestHandler({ pool: { request: async ({ prompt }) => ({ ok: true, result: `echo:${prompt}` }) }, targetKey: "machine-base-peer", enabled: true });
   const server = http.createServer(async (request, response) => {
     const url = new URL(request.url, "http://local");
     let result;

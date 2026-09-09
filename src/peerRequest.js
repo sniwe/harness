@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { createPeerPing } from "./peerPing.js";
+import { requireWorkerSuccess } from "./workerResult.js";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MAX_PROMPT_CHARS = 32768;
@@ -73,7 +74,7 @@ export function createPeerRequestHandler({ pool, targetKey, enabled = true, maxI
     job.body.state = "in_progress";
     job.body.startedAt = now();
     try {
-      const result = await pool.request({ task: "remote-prompt", requestId: request.requestId, prompt: request.prompt });
+      const result = requireWorkerSuccess(await pool.request({ task: "remote-prompt", requestId: request.requestId, prompt: request.prompt }));
       const output = result?.result ?? result?.output ?? result;
       if (Buffer.byteLength(JSON.stringify(output), "utf8") > MAX_RESULT_BYTES) throw new Error("worker_result_too_large");
       job.body = { ...job.body, ok: true, state: "completed", workerSlot: result?.workerSlot || "unknown", completedAt: now(), result: output };

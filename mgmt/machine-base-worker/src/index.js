@@ -5,6 +5,7 @@ import { execFileSync } from "node:child_process";
 const fake = process.env.MACHINE_BASE_FAKE === "1";
 let codex;
 let threadId;
+let turnId;
 let rpcId = 0;
 let rpcWaiters = new Map();
 let eventWaiters = [];
@@ -50,7 +51,7 @@ function rpc(method, params) {
 async function turn(prompt) {
   if (fake) return { res: prompt === "test" ? "ok" : prompt };
   const result = await rpc("turn/start", { threadId, model: process.env.CODEX_MODEL || "gpt-5.6-luna", effort: "low", input: [{ type: "text", text: prompt }], approvalPolicy: "never", sandboxPolicy: { type: "dangerFullAccess" } });
-  const turnId = result?.result?.turn?.id || result?.result?.id;
+  turnId = result?.result?.turn?.id || result?.result?.id;
   if (!turnId) return result?.result || result;
   return (await waitEvent("turn/completed", turnId))?.params || result?.result || result;
 }
@@ -68,7 +69,9 @@ async function handle(payload) {
   if (payload.task === "remote-prompt") {
     if (typeof payload.prompt !== "string" || !payload.prompt.trim()) throw new Error("prompt_invalid");
     if (fake) return { ok: true, task: "remote-prompt", requestId: payload.requestId, result: "READY" };
-    return { ok: true, task: "remote-prompt", requestId: payload.requestId, result: await turn(payload.prompt) };
+    const result = await turn(payload.prompt); const nested = result?.turn || result; const error = result?.error || nested?.error; const status = result?.status || nested?.status;
+    if (error || ["failed", "cancelled", "error"].includes(status)) return { ok: false, task: "remote-prompt", requestId: payload.requestId, status: status || "failed", error: error || "worker_turn_failed", execution: { cwd: process.env.MACHINE_BASE_RUNTIME_CWD || process.cwd(), threadId, turnId } };
+    return { ok: true, task: "remote-prompt", requestId: payload.requestId, status: "succeeded", execution: { cwd: process.env.MACHINE_BASE_RUNTIME_CWD || process.cwd(), threadId, turnId }, result };
   }
   if (payload.task === "check-project-commit") {
     if (!fake) await turn("Inspect the current project checkout with git and confirm its exact full commit hash, branch, and whether the worktree is clean. Return only the requested commit confirmation.");
