@@ -7,7 +7,7 @@ import { resolveAppBenchmarkAdapter } from './appAdapter.js';
 import { resolveQwenBenchmarkAdapter } from './qwenAdapter.js';
 import { probeRuntime, waitForRuntime } from './runtimeProbe.js';
 import { validateManifestCommands } from './manifestExecutor.js';
-import { readCheckout } from './commit.js';
+import { inspectCheckout } from './commit.js';
 
 export function inspectProjectInstructions(projectRoot) {
   const files = ['AGENTS.md', 'CONTEXT.md'].map((name) => {
@@ -19,7 +19,7 @@ export function inspectProjectInstructions(projectRoot) {
 }
 
 export function inspectProjectCheckout(projectRoot, options = {}) {
-  try { return { state: 'observed', checkout: readCheckout({ repoRoot: projectRoot, ...options }) }; }
+  try { const checkout = inspectCheckout({ repoRoot: projectRoot, ...options }); return { state: checkout.identityValid ? 'observed' : 'blocked', checkout, ...(checkout.identityValid ? {} : { error: 'checkout_identity_invalid' }) }; }
   catch (error) { return { state: 'blocked', error: error.message }; }
 }
 

@@ -4,13 +4,18 @@ const HASH = /^[0-9a-f]{40}$/;
 const BRANCH = /^[A-Za-z0-9][A-Za-z0-9._/-]*$/;
 
 export function readCheckout({ repoRoot, execFileSync = defaultExecFileSync } = {}) {
+  const checkout = inspectCheckout({ repoRoot, execFileSync });
+  if (!checkout.identityValid) throw new Error("checkout_identity_invalid");
+  return checkout;
+}
+
+export function inspectCheckout({ repoRoot, execFileSync = defaultExecFileSync } = {}) {
   const git = (args) => execFileSync("git", ["-C", repoRoot, ...args], { encoding: "utf8" }).trim();
   const commit = git(["rev-parse", "HEAD"]).toLowerCase();
   const branch = git(["branch", "--show-current"]);
   const origin = git(["remote", "get-url", "origin"]);
   const dirty = git(["status", "--porcelain"]);
-  if (!HASH.test(commit) || !BRANCH.test(branch) || branch.includes("..") || !origin) throw new Error("checkout_identity_invalid");
-  return { repoRoot, commit, branch, origin, worktreeClean: !dirty, dirtyInventory: dirty ? dirty.split(/\r?\n/).filter(Boolean) : [] };
+  return { repoRoot, commit, branch, origin, worktreeClean: !dirty, dirtyInventory: dirty ? dirty.split(/\r?\n/).filter(Boolean) : [], identityValid: HASH.test(commit) && BRANCH.test(branch) && !branch.includes("..") && Boolean(origin) };
 }
 
 function fullHash(value) { return HASH.test(String(value || "").trim().toLowerCase()) ? String(value).trim().toLowerCase() : ""; }
