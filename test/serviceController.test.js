@@ -22,3 +22,8 @@ test('service controller fences a reused PID by process start', () => {
   assert.equal(controller.inspect().state, 'running'); const second = createServiceController({ file: path.join(root, 'service.json'), now: () => 2, spawnImpl: () => ({ pid: 42, unref() {} }), probe: () => false });
   assert.equal(second.start({ serviceId: 'bench', command: 'node', cwd: root }).processStart, 2);
 });
+
+test('service controller terminates only its supervised child tree', () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'service-supervisor-')); const terminated = []; const owned = new Map(); const supervisor = { own: (pid, metadata) => { owned.set(pid, { pid, ...metadata }); }, list: () => [...owned.values()], terminate: (pid) => { if (!owned.has(pid)) throw new Error('process_not_owned'); terminated.push(pid); owned.delete(pid); } }; let alive = true;
+  const controller = createServiceController({ file: path.join(root, 'service.json'), supervisor, spawnImpl: () => ({ pid: 51, unref() {} }), probe: () => alive }); controller.start({ serviceId: 'bench', command: 'node', cwd: root }); controller.stop(); assert.deepEqual(terminated, [51]); alive = false; assert.equal(controller.inspect().state, 'stopped');
+});
