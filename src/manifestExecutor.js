@@ -5,6 +5,7 @@ import { createRunExecutor } from './runExecutor.js';
 export function resolveManifestCommand({ manifest, step } = {}) {
   const spec = manifest?.commands?.[step?.stepId];
   if (!spec || typeof spec.command !== 'string' || !spec.command.trim() || !Array.isArray(spec.args || [])) throw new Error(`execution_command_missing:${step?.stepId || 'unknown'}`);
+  if (Object.keys(spec).some((key) => ['timeout', 'timeoutMs', 'deadline', 'deadlineMs', 'executionTimeLimit'].includes(key))) throw new Error(`execution_hard_timeout_forbidden:${step.stepId}`);
   const projectRoot = manifest.projects?.[step.owner]?.profile;
   const cwd = path.resolve(spec.cwd || projectRoot || '');
   if (!projectRoot || path.resolve(projectRoot) !== cwd) throw new Error(`execution_cwd_mismatch:${step.stepId}`);
