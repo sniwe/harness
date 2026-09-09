@@ -4,7 +4,7 @@ import path from "node:path";
 
 const MAX_WORKER_LINE_BYTES = 256 * 1024;
 
-export function createWorkerPool({ workerEntry = path.resolve("mgmt/machine-base-worker/src/index.js"), cwd = path.dirname(workerEntry), env = process.env, childProcess = { spawn }, logger = console, readyWaitMs = 120000 } = {}) {
+export function createWorkerPool({ workerEntry = path.resolve("mgmt/machine-base-worker/src/index.js"), cwd = path.dirname(workerEntry), env = process.env, childProcess = { spawn }, logger = console } = {}) {
   const slots = [makeSlot("active"), makeSlot("standby")];
   let queue = Promise.resolve();
 
@@ -37,7 +37,7 @@ export function createWorkerPool({ workerEntry = path.resolve("mgmt/machine-base
     if (slot.child && !slot.child.killed) slot.child.kill();
     setTimeout(() => { if (slot.state === "failed") { try { spawnSlot(slot); } catch (repairError) { slot.lastError = repairError.message; } } }, 250);
   }
-  async function start() { await Promise.all(slots.map(spawnSlot)); }
+  async function start({ signal } = {}) { if (signal?.aborted) throw new Error("pool_start_cancelled"); try { await Promise.race([Promise.all(slots.map(spawnSlot)), new Promise((_, reject) => signal?.addEventListener("abort", () => reject(new Error("pool_start_cancelled")), { once: true }))]); } catch (error) { if (error.message === "pool_start_cancelled") stop(); throw error; } }
   function readySlot() { return slots.find((slot) => slot.state === "ready"); }
   async function request(payload) {
     const work = queue.catch(() => {}).then(async () => {
