@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { createArtifactStore } from '../src/artifactStore.js';
 import { createHandoff } from '../src/handoffSchemas.js';
 import { transferArtifact } from '../src/handoffTransfer.js';
-import { createArtifactTransferHandler, validateArtifactChunk } from '../src/artifactTransfer.js';
+import { createArtifactTransferHandler, transferArtifactRemote, validateArtifactChunk } from '../src/artifactTransfer.js';
 import { runCommand } from '../src/commandRunner.js';
 import { createDurableCommandController } from '../src/durableCommand.js';
 
@@ -33,6 +33,14 @@ test('artifact chunk transfer resumes from durable offset and publishes immutabl
   assert.deepEqual(fs.readFileSync(path.join(root, 'received', 'evidence.md')), bytes);
   assert.throws(() => validateArtifactChunk({ transferId, targetKey: 'wrong', sha256, totalLength: bytes.length, offset: 0, chunkBase64: '', final: false }), /artifact_target_invalid/);
   assert.equal(handler.handle({ transferId: crypto.randomUUID(), targetKey: 'peer', sha256, totalLength: bytes.length, offset: 0, chunkBase64: '', final: false, filename: '../escape.md' }).status, 400);
+});
+
+test('artifact sender resolves the peer for each chunk and preserves transfer identity', async () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'artifact-sender-')); const store = createArtifactStore(root); const bytes = Buffer.from('remote evidence', 'utf8'); const saved = store.put(bytes, { mediaType: 'text/plain' });
+  const descriptor = createHandoff({ runId: 'r', artifactType: 'test', producerPhase: 'A0', producer: { machineKey: 'm', projectKey: 'p', commit: 'c'.repeat(40), runtimeGeneration: 'g1' }, artifact: { sha256: saved.artifactId, byteLength: saved.byteLength, mediaType: saved.mediaType }, consumer: { machineKey: 'n', projectKey: 'q', phase: 'Q0' }, filename: 'remote.txt', requiredAcceptanceType: 'test.acceptance' });
+  const receiver = createArtifactTransferHandler({ root: path.join(root, 'receiver'), targetKey: 'peer' }); let lookups = 0; let requests = [];
+  const result = await transferArtifactRemote({ peerPing: { lookup: async () => { lookups += 1; return { tunnelKey: 'peer', tunnelUrl: 'https://peer.test' }; } }, peerKey: 'peer', descriptor, store, chunkBytes: 4, fetchImpl: async (_url, init) => { const payload = JSON.parse(init.body); requests.push(payload); const response = receiver.handle(payload); return { ok: response.status < 300, status: response.status, json: async () => response.body }; } });
+  assert.equal(result.received.state, 'completed'); assert.equal(lookups, requests.length); assert.ok(requests.length > 1); assert.equal(new Set(requests.map((item) => item.transferId)).size, 1); assert.deepEqual(fs.readFileSync(path.join(root, 'receiver', 'received', 'remote.txt')), bytes);
 });
 
 test('command runner reports real success and failure states', async () => {

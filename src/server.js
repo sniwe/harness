@@ -21,6 +21,8 @@ import { readTicketProject } from "./ticketProjects.js";
 import { createAttemptStore } from "./attemptStore.js";
 import { createOperationOutbox } from "./operationOutbox.js";
 import { createArtifactTransferHandler } from "./artifactTransfer.js";
+import { transferArtifactRemote } from "./artifactTransfer.js";
+import { createArtifactStore } from "./artifactStore.js";
 
 const root = path.resolve(process.env.MACHINE_BASE_DATA_ROOT || "data/machine-base");
 const repoRoot = path.resolve(process.env.MACHINE_BASE_REPO_ROOT || process.cwd());
@@ -62,6 +64,7 @@ try {
 const commitSync = createCommitSyncClient({ registryUrl: `${relayBaseUrl}/_functions/tunnels` });
 const machineKey = process.env.TUNNEL_KEY || identity.tunnelKey;
 const peerRequestClient = createPeerRequestClient({ registryUrl: `${relayBaseUrl}/_functions/tunnels`, localKey: machineKey, callerKey: machineKey });
+const artifactStore = createArtifactStore(root);
 
 const pool = createWorkerPool({ env: { ...process.env, MACHINE_BASE_REPO_ROOT: repoRoot, MACHINE_BASE_RUNTIME_CWD: runtimeCwd }, workerEntry: path.resolve("mgmt/machine-base-worker/src/index.js"), cwd: path.resolve("mgmt/machine-base-worker") });
 const peerRequestHandler = createPeerRequestHandler({ pool, targetKey: machineKey, enabled: process.env.MACHINE_BASE_REMOTE_PROMPTS_ENABLED !== "0", maxInFlight: 1 });
@@ -161,6 +164,13 @@ server = http.createServer(async (request, response) => {
     if (request.method === "POST" && pathname === "/api/machine-base/artifact-chunk") {
       const result = artifactTransferHandler.handle(JSON.parse(await readBody(request, 512 * 1024)));
       return json(response, result.status, result.body);
+    }
+    if (request.method === "POST" && pathname === "/api/machine-base/artifact-transfer") {
+      if (process.env.MACHINE_BASE_ARTIFACT_TRANSFER_SENDER_ENABLED === "0") return json(response, 403, { ok: false, error: "artifact_sender_disabled" });
+      const payload = JSON.parse(await readBody(request, 512 * 1024));
+      if (!payload || typeof payload !== "object" || Array.isArray(payload) || Object.keys(payload).some((key) => !["peerKey", "descriptor", "transferId"].includes(key)) || typeof payload.peerKey !== "string" || !payload.descriptor) return json(response, 400, { ok: false, error: "artifact_sender_request_invalid" });
+      const result = await transferArtifactRemote({ peerPing, peerKey: payload.peerKey, descriptor: payload.descriptor, store: artifactStore, transferId: payload.transferId });
+      return json(response, 200, result);
     }
     if (request.method === "POST" && pathname === "/api/machine-base/peer-request-send") {
       if (process.env.MACHINE_BASE_PEER_REQUEST_SENDER_ENABLED === "0") return json(response, 403, { ok: false, error: "peer_sender_disabled" });

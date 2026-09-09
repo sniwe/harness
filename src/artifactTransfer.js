@@ -64,7 +64,7 @@ export function createArtifactTransferHandler({ root, targetKey, enabled = true,
     if (fs.existsSync(destination) && !bytes.equals(fs.readFileSync(destination))) return { status: 409, body: { ok: false, error: "artifact_destination_conflict" } };
     if (!fs.existsSync(destination)) { const temporary = `${destination}.${request.transferId}.tmp`; fs.writeFileSync(temporary, bytes); fs.renameSync(temporary, destination); }
     fs.unlinkSync(part); fs.unlinkSync(metadata);
-    return { status: 200, body: { ok: true, state: "completed", transferId: request.transferId, filename, sha256: request.sha256, byteLength: bytes.length, file: destination } };
+    return { status: 200, body: { ok: true, state: "completed", transferId: request.transferId, filename, sha256: request.sha256, byteLength: bytes.length, nextOffset: bytes.length, file: destination } };
   }
   return { handle, state: { enabled, root, destinationRoot } };
 }
