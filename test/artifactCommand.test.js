@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { mkdtempSync } from 'node:fs';
@@ -7,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { createArtifactStore } from '../src/artifactStore.js';
 import { createHandoff } from '../src/handoffSchemas.js';
 import { transferArtifact } from '../src/handoffTransfer.js';
+import { createArtifactTransferHandler, validateArtifactChunk } from '../src/artifactTransfer.js';
 import { runCommand } from '../src/commandRunner.js';
 import { createDurableCommandController } from '../src/durableCommand.js';
 
@@ -14,6 +16,22 @@ test('artifact transfer retains exact bytes and rejects corruption', () => {
   const root = mkdtempSync(path.join(tmpdir(), 'artifact-')); const store = createArtifactStore(root); const saved = store.put('exact\n', { mediaType: 'text/plain' });
   const descriptor = createHandoff({ runId: 'r', artifactType: 'test', producerPhase: 'A0', producer: { machineKey: 'm', projectKey: 'p', commit: 'c'.repeat(40), runtimeGeneration: 'g1' }, artifact: { sha256: saved.artifactId, byteLength: saved.byteLength, mediaType: saved.mediaType }, consumer: { machineKey: 'n', projectKey: 'q', phase: 'Q0' }, filename: 'evidence.txt', requiredAcceptanceType: 'test.acceptance' });
   const result = transferArtifact({ store, descriptor, destination: path.join(root, 'received') }); assert.equal(result.received.sha256, saved.artifactId); assert.equal(fs.readFileSync(result.received.file, 'utf8'), 'exact\n');
+});
+
+test('artifact chunk transfer resumes from durable offset and publishes immutable bytes', () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'artifact-remote-'));
+  const handler = createArtifactTransferHandler({ root, targetKey: 'peer' });
+  const transferId = crypto.randomUUID();
+  const bytes = Buffer.from('第一段\nsecond\n', 'utf8');
+  const sha256 = crypto.createHash('sha256').update(bytes).digest('hex');
+  const chunk = (offset, value, final) => handler.handle({ transferId, targetKey: 'peer', sha256, totalLength: bytes.length, offset, chunkBase64: value.toString('base64'), final, filename: 'evidence.md' });
+  assert.equal(chunk(0, bytes.subarray(0, 5), false).body.nextOffset, 5);
+  const rebuilt = createArtifactTransferHandler({ root, targetKey: 'peer' });
+  assert.equal(rebuilt.handle({ transferId, targetKey: 'peer', sha256, totalLength: bytes.length, offset: 0, chunkBase64: 'AA==', final: false, filename: 'evidence.md' }).body.nextOffset, 5);
+  const result = chunk(5, bytes.subarray(5), true);
+  assert.equal(result.body.state, 'completed');
+  assert.deepEqual(fs.readFileSync(path.join(root, 'received', 'evidence.md')), bytes);
+  assert.throws(() => validateArtifactChunk({ transferId, targetKey: 'wrong', sha256, totalLength: bytes.length, offset: 0, chunkBase64: '', final: false }), /artifact_target_invalid/);
 });
 
 test('command runner reports real success and failure states', async () => {

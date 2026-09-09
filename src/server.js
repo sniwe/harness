@@ -20,6 +20,7 @@ import { createTicketWorker } from "./ticketWorker.js";
 import { readTicketProject } from "./ticketProjects.js";
 import { createAttemptStore } from "./attemptStore.js";
 import { createOperationOutbox } from "./operationOutbox.js";
+import { createArtifactTransferHandler } from "./artifactTransfer.js";
 
 const root = path.resolve(process.env.MACHINE_BASE_DATA_ROOT || "data/machine-base");
 const repoRoot = path.resolve(process.env.MACHINE_BASE_REPO_ROOT || process.cwd());
@@ -64,6 +65,7 @@ const peerRequestClient = createPeerRequestClient({ registryUrl: `${relayBaseUrl
 
 const pool = createWorkerPool({ env: { ...process.env, MACHINE_BASE_REPO_ROOT: repoRoot, MACHINE_BASE_RUNTIME_CWD: runtimeCwd }, workerEntry: path.resolve("mgmt/machine-base-worker/src/index.js"), cwd: path.resolve("mgmt/machine-base-worker") });
 const peerRequestHandler = createPeerRequestHandler({ pool, targetKey: machineKey, enabled: process.env.MACHINE_BASE_REMOTE_PROMPTS_ENABLED !== "0", maxInFlight: 1 });
+const artifactTransferHandler = createArtifactTransferHandler({ root: process.env.MACHINE_BASE_ARTIFACT_ROOT || path.join(root, "artifacts"), targetKey: machineKey, enabled: process.env.MACHINE_BASE_ARTIFACT_TRANSFER_ENABLED !== "0" });
 let port = configuredPort;
 let localUrl = "";
 let tunnel = null;
@@ -118,7 +120,7 @@ server = http.createServer(async (request, response) => {
   try {
     const pathname = new URL(request.url, "http://127.0.0.1").pathname;
     if (request.method === "GET" && pathname === "/health") return json(response, 200, { ok: true, pid: process.pid, runId: launch.runId, commit: launch.commit, branch: launch.branch, runtimeGeneration: `${launch.commit}:${launch.generation}`, tunnel: tunnel?.state || null });
-    if (request.method === "GET" && pathname === "/status") return json(response, 200, { ok: true, setup, identity: { source: identity.source, machineBaseId: identity.machineBaseId, tunnelKey: machineKey }, launch, startupState, localCommitConfirmation, coordination, peerRequest: peerRequestHandler.state, ticket: ticketRuntime ? { enabled: true, machineKey: ticketRuntime.identity.machineKey, projectKey: ticketRuntime.identity.projectKey, logRoot: ticketRuntime.identity.logRoot } : { enabled: false }, tunnel: tunnel?.state || null, workers: pool.slots.map(({ child, reader, stdout, ...slot }) => slot) });
+    if (request.method === "GET" && pathname === "/status") return json(response, 200, { ok: true, setup, identity: { source: identity.source, machineBaseId: identity.machineBaseId, tunnelKey: machineKey }, launch, startupState, localCommitConfirmation, coordination, peerRequest: peerRequestHandler.state, artifactTransfer: artifactTransferHandler.state, ticket: ticketRuntime ? { enabled: true, machineKey: ticketRuntime.identity.machineKey, projectKey: ticketRuntime.identity.projectKey, logRoot: ticketRuntime.identity.logRoot } : { enabled: false }, tunnel: tunnel?.state || null, workers: pool.slots.map(({ child, reader, stdout, ...slot }) => slot) });
     if (request.method === "GET" && pathname === "/setup/status") return json(response, 200, setup);
     if (request.method === "GET" && pathname === "/api/machine-base/ping") return json(response, 200, { ok: true, tunnelKey: process.env.TUNNEL_KEY || identity.tunnelKey, serverRole: "machine-base", time: new Date().toISOString() });
     if (request.method === "POST" && pathname === "/api/machine-base/peer-ping") return json(response, 200, await peerPing.ping(JSON.parse(await readBody(request)).tunnelKey));
@@ -154,6 +156,10 @@ server = http.createServer(async (request, response) => {
     if (request.method === "GET" && pathname === "/api/machine-base/peer-request-status") {
       const url = new URL(request.url, "http://127.0.0.1");
       const result = peerRequestHandler.status({ requestId: url.searchParams.get("requestId"), targetKey: url.searchParams.get("targetTunnelKey") });
+      return json(response, result.status, result.body);
+    }
+    if (request.method === "POST" && pathname === "/api/machine-base/artifact-chunk") {
+      const result = artifactTransferHandler.handle(JSON.parse(await readBody(request, 512 * 1024)));
       return json(response, result.status, result.body);
     }
     if (request.method === "POST" && pathname === "/api/machine-base/peer-request-send") {
