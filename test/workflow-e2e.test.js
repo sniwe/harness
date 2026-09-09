@@ -36,3 +36,9 @@ test('rehearsal cannot report complete when bilateral final acceptance is blocke
   const result = await runRehearsal({ manifest, store: createRunStore({ root: mkdtempSync(path.join(tmpdir(), 'rehearsal-acceptance-')), runId: manifest.runId }), acceptanceEvidence: { app: benchmark, qwen: benchmark } });
   assert.equal(result.state.status, 'accepted'); assert.equal(result.finalAcceptance.reason, 'bilateral_benchmark_failed'); assert.equal(result.ok, false); assert.match(renderRunReport({ manifest, result }), /bilateral_benchmark_failed/);
 });
+
+test('rehearsal wires durable restart-coordinator evidence into its result', async () => {
+  const manifest = { schemaVersion: 1, runId: 'rehearsal-restarts', planDigest: '1'.repeat(64), steps: [{ stepId: 'A0', owner: 'app', dependsOn: [], commandProfile: 'test', verifierProfile: 'focused', requiredOutputTypes: ['acceptance'] }] }; const restarts = [{ name: 'app-during-upload', verdict: 'pass', artifactId: 'a'.repeat(64), trigger: { predicate: 'app-during-upload' }, before: { runtimeGeneration: 'g1', jobId: 'j' }, after: { runtimeGeneration: 'g2', jobId: 'j' } }];
+  const result = await runRehearsal({ manifest, store: createRunStore({ root: mkdtempSync(path.join(tmpdir(), 'rehearsal-restarts-')), runId: manifest.runId }), restartCoordinator: { run: async () => restarts } });
+  assert.deepEqual(result.restarts, restarts); assert.match(renderRunReport({ manifest, result }), /app-during-upload: pass/);
+});
