@@ -22,3 +22,10 @@ test('deployment rollback records an observation failure without a deadline clai
   manager.stage({ runId: 'r', projectKey: 'main-app', previous: { commit: 'old' }, desired: { commit: 'new' }, configDigest: 'c'.repeat(64), rollbackCommand: ['restore', 'old'] }); manager.activate();
   assert.equal(manager.rollback().reason, 'health_not_observed');
 });
+
+test('deployment health rejects a healthy process from the wrong generation and keeps polling', async () => {
+  const file = path.join(mkdtempSync(path.join(tmpdir(), 'deploy-generation-')), 'deployment.json'); const manager = createDeploymentManager(file);
+  manager.stage({ runId: 'r', projectKey: 'main-app', previous: { commit: 'old' }, desired: { commit: 'new' }, configDigest: 'd'.repeat(64), rollbackCommand: ['restore', 'old'] }); manager.activate();
+  let polls = 0; const healthy = await manager.waitForHealthy({ observe: async () => (++polls === 1 ? { state: 'healthy', runtimeGeneration: 'wrong', commit: 'old' } : { state: 'healthy', runtimeGeneration: 'right', commit: 'new' }), sleep: async () => {} });
+  assert.equal(healthy.commit, 'new'); assert.equal(polls, 2); assert.equal(manager.read().lastHealthObservation.commit, 'old');
+});
