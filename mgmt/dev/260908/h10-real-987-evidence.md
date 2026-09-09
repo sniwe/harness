@@ -52,3 +52,13 @@ Disposition: real browser and model completion evidence retained; final H10 acce
 - Harness `preflight --manifest config/runs/audep-speed-local.json` returned `ok=true`, `state=ready` while that app process and the pre-existing Qwen process were live.
 - App PID `20712` was stopped cleanly after the probe; Qwen PID `38332` was not stopped.
 - The app checkout remains detached with unrelated data modifications and the identity commit has not been pushed from that checkout; no unrelated files were staged.
+
+## Fresh real 987 run after identity patch
+
+- App process PID `44104`; health commit `283d741ad7b2bff7e1a32370e76a8f3c147fce71`; runtime generation `283d741ad7b2bff7e1a32370e76a8f3c147fce71:44104`.
+- Browser verifier result: `complete=true`, app item `854d10f6-9857-4a90-ad07-6007ac39739b`, elapsed `1730010` ms, normal browser upload, final audio and semantic status `ready`, canonical localization/timeline `ready`, and `52` semantic tree nodes.
+- Source revision: `sha256:a1e71260a1c05ac574f02e9cc1a00eba6da332ed1dd430225796c6ce7bc816d4`; committed audio `644655` ms; app canonical localization revision `sha256:a60f794317819df39791900f18ae7224b3e966dcbc615e95d163fbfe13dd357d`.
+- Remote Qwen job: `audep-854d10f6-9857-4a90-ad07-6007ac39739b-e44a01dad85af0ef0b044d3fdd2045074cdc17ecb39a586024a18bbc0bfae229`; final update sequence `38`; manifest SHA-256 `0f0ba1501c8dd312083854047aa64810aeaa26318a0584183974428ffcf77918`; final update SHA-256 `6032b574213aa2453a2a6aae28c9d94543ccd0d7a130bf0e96c2df073588689f`.
+- Qwen final update summary: status `ready`, committed through `644655` ms, `3488` timeline entries, `3488` anchors, text stable through char `3488`, and null invalid-from markers.
+- App PID `44104` was stopped after evidence collection; Qwen PID `38332` was not stopped.
+- This run still lacks measured throughput/comparison, independent source-time/canonical/beyond-frontier verifier artifacts, six observed-predicate restart records, and bilateral final acceptance.
