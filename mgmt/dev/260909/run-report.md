@@ -1,35 +1,42 @@
 # audEp unattended run report
 
 Date: 2026-09-09  
-Verdict: **BLOCKED / PERFORMANCE FAIL**
+Run: `audep-speed-260909-r3`  
+Plan digest: `742e8570301ba95d0634d8326e233696a6159cfbf85f3ef4ce665068d1edc11c`  
+Orchestration verdict: **ACCEPTED**  
+End-to-end plan verdict: **INCOMPLETE**
 
-## Orchestration result
+## Execution result
 
-The harness successfully launched the current app runtime, drove the exact 987 source through the normal browser file-selection path, retained the remote job identity, and observed the job through partial and final ready states. Qwen focused and full test suites passed (`48/48` and `80/80`).
+All 17 scheduled phases A0–A7/Q0–Q7 succeeded once. The exact 987 source was uploaded through the normal browser path twice during the run; both results reached audio and semantic `ready` with 52 tree nodes. The durable controller closed the run as `accepted`.
 
-Evidence: [H10 live browser evidence](h10-live-browser-987-evidence.md).
+Evidence: `C:\trendbase\mgmt\logs\runs\audep-speed-260909-r3\state.json` and its command logs.
 
-## Joined live identity
+Observed browser elapsed times:
 
-- Source revision: `sha256:a1e71260a1c05ac574f02e9cc1a00eba6da332ed1dd430225796c6ce7bc816d4`
-- App runtime: `283d741ad7b2bff7e1a32370e76a8f3c147fce71:45768`
-- Remote job: `audep-c43b2d49-2fad-40a2-bc5c-092a876aa0de-2e8108d00752a4c697583784c666dd20c18418a3ca62398c1de102dac34f1eb5`
-- Protocol: `12.5s-primary-plus-5s-boundary-v1`
-- Audio duration: `644655 ms`
-- End-to-end browser elapsed time: `1423825 ms`
-- Whole-run observed rate: `0.452763x` realtime
-- Final Qwen update: sequence `16`, committed frontier `644655 ms`, localization `ready`
+- A4: `669697 ms`; source duration `644655 ms`; observed rate `0.9626x` realtime.
+- A6/A7 final pass: `661397 ms`; source duration `644655 ms`; observed rate `0.9747x` realtime.
 
-## Acceptance disposition
+These observations exceed the mandatory `0.50x` threshold, but they are not a three-warm-run steady-state cohort.
 
-The observed whole-run rate is below the mandatory `0.50x` realtime threshold, so application performance does not pass H10. This full-run ratio is reported as an observation, not substituted for the plan's specified steady interval metric.
+## Joined identities
 
-Still missing or unverified:
+- Source: exact 987 file; source audio revision `sha256:a1e71260a1c05ac574f02e9cc1a00eba6da332ed1dd430225796c6ce7bc816d4`.
+- Harness run: `audep-speed-260909-r3`.
+- App runtime observed during execution: `380c622ae081bb234156d45c9973d495c41b3cd7:25700`.
+- Qwen authoritative checkout: `C:\Users\rhyse\Qwen3-ASR` using `C:\Users\rhyse\.conda\envs\qwen3-asr\python.exe`.
+- Protocol: `12.5s-primary-plus-5s-boundary-v1`.
 
-- fixed steady-interval throughput and baseline/candidate comparison cohort;
-- independent exact-job source-time, canonical, and beyond-frontier probes;
-- six observed-predicate restart tracers;
-- bilateral app/Qwen benchmark result objects and final acceptance event;
-- complete A0-A7/Q0-Q7 phase evidence and owner-side deployment pinning.
+## Phase evidence
 
-No PASS verdict is issued from upload completion, model readiness, or local test results alone.
+The run state contains pass evidence for every phase, including benchmark output for Q2–Q5 and A7, and release evidence for Q7. Qwen ran the focused audEp suite for Q0–Q6 and the full suite for Q7. The real browser verifier supplied the A4, A6, and A7 acceptance evidence.
+
+## Remaining mandatory gates
+
+- Six observed-predicate restart tracers were not executed.
+- Staged deployment, independent supervisor restart, unhealthy-candidate rollback, and post-restart generation pinning were not proven. The post-run scoped app restart was rejected by local execution policy; the runtime therefore remains the pre-fix `380c622` generation.
+- Bilateral Qwen final-acceptance event and exact benchmark result join were not independently recorded.
+- No three-warm-run baseline/candidate cohort or fixed steady-interval performance report exists.
+- Reboot-with-logon and boot-without-logon capabilities remain unverified and must remain distinct from process restart.
+
+No end-to-end PASS is claimed from phase completion, upload completion, model readiness, or local test results alone.
