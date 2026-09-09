@@ -79,6 +79,7 @@ export async function transferArtifactRemote({ peerPing, peerKey, descriptor, st
   while (offset < bytes.length || (bytes.length === 0 && offset === 0)) {
     if (signal?.aborted) throw new Error("artifact_transfer_cancelled");
     const peer = await peerPing.lookup(peerKey, { signal });
+    if (descriptor.consumer.machineKey !== peer.tunnelKey) throw new Error("artifact_consumer_mismatch");
     const chunk = bytes.subarray(offset, Math.min(bytes.length, offset + chunkBytes));
     const payload = { transferId, targetKey: peer.tunnelKey, sha256: descriptor.artifact.sha256, totalLength: bytes.length, offset, chunkBase64: chunk.toString("base64"), final: offset + chunk.length === bytes.length, filename: descriptor.filename };
     const response = await fetchImpl(`${peer.tunnelUrl}/api/machine-base/artifact-chunk`, { method: "POST", headers: { Accept: "application/json", "Content-Type": "application/json" }, body: JSON.stringify(payload), redirect: "error", ...(signal ? { signal } : {}) });
