@@ -55,3 +55,9 @@ test('restart coordinator blocks an unresolved restart intent instead of replayi
   const coordinator = createRestartCoordinator({ store, observe: async () => ({}), restart: async () => {}, ready: async () => true, sleep: async () => {} });
   await assert.rejects(() => coordinator.run(), /restart_tracer_unknown_after_restart:app-during-upload/);
 });
+
+test('restart coordinator does not resolve an intent with invalid completion evidence', () => {
+  const intent = { type: 'restart_tracer_intent', name: 'app-during-upload' }; const invalid = { type: 'restart_tracer_completed', evidence: { name: 'app-during-upload', verdict: 'pass', artifactId: 'a'.repeat(64), trigger: { predicate: 'wrong-stage' }, before: { runtimeGeneration: 'g1', jobId: 'job-1' }, after: { runtimeGeneration: 'g2', jobId: 'job-1' } } }; const events = [intent, invalid];
+  const coordinator = createRestartCoordinator({ store: { events: () => events, append: () => {} }, observe: async () => ({}), restart: async () => {}, ready: async () => true, sleep: async () => {} });
+  assert.equal(coordinator.unresolvedIntent(), intent);
+});

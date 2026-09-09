@@ -1,4 +1,5 @@
 import { runRestartMatrix } from './restartMatrix.js';
+import { isValidRestartEvidence } from './restartMatrix.js';
 
 export function createRestartCoordinator({ store, observe, restart, ready, sleep, pollMs, signal } = {}) {
   if (!store?.events || !store?.append) throw new Error('restart_coordinator_store_invalid');
@@ -6,8 +7,12 @@ export function createRestartCoordinator({ store, observe, restart, ready, sleep
   function history() { return store.events(); }
   function priorEvidence() { return history().filter((event) => event.type === 'restart_tracer_completed').map((event) => event.evidence).filter(Boolean); }
   function unresolvedIntent() {
-    const completed = new Set(priorEvidence().map((item) => item.name));
-    return history().find((event) => event.type === 'restart_tracer_intent' && !completed.has(event.name));
+    const pending = new Map();
+    for (const event of history()) {
+      if (event.type === 'restart_tracer_intent') pending.set(event.name, event);
+      if (event.type === 'restart_tracer_completed' && isValidRestartEvidence(event.evidence)) pending.delete(event.evidence.name);
+    }
+    return pending.values().next().value;
   }
   async function run(options = {}) {
     const pending = unresolvedIntent();
