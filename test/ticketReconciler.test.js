@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict';
+import { existsSync, mkdtempSync } from 'node:fs';
+import path from 'node:path';
+import { tmpdir } from 'node:os';
 import test from 'node:test';
 import { createTicketReconciler } from '../src/ticketReconciler.js';
 
@@ -11,6 +14,14 @@ test('reconciler follows bounded list cursors', async () => {
   const queries = []; const seen = []; const pages = [{ scannedCount: 100, items: [{ ticketId: 'first', status: 'blocked' }], hasMore: true, nextCursor: 'cursor-1' }, { scannedCount: 2, items: [{ ticketId: 'second', status: 'pending' }], hasMore: false, nextCursor: null }];
   const reconciler = createTicketReconciler({ identity: { machineKey: 'machine-b', projectKey: 'main-app' }, client: { list: async (query) => { queries.push(query); return pages.shift(); } }, log: () => {}, onTicket: async (ticket) => seen.push(ticket.ticketId) });
   const result = await reconciler.once(); assert.deepEqual(queries, [{ targetMachineKey: 'machine-b', targetProjectKey: 'main-app', limit: '100' }, { targetMachineKey: 'machine-b', targetProjectKey: 'main-app', limit: '100', cursor: 'cursor-1' }]); assert.deepEqual(seen, ['second']); assert.equal(result.scannedCount, 102); assert.equal(result.hasMore, false);
+});
+
+test('reconciler resumes its page cursor after reconstruction', async () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'ticket-reconciler-cursor-')); const cursorFile = path.join(root, 'cursor.json'); const queries = []; const pages = [{ items: [], hasMore: true, nextCursor: 'cursor-2' }];
+  const first = createTicketReconciler({ identity: { machineKey: 'machine-b', projectKey: 'main-app' }, cursorFile, client: { list: async (query) => { queries.push(query); if (pages.length) return pages.shift(); throw new Error('list_unavailable'); } }, log: () => {} });
+  await assert.rejects(() => first.once(), /list_unavailable/); assert.equal(existsSync(cursorFile), true);
+  const second = createTicketReconciler({ identity: { machineKey: 'machine-b', projectKey: 'main-app' }, cursorFile, client: { list: async (query) => { queries.push(query); return { items: [], hasMore: false }; } }, log: () => {} });
+  await second.once(); assert.equal(queries[1].cursor, 'cursor-2'); assert.equal(existsSync(cursorFile), false);
 });
 
 test('reconciler runs maintenance before scanning', async () => {
