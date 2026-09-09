@@ -9,15 +9,17 @@ export function createDurableCommandController({ root, spawnImpl = spawn, probe 
   if (!root) throw new Error('command_root_required'); fs.mkdirSync(root, { recursive: true });
   const active = new Set();
   const fileFor = (commandId) => path.join(root, `${commandId}.json`);
+  const outputFor = (commandId) => path.join(root, `${commandId}.output.log`);
   const read = (commandId) => { const file = fileFor(commandId); if (!fs.existsSync(file)) throw new Error('command_not_found'); return JSON.parse(fs.readFileSync(file, 'utf8')); };
   const write = (state) => { const file = fileFor(state.commandId); const temporary = `${file}.${process.pid}.tmp`; fs.writeFileSync(temporary, JSON.stringify(state, null, 2)); fs.renameSync(temporary, file); return state; };
   function start({ command, args = [], cwd, env = process.env } = {}) {
     if (!command || !cwd) throw new Error('command_start_invalid');
-    const commandId = crypto.randomUUID(); const startedAt = new Date().toISOString(); let output = ''; let settled = false;
+    const commandId = crypto.randomUUID(); const startedAt = new Date().toISOString(); const outputFile = outputFor(commandId); let output = ''; let settled = false;
+    fs.writeFileSync(outputFile, '');
     const child = spawnImpl(command, args, { cwd, env, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, detached: true });
-    const finish = (result) => { if (settled) return; settled = true; active.delete(commandId); child.stdout?.destroy(); child.stderr?.destroy(); write({ ...read(commandId), ...result, output, finishedAt: new Date().toISOString() }); };
-    const append = (chunk) => { output = (output + String(chunk)).slice(-MAX_OUTPUT_BYTES); write({ ...read(commandId), output }); };
-    const initial = write({ schemaVersion: 1, commandId, command, args, cwd, startedAt, pid: child.pid, state: 'running', output: '' }); active.add(commandId);
+    const finish = (result) => { if (settled) return; settled = true; active.delete(commandId); child.stdout?.destroy(); child.stderr?.destroy(); write({ ...read(commandId), ...result, output, outputFile, finishedAt: new Date().toISOString() }); };
+    const append = (chunk) => { const text = String(chunk); fs.appendFileSync(outputFile, text); output = (output + text).slice(-MAX_OUTPUT_BYTES); write({ ...read(commandId), output, outputFile }); };
+    const initial = write({ schemaVersion: 1, commandId, command, args, cwd, startedAt, pid: child.pid, state: 'running', output: '', outputFile }); active.add(commandId);
     child.stdout?.on('data', append); child.stderr?.on('data', append); child.on('error', (error) => finish({ state: 'failed', error: error.message })); child.on('close', (exitCode, signal) => finish({ state: exitCode === 0 ? 'succeeded' : 'failed', exitCode, signal }));
     return initial;
   }

@@ -51,7 +51,7 @@ test('command runner reports real success and failure states', async () => {
 test('durable command returns an ID and persists terminal output', async () => {
   const controller = createDurableCommandController({ root: path.join(mkdtempSync(path.join(tmpdir(), 'durable-command-')), 'commands') }); const started = controller.start({ command: process.execPath, args: ['-e', 'process.stdout.write("durable")'], cwd: process.cwd() }); assert.equal(started.state, 'running');
   const result = await controller.wait(started.commandId, { pollMs: 10 });
-  assert.equal(result.state, 'succeeded'); assert.match(result.output, /durable/);
+  assert.equal(result.state, 'succeeded'); assert.match(result.output, /durable/); assert.equal(fs.readFileSync(result.outputFile, 'utf8'), 'durable');
 });
 
 test('reconstructed durable command treats a missing process as unknown', () => {
