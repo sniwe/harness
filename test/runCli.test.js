@@ -83,3 +83,10 @@ test('report refuses accepted workflow without bilateral final acceptance', asyn
   const report = await runCommand('report', 'config/runs/audep-speed-local.json', { store });
   assert.equal(report.ok, false); assert.equal(report.finalAcceptance, undefined); assert.match(report.report, /NOT_EVALUATED/);
 });
+
+test('report does not promote a compact persisted acceptance event to final acceptance', async () => {
+  const store = createRunStore({ root: mkdtempSync(path.join(tmpdir(), 'report-event-only-')), runId: 'audep-speed-local-260908' });
+  await runCommand('rehearse', 'config/runs/audep-speed-local.json', { store, fixture: true }); store.append({ type: 'final_acceptance_evaluated', verdict: 'pass', runId: store.runId, benchmarkId: 'b', remoteJobId: 'j' });
+  const report = await runCommand('report', 'config/runs/audep-speed-local.json', { store });
+  assert.equal(report.ok, false); assert.equal(report.finalAcceptance, undefined); assert.match(report.report, /NOT_EVALUATED/);
+});
