@@ -23,6 +23,13 @@ test('worker blocks uncertain execution after a post-start failure', async () =>
   assert.equal(patches.at(-1).action, 'block'); assert.equal(patches.at(-1).data.reason, 'unknown_after_crash'); assert.equal(state.status, 'blocked');
 });
 
+test('receipt publication failure preserves the known successful outcome', async () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'ticket-worker-receipt-failure-')); const state = { ticketId: 't-receipt-failure', revision: 0, headHash: 'h0', status: 'pending', sender: { machineKey: 'machine-a', projectKey: 'project-a' } }; const { createAttemptStore } = await import('../src/attemptStore.js'); const attempts = createAttemptStore(root); let creates = 0;
+  const client = { async get() { return { ticket: { ...state } }; }, async mutate(_id, patch) { state.revision += 1; state.headHash = `h${state.revision}`; state.status = { claim: 'claimed', start: 'in_progress', complete: 'completed' }[patch.action] || state.status; return { ticket: { ...state } }; }, async create() { creates += 1; throw new Error('receipt_transport_lost'); } };
+  const worker = createTicketWorker({ client, pool: { request: async () => ({ ok: true, execution: { cwd: process.cwd(), projectKey: 'project-b', runtimeGeneration: 'g', threadId: 't', turnId: 'u' } }) }, identity: { machineKey: 'machine-b', projectKey: 'project-b' }, lockRoot: root, attemptStore: attempts, log: () => {} });
+  await assert.rejects(() => worker.run({ ...state, subject: 'subject', body: 'body', correlationId: 'c' }), /receipt_transport_lost/); const recovered = attempts.recover(); assert.equal(creates, 1); assert.equal(recovered[0].outcome.state, 'succeeded'); assert.equal(recovered[0].outcome.outcome.ok, true);
+});
+
 test('log failure prevents claim and execution launch', async () => {
   const root = mkdtempSync(path.join(tmpdir(), 'ticket-worker-log-failure-')); const calls = []; const client = { async get() { calls.push('get'); return { ticket: { ticketId: 't-log', revision: 0, headHash: 'h0', status: 'pending', sender: { machineKey: 'machine-a', projectKey: 'project-a' } } }; }, async mutate() { calls.push('mutate'); } };
   const worker = createTicketWorker({ client, pool: { request: async () => { calls.push('pool'); } }, identity: { machineKey: 'machine-b', projectKey: 'project-b' }, lockRoot: root, log: () => { throw new Error('log_unavailable'); } });
