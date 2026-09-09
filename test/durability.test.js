@@ -31,4 +31,10 @@ test('project lease recovers only a lease whose owner is dead', () => {
   const stale = path.join(root, 'app.lease'); fs.writeFileSync(stale, JSON.stringify({ pid: 99 })); const recovered = acquireProjectLease(root, { projectKey: 'app', pid: 12, now: 23, isAlive: (pid) => pid !== 99 }); assert.equal(recovered.lease.pid, 12); recovered.release();
 });
 
+test('project lease does not recover a reused PID with a different process start', () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'lease-pid-reuse-')); const file = path.join(root, 'app.lease'); fs.writeFileSync(file, JSON.stringify({ schemaVersion: 1, projectKey: 'app', pid: 99, processStart: 23 }));
+  assert.throws(() => acquireProjectLease(root, { projectKey: 'app', pid: 12, now: 24, processStart: 23, isAlive: (pid, owner, expectedStart) => pid === 99 && owner.processStart === expectedStart }), /lease_busy/);
+  fs.writeFileSync(file, JSON.stringify({ schemaVersion: 1, projectKey: 'app', pid: 99, processStart: 10 })); const recovered = acquireProjectLease(root, { projectKey: 'app', pid: 12, now: 24, processStart: 23, isAlive: () => false }); assert.equal(recovered.lease.processStart, 23); recovered.release();
+});
+
 test('process supervisor only terminates owned children', () => { const killed = []; const supervisor = createProcessSupervisor({ kill: (pid) => killed.push(pid) }); supervisor.own(7, { attemptId: 'a' }); assert.throws(() => supervisor.terminate(8), /not_owned/); supervisor.terminate(7); assert.deepEqual(killed, [7]); });
