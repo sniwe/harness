@@ -124,3 +124,14 @@ test("coordination tolerates tunnel outage while peer relaunches", async () => {
   assert.equal(result.ok, true);
   assert.equal(result.peers[0].state, "converged");
 });
+
+test("commit coordination persistently polls until explicit cancellation", async () => {
+  const controller = new AbortController(); let polls = 0; const signals = [];
+  const client = {
+    status: async (_peer, options) => { signals.push(options.signal); polls += 1; return { result: { commit: { commit: "old" } } }; },
+    sync: async (_peer, _body, options) => { signals.push(options.signal); return { status: 202, result: { state: "relaunching" } }; },
+  };
+  const running = coordinatePeers({ client, peerKeys: ["peer"], localKey: "local", target: { runId: "run", commit: "target", branch: "main" }, pollMs: 0, sleep: async () => { if (polls >= 3) controller.abort(); }, signal: controller.signal });
+  await assert.rejects(running, /commit_coordination_cancelled/);
+  assert.ok(polls >= 3); assert.ok(signals.every((signal) => signal === controller.signal));
+});

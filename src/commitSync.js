@@ -36,26 +36,30 @@ export function createCommitSyncClient({ registryUrl, fetchImpl = fetch } = {}) 
   return { list, lookup, status: (peerKey, options) => post(peerKey, "/api/machine-base/commit-status", {}, options), sync: (peerKey, body, options) => post(peerKey, "/api/machine-base/commit-sync", body, options) };
 }
 
-export async function coordinatePeers({ client, peerKeys, localKey, target, pollMs = 2000, sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)) } = {}) {
+export async function coordinatePeers({ client, peerKeys, localKey, target, pollMs = 2000, sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)), signal } = {}) {
   const results = [];
   for (const peerKey of peerKeys) {
+    throwIfCancelled(signal);
     if (!peerKey || peerKey === localKey) continue;
     try {
-      let status = await client.status(peerKey);
+      let status = await client.status(peerKey, { signal });
       if (isMatch(status.result, target)) { results.push({ peerKey, state: "match", status: status.result }); continue; }
-      await client.sync(peerKey, { runId: target.runId, expectedCommit: target.commit, branch: target.branch });
+      await client.sync(peerKey, { runId: target.runId, expectedCommit: target.commit, branch: target.branch }, { signal });
       let lastError = null;
       while (true) {
+        throwIfCancelled(signal);
         await sleep(pollMs);
+        throwIfCancelled(signal);
         try {
-          status = await client.status(peerKey);
+          status = await client.status(peerKey, { signal });
           lastError = null;
           if (isMatch(status.result, target)) { results.push({ peerKey, state: "converged", status: status.result }); break; }
         } catch (error) { lastError = { error: error.message, status: error.status || 502 }; }
       }
-    } catch (error) { results.push({ peerKey, state: "error", error: error.message, status: error.status || 502 }); }
+    } catch (error) { if (signal?.aborted) throw new Error("commit_coordination_cancelled"); results.push({ peerKey, state: "error", error: error.message, status: error.status || 502 }); }
   }
   return { ok: results.every((item) => item.state === "match" || item.state === "converged"), target, peers: results };
 }
 
 function isMatch(status, target) { return status?.commit?.commit === target.commit && status?.commit?.branch === target.branch && status?.commit?.confirmed === true && status?.tunnel?.running === true && Boolean(status?.tunnel?.publishedUrl); }
+function throwIfCancelled(signal) { if (signal?.aborted) throw new Error("commit_coordination_cancelled"); }
