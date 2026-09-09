@@ -7,6 +7,7 @@ import { readRunManifest } from '../src/runManifest.js';
 import { createRunStore } from '../src/runStore.js';
 import { createWorkflow } from '../src/workflowEngine.js';
 import { createRunExecutor } from '../src/runExecutor.js';
+import { createAttemptStore } from '../src/attemptStore.js';
 
 test('run executor persists outcome before accepting a step and completes the graph', async () => {
   const manifest = readRunManifest('config/runs/audep-speed-local.json', { verifyInputs: false });
@@ -123,4 +124,21 @@ test('run executor retries recoverable failures within the manifest bound', asyn
   const executor = createRunExecutor({ workflow, manifest: recoveryManifest, runner: async () => { calls += 1; if (calls === 1) throw new Error('transient_verifier_failure'); return { runId: manifest.runId, stepId: 'A0', planDigest: manifest.planDigest, verdict: 'pass', outputTypes: ['acceptance'], artifactId: '2'.repeat(64), verifier: { profile: 'a0-observability', exitCode: 0 } }; } });
   const state = await executor.run();
   assert.equal(state.status, 'accepted'); assert.equal(calls, 2); assert.equal(executor.attempts.recover().length, 2);
+});
+
+test('run executor persists and resumes a durable command identity', async () => {
+  const manifest = readRunManifest('config/runs/audep-speed-local.json', { verifyInputs: false });
+  const recoveryManifest = { ...manifest, steps: [manifest.steps[0]] };
+  const store = createRunStore({ root: mkdtempSync(path.join(tmpdir(), 'run-executor-command-')), runId: manifest.runId, manifest: recoveryManifest });
+  const workflow = createWorkflow({ manifest: recoveryManifest, store }); const commandId = 'command-1';
+  const evidence = { runId: manifest.runId, stepId: 'A0', planDigest: manifest.planDigest, verdict: 'pass', outputTypes: ['acceptance'], artifactId: '9'.repeat(64), verifier: { profile: 'a0-observability', exitCode: 0 } };
+  const controller = { start: () => ({ commandId, state: 'running' }), inspect: () => ({ commandId, state: 'running' }), wait: async () => ({ commandId, state: 'succeeded', output: JSON.stringify(evidence) }) };
+  const executor = createRunExecutor({ workflow, manifest: recoveryManifest, durableCommandController: controller, resolveCommand: () => ({ command: process.execPath, args: [], cwd: process.cwd() }) });
+  const first = await executor.run(); assert.equal(first.status, 'accepted'); assert.equal(executor.attempts.recover()[0].input.commandId, commandId);
+
+  const secondRoot = mkdtempSync(path.join(tmpdir(), 'run-executor-command-recovery-')); const secondStore = createRunStore({ root: secondRoot, runId: manifest.runId, manifest: recoveryManifest });
+  const secondWorkflow = createWorkflow({ manifest: recoveryManifest, store: secondStore }); const started = secondWorkflow.begin('A0'); const secondAttempts = createAttemptStore(secondStore.dir);
+  secondAttempts.begin({ attemptId: started.steps.A0.attemptId, runId: manifest.runId, planDigest: manifest.planDigest, stepId: 'A0', operationId: 'operation-recovered', commandId });
+  const recoveredExecutor = createRunExecutor({ workflow: secondWorkflow, manifest: recoveryManifest, attemptStore: secondAttempts, durableCommandController: controller, resolveCommand: () => ({ command: process.execPath, args: [], cwd: process.cwd() }) });
+  const recovered = await recoveredExecutor.run(); assert.equal(recovered.status, 'accepted'); assert.equal(recovered.steps.A0.status, 'succeeded');
 });

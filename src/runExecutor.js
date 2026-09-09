@@ -15,11 +15,11 @@ function evidenceFromCommand(step, result) {
   return evidence;
 }
 
-export function createRunExecutor({ workflow, manifest, attemptStore, operationOutbox, commandRunner = runCommand, resolveCommand, runner, pollMs = 1000, heartbeatMs = 0, sleepImpl = sleep, skipConditional = [], autoRetry = true } = {}) {
+export function createRunExecutor({ workflow, manifest, attemptStore, operationOutbox, commandRunner = runCommand, durableCommandController, resolveCommand, runner, pollMs = 1000, heartbeatMs = 0, sleepImpl = sleep, skipConditional = [], autoRetry = true } = {}) {
   if (!workflow || !manifest || (!resolveCommand && !runner)) throw new Error('run_executor_invalid');
   const attempts = attemptStore || createAttemptStore(workflow.store.dir);
 
-  async function executeStep(step) {
+  async function executeStep(step, signal) {
     const declared = manifest.steps.find((item) => item.stepId === step.stepId);
     if (!declared) throw new Error(`step_not_declared:${step.stepId}`);
     const started = workflow.begin(step.stepId);
@@ -41,7 +41,7 @@ export function createRunExecutor({ workflow, manifest, attemptStore, operationO
       if (heartbeatMs > 0) heartbeatTimer = setInterval(() => { try { workflow.heartbeat(step.stepId, { attemptId: attempt.attemptId, operationId: attempt.operationId }); } catch { /* terminal state is durable */ } }, heartbeatMs);
       const raw = runner
         ? await runner({ manifest, step: declared, attempt })
-        : evidenceFromCommand(declared, await commandRunner({ ...resolveCommand({ manifest, step: declared, attempt }), step: declared }));
+        : evidenceFromCommand(declared, await runConfiguredCommand({ declared, attempt, signal }));
       const evidence = raw?.state ? evidenceFromCommand(declared, raw) : raw;
       const gate = evaluateEvidence({ evidence, step: declared, manifest });
       if (!gate.ok) throw new Error(`evidence_${gate.reason}`);
@@ -88,6 +88,23 @@ export function createRunExecutor({ workflow, manifest, attemptStore, operationO
         continue;
       }
       if (record.outcome) continue;
+      if (durableCommandController && record.input.commandId) {
+        const command = durableCommandController.inspect(record.input.commandId);
+        if (command.state === 'running') { recovered.push({ state: 'pending', stepId: record.input.stepId, attemptId: record.input.attemptId, commandId: record.input.commandId }); continue; }
+        if (command.state === 'succeeded') {
+          try {
+            const evidence = evidenceFromCommand(manifest.steps.find((item) => item.stepId === record.input.stepId), command);
+            const outcome = attempts.finish(record.input.attemptId, { state: 'succeeded', evidence, commandId: record.input.commandId });
+            workflow.store.append({ type: 'attempt_recovered', runId: manifest.runId, stepId: record.input.stepId, attemptId: record.input.attemptId, operationId: record.input.operationId, commandId: record.input.commandId, state: 'succeeded' });
+            workflow.accept(record.input.stepId, evidence); recovered.push(outcome); continue;
+          } catch (error) { /* invalid terminal output is handled as an explicit blocker below */ }
+        }
+        const outcome = attempts.finish(record.input.attemptId, { state: 'blocked', reason: command.state === 'failed' ? 'execution_failed' : 'unknown_after_crash', error: command.error || command.reason, commandId: record.input.commandId });
+        const refreshed = workflow.snapshot(); const reason = outcome.reason;
+        workflow.store.append({ type: 'step_blocked_after_recovery', runId: refreshed.runId, stepId: record.input.stepId, attemptId: record.input.attemptId, commandId: record.input.commandId, reason });
+        workflow.store.write({ ...refreshed, status: 'blocked', steps: { ...refreshed.steps, [record.input.stepId]: { ...refreshed.steps[record.input.stepId], status: 'blocked', blockReason: reason, blockAttemptId: record.input.attemptId } } });
+        recovered.push(outcome); continue;
+      }
       const outcome = attempts.finish(record.input.attemptId, { state: 'unknown', reason: 'unknown_after_crash' });
       try { operationOutbox?.result(record.input.operationId, { state: 'unknown', attemptId: record.input.attemptId, reason: 'unknown_after_crash' }); } catch { /* retain evidence if the outbox is unavailable */ }
       const refreshed = workflow.snapshot();
@@ -100,7 +117,17 @@ export function createRunExecutor({ workflow, manifest, attemptStore, operationO
   }
 
   async function run({ signal } = {}) {
-    recover();
+    const recovered = recover();
+    const pending = recovered.find((item) => item.state === 'pending');
+    if (pending) {
+      const command = await durableCommandController.wait(pending.commandId, { pollMs, signal });
+      const step = manifest.steps.find((item) => item.stepId === pending.stepId);
+      if (command.state === 'succeeded') {
+        const evidence = evidenceFromCommand(step, command); const outcome = attempts.finish(pending.attemptId, { state: 'succeeded', evidence, commandId: pending.commandId });
+        workflow.store.append({ type: 'attempt_recovered', runId: manifest.runId, stepId: pending.stepId, attemptId: pending.attemptId, state: 'succeeded', commandId: pending.commandId }); workflow.accept(pending.stepId, evidence); return run({ signal });
+      }
+      const state = workflow.snapshot(); attempts.finish(pending.attemptId, { state: 'blocked', reason: command.state === 'failed' ? 'execution_failed' : 'unknown_after_crash', error: command.error, commandId: pending.commandId }); workflow.store.write({ ...state, status: 'blocked', steps: { ...state.steps, [pending.stepId]: { ...state.steps[pending.stepId], status: 'blocked', blockReason: command.state === 'failed' ? 'execution_failed' : 'unknown_after_crash' } } }); return workflow.snapshot();
+    }
     while (true) {
       if (signal?.aborted) throw new Error('run_execution_cancelled');
       const state = workflow.snapshot();
@@ -113,7 +140,7 @@ export function createRunExecutor({ workflow, manifest, attemptStore, operationO
         continue;
       }
       if (step) {
-        await executeStep(step);
+        await executeStep(step, signal);
         const after = workflow.snapshot(); const failed = after.steps[step.stepId];
         if (autoRetry && failed?.status === 'blocked' && failed.blockReason === 'execution_failed' && (failed.correctiveAttempts || 0) < (manifest.limits?.maxCorrectiveAttemptsPerGate || 0)) workflow.retryStep(step.stepId, 'executor_corrective_attempt');
         continue;
@@ -123,4 +150,12 @@ export function createRunExecutor({ workflow, manifest, attemptStore, operationO
   }
 
   return { run, executeStep, recover, attempts };
+
+  async function runConfiguredCommand({ declared, attempt, signal }) {
+    const command = resolveCommand({ manifest, step: declared, attempt });
+    if (!durableCommandController) return commandRunner({ ...command, step: declared, signal });
+    const started = durableCommandController.start(command);
+    attempts.updateInput(attempt.attemptId, { commandId: started.commandId });
+    return durableCommandController.wait(started.commandId, { pollMs, signal });
+  }
 }
