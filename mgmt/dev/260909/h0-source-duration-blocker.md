@@ -13,3 +13,7 @@ Observed 2026-09-09 from the configured `audep-speed-260908` manifest:
 The app source hash and Qwen fixture source hash agree, but the duration authorities do not. The app implementation uses the MP3 container duration for its durable job, while the Qwen fixture endpoint is 47 ms longer. H0 therefore remains blocked rather than silently treating the values as interchangeable. A contract owner must either provide a canonical duration authority (and preserve both observed values) or regenerate the fixture/app evidence. No timeout relaxation or duration tolerance is authorized by this record.
 
 Other current preflight blockers are independently reported: the configured app endpoint returns HTTP 404 instead of the required capability response, and the manifest has no verified command map for the 17 phase steps. These are not resolved by this artifact.
+
+## Supersession
+
+This blocker is superseded by [987-duration-reconciliation.md](987-duration-reconciliation.md) and the 2026-09-09 normal-browser run. The corrected local fixture and app job now both use `644655 ms`; the prior `644702 ms` value is retained only as historical zero-tail-padded baseline metadata. Duration is no longer an active H0 blocker.
