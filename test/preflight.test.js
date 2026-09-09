@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { inspectProjectCheckout, inspectProjectInstructions, validateRuntimeContracts } from '../src/preflight.js';
+import { inspectProjectCheckout, inspectProjectInstructions, validateCheckoutContract, validateRuntimeContracts } from '../src/preflight.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { mkdtempSync } from 'node:fs';
@@ -21,6 +21,10 @@ test('preflight reports repository instruction provenance without requiring inve
 test('preflight reports complete checkout identity and dirty inventory', () => {
   const result = inspectProjectCheckout('C:\\project', { execFileSync: (_command, args) => { const key = args.slice(2).join(' '); if (key === 'rev-parse HEAD') return '0123456789abcdef0123456789abcdef01234567\n'; if (key === 'branch --show-current') return 'main\n'; if (key === 'remote get-url origin') return 'origin\n'; if (key === 'status --porcelain') return ' M source.js\n?? generated.log\n'; throw new Error(key); } });
   assert.equal(result.state, 'observed'); assert.deepEqual(result.checkout.dirtyInventory, ['M source.js', '?? generated.log']); assert.equal(result.checkout.worktreeClean, false);
+});
+
+test('preflight rejects checkout origin or branch drift', () => {
+  assert.deepEqual(validateCheckoutContract({ origin: 'https://github.com/example/app.git', branch: 'main' }, { checkout: { origin: 'https://github.com/example/other.git', branch: '' } }), [{ field: 'origin', expected: 'https://github.com/example/app.git', observed: 'https://github.com/example/other.git' }, { field: 'branch', expected: 'main', observed: null }]);
 });
 
 test('manifest command validation rejects unresolved or cross-project execution', () => {

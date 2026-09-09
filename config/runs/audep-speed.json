@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "runId": "audep-speed-260908",
-  "planDigest": "f98639d3e351c62ac0f5033a1fa57502d90d8f636de215390bc8489df4d36a61",
+  "planDigest": "039da763430eb887d071bf6080c557b30e1c1239078da4ebc354fc8fb0a09871",
   "controller": { "machineKey": "machine-base-73182d23f660c3880e7e" },
   "inputs": [
     { "role": "harness-plan", "path": "C:\\Users\\Admin\\Downloads\\Harness-Unattended-audEp-Implementation-Plan (1).md", "sha256": "5eef5bccad0710df77588cf1a4ee173df773217690ea12613382a20b1960547f" },
@@ -10,8 +10,8 @@
   ],
   "handoffMode": "verified-byte-transfer",
   "projects": {
-    "main-app": { "machineKey": "machine-base-caf45342b1d0acc9b938", "profile": "C:\\retry" },
-    "qwen-asr": { "machineKey": "machine-base-73182d23f660c3880e7e", "profile": "C:\\Users\\rhyse\\Qwen3-ASR" }
+    "main-app": { "machineKey": "machine-base-caf45342b1d0acc9b938", "profile": "C:\\retry", "origin": "https://github.com/sniwe/wordmap.git", "branch": "main" },
+    "qwen-asr": { "machineKey": "machine-base-73182d23f660c3880e7e", "profile": "C:\\Users\\rhyse\\Qwen3-ASR", "origin": "https://github.com/QwenLM/Qwen3-ASR.git", "branch": "main" }
   },
   "adapters": {
     "main-app": {
