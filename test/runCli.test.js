@@ -47,6 +47,12 @@ test('start can hand the initialized workflow to a persistent executor', async (
   assert.equal(result.state.status, 'accepted');
 });
 
+test('start execute uses the durable default command path and blocks undeclared work', async () => {
+  const store = createRunStore({ root: mkdtempSync(path.join(tmpdir(), 'run-start-default-execute-')), runId: 'audep-speed-local-260908' });
+  const result = await runCommand('start', 'config/runs/audep-speed-local.json', { store, execute: true, preflight: async () => ({ ok: true, state: 'ready' }) });
+  assert.equal(result.state.status, 'blocked'); assert.equal(result.state.steps.A0.blockReason, 'execution_failed'); assert.match(result.state.steps.A0.failure, /execution_command_missing:A0/);
+});
+
 test('rehearsal exports its report without changing the workflow contract', async () => {
   const manifestFile = 'config/runs/audep-speed-local.json'; const outFile = path.join(mkdtempSync(path.join(tmpdir(), 'rehearsal-report-')), 'run-report.md'); const store = createRunStore({ root: mkdtempSync(path.join(tmpdir(), 'rehearsal-export-')), runId: 'audep-speed-local-260908' });
   const result = await runCommand('rehearse', manifestFile, { store, outFile, fixture: true });
