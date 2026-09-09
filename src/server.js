@@ -67,7 +67,7 @@ const peerRequestClient = createPeerRequestClient({ registryUrl: `${relayBaseUrl
 const artifactStore = createArtifactStore(root);
 
 const pool = createWorkerPool({ env: { ...process.env, MACHINE_BASE_REPO_ROOT: repoRoot, MACHINE_BASE_RUNTIME_CWD: runtimeCwd }, workerEntry: path.resolve("mgmt/machine-base-worker/src/index.js"), cwd: path.resolve("mgmt/machine-base-worker") });
-const peerRequestHandler = createPeerRequestHandler({ pool, targetKey: machineKey, enabled: process.env.MACHINE_BASE_REMOTE_PROMPTS_ENABLED !== "0", maxInFlight: 1 });
+const peerRequestHandler = createPeerRequestHandler({ pool, targetKey: machineKey, enabled: process.env.MACHINE_BASE_REMOTE_PROMPTS_ENABLED !== "0", maxInFlight: 1, stateRoot: path.join(root, "peer-requests") });
 const artifactTransferHandler = createArtifactTransferHandler({ root: process.env.MACHINE_BASE_ARTIFACT_ROOT || path.join(root, "artifacts"), targetKey: machineKey, enabled: process.env.MACHINE_BASE_ARTIFACT_TRANSFER_ENABLED !== "0" });
 let port = configuredPort;
 let localUrl = "";

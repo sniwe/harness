@@ -1,4 +1,6 @@
 import crypto from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
 import { createPeerPing } from "./peerPing.js";
 import { requireWorkerSuccess } from "./workerResult.js";
 
@@ -66,20 +68,28 @@ async function fetchPeer(fetchImpl, url, init, signal) {
   }
 }
 
-export function createPeerRequestHandler({ pool, targetKey, enabled = true, maxInFlight = 1, maxPromptChars = MAX_PROMPT_CHARS, now = () => new Date().toISOString() } = {}) {
+export function createPeerRequestHandler({ pool, targetKey, enabled = true, maxInFlight = 1, maxPromptChars = MAX_PROMPT_CHARS, now = () => new Date().toISOString(), stateRoot } = {}) {
   const jobs = new Map();
+  if (stateRoot) fs.mkdirSync(stateRoot, { recursive: true });
+  const fileFor = (requestId) => stateRoot ? path.join(stateRoot, `${requestId}.json`) : null;
+  const persist = (job) => { const file = fileFor(job.body.requestId); if (!file) return; const temporary = `${file}.${process.pid}.tmp`; fs.writeFileSync(temporary, JSON.stringify(job.body) + "\n", "utf8"); fs.renameSync(temporary, file); };
+  const refresh = (requestId) => { const file = fileFor(requestId); if (!file || !fs.existsSync(file)) return jobs.get(requestId); try { const body = JSON.parse(fs.readFileSync(file, 'utf8')); if (body?.requestId) jobs.set(requestId, { body }); } catch { /* retain malformed evidence for forensic inspection */ } return jobs.get(requestId); };
+  if (stateRoot) for (const file of fs.readdirSync(stateRoot).filter((entry) => entry.endsWith('.json'))) { try { const body = JSON.parse(fs.readFileSync(path.join(stateRoot, file), 'utf8')); if (body?.requestId) jobs.set(body.requestId, { body }); } catch { /* retain malformed evidence for forensic inspection */ } }
   const activeCount = () => [...jobs.values()].filter((job) => ["accepted", "in_progress"].includes(job.body.state)).length;
-  const prune = () => { while (jobs.size > 256) { const first = jobs.entries().next().value; if (!first || ["accepted", "in_progress"].includes(first[1].body.state)) break; jobs.delete(first[0]); } };
+  const prune = () => { while (jobs.size > 256) { const first = jobs.entries().next().value; if (!first || ["accepted", "in_progress"].includes(first[1].body.state)) break; jobs.delete(first[0]); const file = fileFor(first[0]); if (file) try { fs.unlinkSync(file); } catch (error) { if (error.code !== 'ENOENT') throw error; } } };
   async function execute(job, request) {
     job.body.state = "in_progress";
     job.body.startedAt = now();
+    persist(job);
     try {
       const result = requireWorkerSuccess(await pool.request({ task: "remote-prompt", requestId: request.requestId, prompt: request.prompt }));
       const output = result?.result ?? result?.output ?? result;
       if (Buffer.byteLength(JSON.stringify(output), "utf8") > MAX_RESULT_BYTES) throw new Error("worker_result_too_large");
       job.body = { ...job.body, ok: true, state: "completed", workerSlot: result?.workerSlot || "unknown", completedAt: now(), result: output };
+      persist(job);
     } catch (error) {
       job.body = { ...job.body, ok: false, state: "worker_failed", completedAt: now(), error: error.message || "worker_failed" };
+      persist(job);
     } finally { prune(); }
   }
   return {
@@ -91,11 +101,11 @@ export function createPeerRequestHandler({ pool, targetKey, enabled = true, maxI
       let request;
       try { request = validateRemotePromptEnvelope(payload, { targetKey, maxPromptChars }); }
       catch (error) { return failure(error.status || 400, error.message, requestId, targetKey, "not_started", callerKey); }
-      const existing = jobs.get(request.requestId);
+      const existing = refresh(request.requestId);
       if (existing) return failure(409, existing.body.state === "completed" ? "request_already_completed" : "request_in_progress_or_duplicate", request.requestId, targetKey, existing.body.state, callerKey);
       if (activeCount() >= maxInFlight) return failure(429, "peer_worker_capacity_exhausted", request.requestId, targetKey, "not_started", callerKey);
       const job = { body: { ok: true, requestId: request.requestId, callerKey, targetKey, state: "accepted" } };
-      jobs.set(request.requestId, job);
+      jobs.set(request.requestId, job); persist(job);
       void execute(job, request);
       return { status: 202, body: job.body };
     },
@@ -103,7 +113,7 @@ export function createPeerRequestHandler({ pool, targetKey, enabled = true, maxI
       if (!enabled) return failure(403, "peer_route_disabled", requestId || "", targetKey, "not_started");
       if (typeof requestId !== "string" || !UUID.test(requestId)) return failure(400, "request_id_invalid", requestId || "", targetKey, "not_started");
       if (requestedTargetKey !== targetKey) return failure(400, "target_key_invalid", requestId, targetKey, "not_started");
-      const job = jobs.get(requestId);
+      const job = refresh(requestId);
       if (!job) return failure(404, "request_not_found", requestId, targetKey, "not_started");
       return { status: 200, body: job.body };
     },

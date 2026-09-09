@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
+import path from "node:path";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { createPeerRequestClient, createPeerRequestHandler, validateRemotePromptEnvelope } from "../src/peerRequest.js";
 
 const id = "11111111-1111-4111-8111-111111111111";
@@ -63,6 +66,13 @@ test("peer handler accepts asynchronously, reports status, and rejects replay", 
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(handler.status({ requestId: id, targetKey: "machine-base-peer" }).body.state, "completed");
   assert.equal((await handler.handle({ headers: {}, payload: { requestId: id, targetTunnelKey: "machine-base-peer", prompt: "READY" } })).body.error, "request_already_completed");
+});
+
+test("peer handler reconstructs accepted jobs and refreshes terminal state from disk", async () => {
+  const stateRoot = mkdtempSync(path.join(tmpdir(), 'peer-jobs-')); let release; const pool = { request: () => new Promise((resolve) => { release = resolve; }) };
+  const first = createPeerRequestHandler({ pool, targetKey: 'peer', stateRoot }); await first.handle({ headers: { 'x-machine-base-caller-key': 'local' }, payload: { requestId: id, targetTunnelKey: 'peer', prompt: 'PRIVATE' } });
+  const rebuilt = createPeerRequestHandler({ pool: { request: async () => ({ ok: true, result: 'unused' }) }, targetKey: 'peer', stateRoot }); assert.equal(rebuilt.status({ requestId: id, targetKey: 'peer' }).body.state, 'in_progress'); release({ ok: true, result: 'READY' }); await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(rebuilt.status({ requestId: id, targetKey: 'peer' }).body.state, 'completed'); assert.equal(JSON.stringify(rebuilt.status({ requestId: id, targetKey: 'peer' }).body).includes('PRIVATE'), false);
 });
 
 test("peer handler does not publish a failed worker envelope as completed", async () => {
