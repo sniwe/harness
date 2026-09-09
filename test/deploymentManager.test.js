@@ -39,7 +39,14 @@ test('deployment rollback executes once and persistently observes the restored g
 
 test('deployment rollback execution cancellation preserves the running execution record', async () => {
   const file = path.join(mkdtempSync(path.join(tmpdir(), 'deploy-cancel-')), 'deployment.json'); const manager = createDeploymentManager(file); const controller = new AbortController();
-  manager.stage({ runId: 'r', projectKey: 'main-app', previous: { commit: 'old' }, desired: { commit: 'new' }, configDigest: 'f'.repeat(64), rollbackCommand: ['restore', 'old'] }); manager.activate(); manager.rollback(); controller.abort();
-  await assert.rejects(() => manager.executeRollback({ execute: async () => {}, observe: async () => ({ state: 'starting' }), signal: controller.signal }), /deployment_rollback_cancelled/);
+  manager.stage({ runId: 'r', projectKey: 'main-app', previous: { commit: 'old' }, desired: { commit: 'new' }, configDigest: 'f'.repeat(64), rollbackCommand: ['restore', 'old'] }); manager.activate(); manager.rollback();
+  await assert.rejects(() => manager.executeRollback({ execute: async () => {}, observe: async () => { controller.abort(); return { state: 'starting' }; }, signal: controller.signal }), /deployment_rollback_cancelled/);
   assert.equal(manager.read().rollbackExecution.state, 'running');
+});
+
+test('deployment rollback does not execute a restore after pre-cancellation', async () => {
+  const file = path.join(mkdtempSync(path.join(tmpdir(), 'deploy-pre-cancel-')), 'deployment.json'); const manager = createDeploymentManager(file); const controller = new AbortController(); let executions = 0;
+  manager.stage({ runId: 'r', projectKey: 'main-app', previous: { commit: 'old' }, desired: { commit: 'new' }, configDigest: '1'.repeat(64), rollbackCommand: ['restore', 'old'] }); manager.activate(); manager.rollback(); controller.abort();
+  await assert.rejects(() => manager.executeRollback({ execute: async () => { executions += 1; }, observe: async () => ({ state: 'healthy', commit: 'old', runtimeGeneration: 'old:2' }), signal: controller.signal }), /deployment_rollback_cancelled/);
+  assert.equal(executions, 0); assert.equal(manager.read().rollbackExecution, undefined);
 });

@@ -14,6 +14,7 @@ export function createDeploymentManager(file) {
     if (typeof execute !== 'function' || typeof observe !== 'function') throw new Error('deployment_rollback_executor_invalid');
     let state = read();
     if (!state || state.state !== 'rollback_required' || !state.restore) throw new Error('deployment_rollback_not_required');
+    if (signal?.aborted) throw new Error('deployment_rollback_cancelled');
     if (state.rollbackExecution?.state === 'restored') return state;
     if (!state.rollbackExecution || state.rollbackExecution.state === 'failed') {
       state = write({ ...state, rollbackExecution: { state: 'running', command: state.rollbackCommand, startedAt: new Date().toISOString() } });
