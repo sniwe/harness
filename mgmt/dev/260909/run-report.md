@@ -36,6 +36,7 @@ The run state contains pass evidence for every phase, including benchmark output
 - Six observed-predicate restart tracers were not executed.
 - Staged deployment, independent supervisor restart, unhealthy-candidate rollback, and post-restart generation pinning were not proven. The post-run scoped app restart was rejected by local execution policy; the runtime therefore remains the pre-fix `380c622` generation.
 - The pushed app commit `584d980` was independently started and health-verified as an isolated candidate on port 3103 (`runtimeGeneration=584d980:2660`), then cleanly stopped. This proves candidate startup, not live replacement or rollback.
+- The same candidate completed a fresh exact-987 normal-browser run: `678269 ms`, audio/semantic `ready`, 52 tree nodes, observed rate `0.9504x` realtime. This is a second single-run observation, not the required three-warm-run cohort.
 - Bilateral Qwen final-acceptance event and exact benchmark result join were not independently recorded.
 - No three-warm-run baseline/candidate cohort or fixed steady-interval performance report exists.
 - Reboot-with-logon and boot-without-logon capabilities remain unverified and must remain distinct from process restart.
