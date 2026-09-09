@@ -1,11 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validateRuntimeContracts } from '../src/preflight.js';
+import { inspectProjectInstructions, validateRuntimeContracts } from '../src/preflight.js';
+import fs from 'node:fs';
+import path from 'node:path';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import crypto from 'node:crypto';
 import { validateManifestCommands } from '../src/manifestExecutor.js';
 
 test('preflight requires the exact advertised Qwen protocol plan', () => {
   const manifest = { protocolBaseline: '12.5s-primary-plus-5s-boundary-v1' }; const ready = { 'qwen-asr': { state: 'ready', body: { runtime: { audep_capabilities: { protocolVersion: 1, plans: [{ planVersion: manifest.protocolBaseline }] } } } } };
   assert.equal(validateRuntimeContracts(manifest, ready), true); assert.equal(validateRuntimeContracts(manifest, { 'qwen-asr': { ...ready['qwen-asr'], body: { runtime: { audep_capabilities: { protocolVersion: 1, plans: [{ planVersion: 'other' }] } } } } }), false); assert.equal(validateRuntimeContracts(manifest, {}), false);
+});
+
+test('preflight reports repository instruction provenance without requiring invented files', () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'preflight-instructions-')); fs.writeFileSync(path.join(root, 'AGENTS.md'), 'rules'); const digest = crypto.createHash('sha256').update('rules').digest('hex');
+  assert.deepEqual(inspectProjectInstructions(root), { root, files: [{ name: 'AGENTS.md', state: 'present', path: path.join(root, 'AGENTS.md'), sha256: digest }, { name: 'CONTEXT.md', state: 'not_present' }] });
 });
 
 test('manifest command validation rejects unresolved or cross-project execution', () => {
