@@ -79,7 +79,7 @@ test('benchmark join rejects mismatched job or runtime identity', () => {
 test('final acceptance requires throughput and durable evidence for all six restart tracers', () => {
   const base = { schemaVersion: 1, benchmarkId: 'b', runId: 'r', requestArtifactId: 'a'.repeat(64), source: { basename: '987.wav', durationMs: 1000 }, job: { remoteJobId: 'j' }, runtime: { appGeneration: 'a1', qwenGeneration: 'q1' }, verdict: 'pass', ...passEvidence };
   const incomplete = evaluateFinalAcceptance({ app: base, qwen: base, restarts: [] }); assert.equal(incomplete.verdict, 'blocked');
-  const restarts = REQUIRED_RESTARTS.map((name) => ({ name, verdict: 'pass', artifactId: 'd'.repeat(64), trigger: { predicate: `observed:${name}` }, before: { runtimeGeneration: 'before', jobId: 'j' }, after: { runtimeGeneration: 'after', jobId: 'j' } }));
+  const restarts = REQUIRED_RESTARTS.map((name) => ({ name, verdict: 'pass', artifactId: 'd'.repeat(64), trigger: { predicate: name }, before: { runtimeGeneration: 'before', jobId: 'j' }, after: { runtimeGeneration: 'after', jobId: 'j' } }));
   const complete = evaluateFinalAcceptance({ app: base, qwen: base, restarts }); assert.equal(complete.ok, true);
   assert.equal(evaluateFinalAcceptance({ app: { ...base, metrics: { committedRealtime: 0.49 } }, qwen: base, restarts }).verdict, 'failed');
   assert.equal(evaluateFinalAcceptance({ app: base, qwen: { ...base, metrics: { committedRealtime: 0.49 } }, restarts }).verdict, 'failed');
@@ -87,6 +87,7 @@ test('final acceptance requires throughput and durable evidence for all six rest
   assert.equal(evaluateFinalAcceptance({ app: base, qwen: base, restarts: restarts.map((item) => ({ ...item, after: { ...item.after, runtimeGeneration: item.before.runtimeGeneration } })) }).missing.length, 6);
   assert.equal(evaluateFinalAcceptance({ app: base, qwen: base, restarts: [...restarts, restarts[0]] }).reason, 'restart_matrix_invalid');
   assert.equal(evaluateFinalAcceptance({ app: base, qwen: base, restarts: [...restarts, { ...restarts[0], name: 'unknown-stage' }] }).reason, 'restart_matrix_invalid');
+  assert.equal(evaluateFinalAcceptance({ app: base, qwen: base, restarts: restarts.map((item, index) => index === 0 ? { ...item, trigger: { predicate: 'app-after-seal' } } : item) }).missing[0], 'app-during-upload');
 });
 
 test('final acceptance recorder persists a correlation event without raw payloads', () => {
