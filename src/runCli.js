@@ -43,6 +43,6 @@ export async function runCommand(commandName, manifestFile, { store, outFile, ac
 }
 
 if (fileURLToPath(import.meta.url) === process.argv[1]) {
-    try { const result = await runCommand(command, resolveManifestFile({ manifestFile: value('--manifest'), runId: value('--run') }), { outFile: value('--out') || undefined, execute: args.includes('--execute') }); console.log(JSON.stringify(result)); if (result.ok === false) process.exitCode = 2; }
+    try { const result = await runCommand(command, resolveManifestFile({ manifestFile: value('--manifest'), runId: value('--run') }), { outFile: value('--out') || undefined, acceptanceFile: value('--acceptance') || undefined, execute: args.includes('--execute') }); console.log(JSON.stringify(result)); if (result.ok === false) process.exitCode = 2; }
   catch (error) { console.log(JSON.stringify({ ok: false, error: error.message })); process.exitCode = 2; }
 }
