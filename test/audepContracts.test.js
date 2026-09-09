@@ -94,3 +94,8 @@ test('final acceptance recorder persists a correlation event without raw payload
   const events = []; const result = recordFinalAcceptance({ store: { append: (event) => events.push(event) }, app: { ...passEvidence, schemaVersion: 1, benchmarkId: 'b', runId: 'r', requestArtifactId: 'a'.repeat(64), job: { remoteJobId: 'j' }, runtime: { appGeneration: 'a1', qwenGeneration: 'q1' }, verdict: 'pass' }, qwen: { ...passEvidence, schemaVersion: 1, benchmarkId: 'b', runId: 'r', requestArtifactId: 'a'.repeat(64), job: { remoteJobId: 'j' }, runtime: { appGeneration: 'a1', qwenGeneration: 'q1' }, verdict: 'pass' }, restarts: [] });
   assert.equal(result.verdict, 'blocked'); assert.equal(events[0].type, 'final_acceptance_evaluated'); assert.equal(events[0].remoteJobId, 'j'); assert.equal('app' in events[0], false);
 });
+
+test('final acceptance retains malformed bilateral evidence as a structured blocker', () => {
+  const events = []; const result = recordFinalAcceptance({ store: { append: (event) => events.push(event) }, app: null, qwen: null });
+  assert.equal(result.ok, false); assert.equal(result.reason, 'benchmark_evidence_invalid'); assert.equal(events[0].type, 'final_acceptance_evaluated'); assert.equal(events[0].verdict, 'blocked');
+});
