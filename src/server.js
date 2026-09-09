@@ -23,6 +23,7 @@ import { createOperationOutbox } from "./operationOutbox.js";
 import { createArtifactTransferHandler } from "./artifactTransfer.js";
 import { transferArtifactRemote } from "./artifactTransfer.js";
 import { createArtifactStore } from "./artifactStore.js";
+import { createDeploymentManager } from "./deploymentManager.js";
 
 const root = path.resolve(process.env.MACHINE_BASE_DATA_ROOT || "data/machine-base");
 const repoRoot = path.resolve(process.env.MACHINE_BASE_REPO_ROOT || process.cwd());
@@ -65,6 +66,7 @@ const commitSync = createCommitSyncClient({ registryUrl: `${relayBaseUrl}/_funct
 const machineKey = process.env.TUNNEL_KEY || identity.tunnelKey;
 const peerRequestClient = createPeerRequestClient({ registryUrl: `${relayBaseUrl}/_functions/tunnels`, localKey: machineKey, callerKey: machineKey });
 const artifactStore = createArtifactStore(root);
+const deployment = createDeploymentManager(path.join(root, "deployment.json"));
 
 const pool = createWorkerPool({ env: { ...process.env, MACHINE_BASE_REPO_ROOT: repoRoot, MACHINE_BASE_RUNTIME_CWD: runtimeCwd, MACHINE_BASE_PROJECT_KEY: process.env.TICKETS_PROJECT_KEY || "", MACHINE_BASE_RUNTIME_GENERATION: `${launch.commit}:${launch.generation}` }, workerEntry: path.resolve("mgmt/machine-base-worker/src/index.js"), cwd: path.resolve("mgmt/machine-base-worker") });
 const peerRequestHandler = createPeerRequestHandler({ pool, targetKey: machineKey, enabled: process.env.MACHINE_BASE_REMOTE_PROMPTS_ENABLED !== "0", maxInFlight: 1, stateRoot: path.join(root, "peer-requests"), projectRoot: runtimeCwd, projectKey: process.env.TICKETS_PROJECT_KEY || "" });
@@ -123,7 +125,7 @@ server = http.createServer(async (request, response) => {
   try {
     const pathname = new URL(request.url, "http://127.0.0.1").pathname;
     if (request.method === "GET" && pathname === "/health") return json(response, 200, { ok: true, pid: process.pid, runId: launch.runId, commit: launch.commit, branch: launch.branch, runtimeGeneration: `${launch.commit}:${launch.generation}`, tunnel: tunnel?.state || null });
-    if (request.method === "GET" && pathname === "/status") return json(response, 200, { ok: true, setup, identity: { source: identity.source, machineBaseId: identity.machineBaseId, tunnelKey: machineKey }, launch, startupState, localCommitConfirmation, coordination, peerRequest: peerRequestHandler.state, artifactTransfer: artifactTransferHandler.state, ticket: ticketRuntime ? { enabled: true, machineKey: ticketRuntime.identity.machineKey, projectKey: ticketRuntime.identity.projectKey, logRoot: ticketRuntime.identity.logRoot } : { enabled: false }, tunnel: tunnel?.state || null, workers: pool.slots.map(({ child, reader, stdout, ...slot }) => slot) });
+    if (request.method === "GET" && pathname === "/status") return json(response, 200, { ok: true, setup, identity: { source: identity.source, machineBaseId: identity.machineBaseId, tunnelKey: machineKey }, launch, startupState, localCommitConfirmation, deployment: deployment.read(), coordination, peerRequest: peerRequestHandler.state, artifactTransfer: artifactTransferHandler.state, ticket: ticketRuntime ? { enabled: true, machineKey: ticketRuntime.identity.machineKey, projectKey: ticketRuntime.identity.projectKey, logRoot: ticketRuntime.identity.logRoot } : { enabled: false }, tunnel: tunnel?.state || null, workers: pool.slots.map(({ child, reader, stdout, ...slot }) => slot) });
     if (request.method === "GET" && pathname === "/setup/status") return json(response, 200, setup);
     if (request.method === "GET" && pathname === "/api/machine-base/ping") return json(response, 200, { ok: true, tunnelKey: process.env.TUNNEL_KEY || identity.tunnelKey, serverRole: "machine-base", time: new Date().toISOString() });
     if (request.method === "POST" && pathname === "/api/machine-base/peer-ping") return json(response, 200, await peerPing.ping(JSON.parse(await readBody(request)).tunnelKey));
@@ -142,6 +144,8 @@ server = http.createServer(async (request, response) => {
       if (payload.expectedCommit === launch.commit) return json(response, 200, { ok: true, state: "already_current", ...(await commitStatus()) });
       syncInProgress = true;
       try {
+        deployment.stage({ runId: payload.runId, projectKey: "harness", previous: { commit: launch.commit, branch }, desired: { commit: payload.expectedCommit, branch }, configDigest: crypto.createHash("sha256").update(JSON.stringify({ commit: payload.expectedCommit, branch })).digest("hex"), rollbackCommand: ["git", "restore", "previous-scoped-generation"] });
+        deployment.activate();
         const updated = syncCheckout({ repoRoot, expectedCommit: payload.expectedCommit, branch });
         const confirmation = await pool.request({ task: "check-project-commit" });
         if (confirmation.commit !== updated.commit || confirmation.commit !== payload.expectedCommit || confirmation.confirmed !== true) throw new Error("post_pull_commit_denied");
@@ -197,6 +201,8 @@ async function start() {
   startupState = "workers_ready";
   localCommitConfirmation = await pool.request({ task: "check-project-commit" });
   if (localCommitConfirmation.commit !== launch.commit || localCommitConfirmation.branch !== launch.branch || localCommitConfirmation.confirmed !== true) throw new Error("local_commit_confirmation_failed");
+  const pendingDeployment = deployment.read();
+  if (pendingDeployment?.state === "active" && pendingDeployment.desired.commit === launch.commit) deployment.markHealthy({ runtimeGeneration: `${launch.commit}:${launch.generation}`, commit: launch.commit });
   startupState = "local_commit_confirmed";
   await new Promise((resolve, reject) => {
     server.once("error", reject);
