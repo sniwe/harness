@@ -7,6 +7,7 @@ import { resolveAppBenchmarkAdapter } from './appAdapter.js';
 import { resolveQwenBenchmarkAdapter } from './qwenAdapter.js';
 import { probeRuntime, waitForRuntime } from './runtimeProbe.js';
 import { validateManifestCommands } from './manifestExecutor.js';
+import { readCheckout } from './commit.js';
 
 export function inspectProjectInstructions(projectRoot) {
   const files = ['AGENTS.md', 'CONTEXT.md'].map((name) => {
@@ -15,6 +16,11 @@ export function inspectProjectInstructions(projectRoot) {
     return { name, state: 'present', path: file, sha256: requireHash(file) };
   });
   return { root: projectRoot, files };
+}
+
+export function inspectProjectCheckout(projectRoot, options = {}) {
+  try { return { state: 'observed', checkout: readCheckout({ repoRoot: projectRoot, ...options }) }; }
+  catch (error) { return { state: 'blocked', error: error.message }; }
 }
 
 function requireHash(file) {
@@ -34,11 +40,11 @@ export async function preflightManifest(file, { projectConfig = path.resolve('co
       if (value.profile !== project.root && value.root !== project.root) throw new Error(`project_root_mismatch:${projectKey}`);
       return { projectKey, root: project.root, exists: fs.existsSync(project.root) };
     });
-    const missing = projects.filter((project) => !project.exists); const instructions = Object.fromEntries(projects.map((project) => [project.projectKey, inspectProjectInstructions(project.root)])); const adapters = {};
+    const missing = projects.filter((project) => !project.exists); const instructions = Object.fromEntries(projects.map((project) => [project.projectKey, inspectProjectInstructions(project.root)])); const checkouts = Object.fromEntries(projects.map((project) => [project.projectKey, inspectProjectCheckout(project.root)])); const adapters = {};
     for (const [key, resolver] of [['main-app', resolveAppBenchmarkAdapter], ['qwen-asr', resolveQwenBenchmarkAdapter]]) { try { adapters[key] = resolver({ projectRoot: manifest.projects[key]?.profile, ...manifest.adapters?.[key] }); } catch (error) { adapters[key] = { state: 'blocked', error: error.message }; } }
     const runtimes = {}; for (const [key, runtime] of Object.entries(manifest.runtimes || {})) runtimes[key] = waitForReady ? await waitForRuntime(runtime, { signal, pollMs, ...(sleep ? { sleep } : {}) }) : await probeRuntime(runtime);
     const adapterMissing = Object.values(adapters).filter((adapter) => adapter.state === 'blocked'); const runtimeMissing = Object.values(runtimes).filter((runtime) => runtime.state === 'blocked'); const contractReady = validateRuntimeContracts(manifest, runtimes);
     const commands = validateManifestCommands(manifest);
-    return { ok: missing.length === 0 && adapterMissing.length === 0 && runtimeMissing.length === 0 && contractReady && commands.ok, state: missing.length || adapterMissing.length || runtimeMissing.length || !contractReady || !commands.ok ? 'blocked' : 'ready', manifest: { runId: manifest.runId, planDigest: manifest.planDigest }, projects, missing, instructions, adapters, runtimes, contractReady, commands };
+    const checkoutMissing = Object.values(checkouts).filter((checkout) => checkout.state === 'blocked'); return { ok: missing.length === 0 && checkoutMissing.length === 0 && adapterMissing.length === 0 && runtimeMissing.length === 0 && contractReady && commands.ok, state: missing.length || checkoutMissing.length || adapterMissing.length || runtimeMissing.length || !contractReady || !commands.ok ? 'blocked' : 'ready', manifest: { runId: manifest.runId, planDigest: manifest.planDigest }, projects, missing, instructions, checkouts, adapters, runtimes, contractReady, commands };
   } catch (error) { return { ok: false, state: 'blocked', error: error.message }; }
 }

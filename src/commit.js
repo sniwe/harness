@@ -10,7 +10,7 @@ export function readCheckout({ repoRoot, execFileSync = defaultExecFileSync } = 
   const origin = git(["remote", "get-url", "origin"]);
   const dirty = git(["status", "--porcelain"]);
   if (!HASH.test(commit) || !BRANCH.test(branch) || branch.includes("..") || !origin) throw new Error("checkout_identity_invalid");
-  return { repoRoot, commit, branch, origin, worktreeClean: !dirty };
+  return { repoRoot, commit, branch, origin, worktreeClean: !dirty, dirtyInventory: dirty ? dirty.split(/\r?\n/).filter(Boolean) : [] };
 }
 
 function fullHash(value) { return HASH.test(String(value || "").trim().toLowerCase()) ? String(value).trim().toLowerCase() : ""; }

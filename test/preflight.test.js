@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { inspectProjectInstructions, validateRuntimeContracts } from '../src/preflight.js';
+import { inspectProjectCheckout, inspectProjectInstructions, validateRuntimeContracts } from '../src/preflight.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { mkdtempSync } from 'node:fs';
@@ -16,6 +16,11 @@ test('preflight requires the exact advertised Qwen protocol plan', () => {
 test('preflight reports repository instruction provenance without requiring invented files', () => {
   const root = mkdtempSync(path.join(tmpdir(), 'preflight-instructions-')); fs.writeFileSync(path.join(root, 'AGENTS.md'), 'rules'); const digest = crypto.createHash('sha256').update('rules').digest('hex');
   assert.deepEqual(inspectProjectInstructions(root), { root, files: [{ name: 'AGENTS.md', state: 'present', path: path.join(root, 'AGENTS.md'), sha256: digest }, { name: 'CONTEXT.md', state: 'not_present' }] });
+});
+
+test('preflight reports complete checkout identity and dirty inventory', () => {
+  const result = inspectProjectCheckout('C:\\project', { execFileSync: (_command, args) => { const key = args.slice(2).join(' '); if (key === 'rev-parse HEAD') return '0123456789abcdef0123456789abcdef01234567\n'; if (key === 'branch --show-current') return 'main\n'; if (key === 'remote get-url origin') return 'origin\n'; if (key === 'status --porcelain') return ' M source.js\n?? generated.log\n'; throw new Error(key); } });
+  assert.equal(result.state, 'observed'); assert.deepEqual(result.checkout.dirtyInventory, [' M source.js', '?? generated.log']); assert.equal(result.checkout.worktreeClean, false);
 });
 
 test('manifest command validation rejects unresolved or cross-project execution', () => {
