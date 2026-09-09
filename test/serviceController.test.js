@@ -15,3 +15,10 @@ test('service controller restarts only after its owned child exits', async () =>
   const root = mkdtempSync(path.join(tmpdir(), 'service-restart-')); let alive = true; let nextPid = 41; const controller = createServiceController({ file: path.join(root, 'service.json'), spawnImpl: () => ({ pid: ++nextPid, unref() {} }), probe: () => alive });
   controller.start({ serviceId: 'bench', command: 'node', cwd: root }); const restarting = controller.restart({ pollMs: 1 }); await new Promise((resolve) => setTimeout(resolve, 5)); assert.equal(controller.inspect().state, 'stopping'); alive = false; const started = await restarting; assert.equal(started.state, 'running'); assert.equal(started.pid, 43);
 });
+
+test('service controller fences a reused PID by process start', () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'service-pid-reuse-')); let starts = 0; const controller = createServiceController({ file: path.join(root, 'service.json'), now: () => ++starts, spawnImpl: () => ({ pid: 41, unref() {} }), probe: (pid, owner, expectedStart) => pid === 41 && owner.processStart === expectedStart });
+  const first = controller.start({ serviceId: 'bench', command: 'node', cwd: root }); assert.equal(first.processStart, 1);
+  assert.equal(controller.inspect().state, 'running'); const second = createServiceController({ file: path.join(root, 'service.json'), now: () => 2, spawnImpl: () => ({ pid: 42, unref() {} }), probe: () => false });
+  assert.equal(second.start({ serviceId: 'bench', command: 'node', cwd: root }).processStart, 2);
+});
