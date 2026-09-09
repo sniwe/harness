@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "runId": "audep-speed-260908",
-  "planDigest": "039da763430eb887d071bf6080c557b30e1c1239078da4ebc354fc8fb0a09871",
+  "planDigest": "4dea78dec992a3606af454932291f6e87b8cdd5aa247638fd6219b2205a9a467",
   "controller": { "machineKey": "machine-base-73182d23f660c3880e7e" },
   "inputs": [
     { "role": "harness-plan", "path": "C:\\Users\\Admin\\Downloads\\Harness-Unattended-audEp-Implementation-Plan (1).md", "sha256": "5eef5bccad0710df77588cf1a4ee173df773217690ea12613382a20b1960547f" },
@@ -10,13 +10,13 @@
   ],
   "handoffMode": "verified-byte-transfer",
   "projects": {
-    "main-app": { "machineKey": "machine-base-caf45342b1d0acc9b938", "profile": "C:\\retry", "origin": "https://github.com/sniwe/wordmap.git", "branch": "main" },
+    "main-app": { "machineKey": "machine-base-caf45342b1d0acc9b938", "profile": "C:\\retry-harness-run", "origin": "https://github.com/sniwe/wordmap.git", "branch": "main" },
     "qwen-asr": { "machineKey": "machine-base-73182d23f660c3880e7e", "profile": "C:\\Users\\rhyse\\Qwen3-ASR", "origin": "https://github.com/QwenLM/Qwen3-ASR.git", "branch": "main" }
   },
   "adapters": {
     "main-app": {
       "verifier": "mgmt\\dev\\260906\\verify-upload-987-browser.mjs",
-      "source": "C:\\retry\\src\\backend\\data\\media\\1788683394546-ebc52030-3330-4ddb-92dc-b95d9c76a26d-987-mtmo3aqe-c4b8b6ddfda248.mp3",
+      "source": "C:\\retry-harness-run\\src\\backend\\data\\media\\1788683394546-ebc52030-3330-4ddb-92dc-b95d9c76a26d-987-mtmo3aqe-c4b8b6ddfda248.mp3",
       "sourceAudioRevision": "sha256:a1e71260a1c05ac574f02e9cc1a00eba6da332ed1dd430225796c6ce7bc816d4",
       "durationMs": 644702
     },
