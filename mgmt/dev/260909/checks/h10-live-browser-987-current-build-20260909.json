@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "observedAt": null,
+  "run": {
+    "verifier": "C:\\retry-harness-run\\mgmt\\dev\\260906\\verify-upload-987-browser.mjs",
+    "appUrl": "http://127.0.0.1:3103",
+    "appRuntimeGeneration": "ffc043170dfdbb7a4cbc0585e40960b3ac2577dc:33932",
+    "sourceBasename": "1788683394546-ebc52030-3330-4ddb-92dc-b95d9c76a26d-987-mtmo3aqe-c4b8b6ddfda248.mp3",
+    "sourceAudioRevision": "sha256:a1e71260a1c05ac574f02e9cc1a00eba6da332ed1dd430225796c6ce7bc816d4",
+    "durationMs": 644655,
+    "normalBrowser": true,
+    "browserUploadTriggered": true,
+    "itemId": "7b1e14e8-79ba-4b49-9e16-2c4dc905138a",
+    "status": "ready",
+    "semanticTree": true,
+    "treeNodes": 52,
+    "elapsedMs": 864419,
+    "marks": [
+      { "elapsedMs": 2561, "audioTranscriptStatus": "processing", "semanticTranscriptStatus": "processing", "hasSemTree": false },
+      { "elapsedMs": 648310, "audioTranscriptStatus": "partial", "semanticTranscriptStatus": "partial", "hasSemTree": true },
+      { "elapsedMs": 864419, "audioTranscriptStatus": "ready", "semanticTranscriptStatus": "ready", "hasSemTree": true }
+    ]
+  },
+  "verdict": "current_build_browser_success_not_final_acceptance",
+  "limitations": [
+    "The app candidate was isolated on port 3103; the peer's port 3102 runtime remains stale.",
+    "This verifier does not emit the bilateral benchmark schema.",
+    "Qwen join, warm cohorts, six restart tracers, and rollback remain unproven."
+  ]
+}
