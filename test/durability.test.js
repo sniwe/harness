@@ -37,4 +37,9 @@ test('project lease does not recover a reused PID with a different process start
   fs.writeFileSync(file, JSON.stringify({ schemaVersion: 1, projectKey: 'app', pid: 99, processStart: 10 })); const recovered = acquireProjectLease(root, { projectKey: 'app', pid: 12, now: 24, processStart: 23, isAlive: () => false }); assert.equal(recovered.lease.processStart, 23); recovered.release();
 });
 
+test('project lease renews only its current owner', () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'lease-renew-')); const lease = acquireProjectLease(root, { projectKey: 'app', pid: 11, now: 22, processStart: 7 });
+  assert.equal(lease.renew(33).renewedAt, new Date(33).toISOString()); assert.equal(JSON.parse(fs.readFileSync(lease.file, 'utf8')).processStart, 7); lease.release();
+});
+
 test('process supervisor only terminates owned children', () => { const killed = []; const supervisor = createProcessSupervisor({ kill: (pid) => killed.push(pid) }); supervisor.own(7, { attemptId: 'a' }); assert.throws(() => supervisor.terminate(8), /not_owned/); supervisor.terminate(7); assert.deepEqual(killed, [7]); });
