@@ -30,3 +30,9 @@ test('restart matrix runs all six observed predicates with persistent polling', 
   });
   assert.deepEqual(evidence.map((item) => item.name), [...RESTART_TRACERS]); assert.ok(evidence.every((item) => item.verdict === 'pass')); assert.ok([...counts.values()].every((count) => count >= 3));
 });
+
+test('restart matrix resumes validated completed tracers without replaying them', async () => {
+  const completed = { name: 'app-during-upload', verdict: 'pass', artifactId: 'a'.repeat(64), trigger: { predicate: 'app-during-upload' }, before: { runtimeGeneration: 'g1', jobId: 'job-1' }, after: { runtimeGeneration: 'g2', jobId: 'job-1' } };
+  const restarted = []; const generations = new Set(); const evidence = await runRestartMatrix({ priorEvidence: [completed], observe: async (name) => ({ observedPredicate: name, runtimeGeneration: generations.has(name) ? 'after' : 'before', jobId: `job-${name}` }), restart: async (name) => { restarted.push(name); generations.add(name); }, ready: async (name, state) => state.runtimeGeneration === 'after', sleep: async () => {} });
+  assert.equal(evidence[0], completed); assert.equal(restarted.includes('app-during-upload'), false); assert.equal(restarted.length, 5);
+});
