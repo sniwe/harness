@@ -6,7 +6,10 @@ const value = (name) => { const index = process.argv.indexOf(name); return index
 const stepId = value('--step');
 const runId = value('--run-id');
 const requestedPlanDigest = value('--plan-digest');
-const manifest = JSON.parse(fs.readFileSync('C:\\harness\\config\\runs\\audep-speed.json', 'utf8'));
+const manifestDirectory = 'C:\\harness\\config\\runs';
+const manifestFile = value('--manifest') || fs.readdirSync(manifestDirectory).map((file) => `${manifestDirectory}\\${file}`).find((file) => { try { return JSON.parse(fs.readFileSync(file, 'utf8')).runId === runId; } catch { return false; } });
+if (!manifestFile) { console.error(`phase_command_manifest_not_found:${runId}`); process.exitCode = 2; }
+const manifest = manifestFile ? JSON.parse(fs.readFileSync(manifestFile, 'utf8')) : {};
 const planDigest = manifest.planDigest;
 const verifierProfile = value('--verifier-profile');
 const appRoot = manifest.projects?.['main-app']?.profile || 'C:\\retry-harness-run';
