@@ -16,6 +16,7 @@ export function createWorkerPool({ workerEntry = path.resolve("mgmt/machine-base
     slot.ready = new Promise((resolve, reject) => { slot.resolveReady = resolve; slot.rejectReady = reject; });
     slot.child = childProcess.spawn(process.execPath, [workerEntry], { cwd, env: { ...env, CODEX_WORKER_STREAMED: "1", CODEX_WORKER_SLOT: slot.id }, stdio: ["pipe", "pipe", "pipe"], windowsHide: true });
     slot.reader = readline.createInterface({ input: slot.child.stderr });
+    slot.child.stdin.on("error", (error) => failSlot(slot, error));
     slot.reader.on("line", (line) => { logger.info?.(`[worker:${slot.id}] ${line}`); if (line.includes("[machine-base-worker] ready")) { slot.state = "ready"; slot.resolveReady(); } });
     const stdout = readline.createInterface({ input: slot.child.stdout });
     slot.stdout = stdout;
