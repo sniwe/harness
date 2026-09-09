@@ -50,7 +50,9 @@ The scoped service controller now records `unknown/process_ownership_lost` when 
 
 The deployment manager now has a durable `executeRollback` path: it executes the persisted scoped restore command once, persistently observes the previous healthy generation, and preserves an explicit running/cancelled state. Focused deployment verification is 6/6; the latest complete harness suite is 158 passed, 1 skipped, 0 failed.
 
-The restart matrix now has a durable coordinator: it records each restart intent before the side effect, records full completion evidence afterward, resumes validated completed tracers, and blocks unresolved post-crash intents instead of replaying them. Rehearsal now accepts that coordinator and carries its six-tracer output into the report/final-acceptance path. The latest complete harness suite is 168 passed, 1 skipped, 0 failed.
+The restart matrix now has a durable coordinator: it records each restart intent before the side effect, records full completion evidence afterward, resumes validated completed tracers, and blocks unresolved post-crash intents instead of replaying them. Rehearsal now accepts that coordinator and carries its six-tracer output into the report/final-acceptance path. The latest complete harness suite is 169 passed, 1 skipped, 0 failed.
+
+Final acceptance now requires independently evaluated app and Qwen warm cohorts, each with at least three pinned comparable runs and minimum committed throughput of `0.50x`; a single successful benchmark cannot satisfy the final gate.
 
 Current validation: `node src/runCli.js validate --manifest config/runs/audep-speed-260909-r3.json` passed; the durable r3 state is terminal with all 17 scheduled steps accepted. The source scan found no action-timeout configuration; hard-timeout keys remain explicitly rejected at manifest validation.
 
