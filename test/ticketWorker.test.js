@@ -46,5 +46,9 @@ test('retired execution is not replayed', async () => {
 test('recovery fences incomplete attempts after restart', async () => {
   const root = mkdtempSync(path.join(tmpdir(), 'ticket-worker-recovery-')); const attempt = { input: { attemptId: 'attempt-1', ticketId: 't-recover' }, outcome: null }; const patches = []; const state = { ticketId: 't-recover', revision: 4, headHash: 'h4', status: 'in_progress' };
   const worker = createTicketWorker({ client: { get: async () => ({ ticket: { ...state } }), mutate: async (_id, patch) => { patches.push(patch); state.status = 'blocked'; return { ticket: { ...state } }; } }, pool: { request: async () => ({ ok: true }) }, identity: { machineKey: 'machine-b', projectKey: 'project-b' }, lockRoot: root, attemptStore: { recover: () => [attempt], finish: (id, outcome) => { attempt.outcome = { attemptId: id, ...outcome }; } }, operationOutbox: createOperationOutbox(root), log: () => {} });
-  assert.deepEqual(await worker.recover(), [{ ticketId: 't-recover', attemptId: 'attempt-1', state: 'unknown_after_crash' }]); assert.equal(patches[0].action, 'block'); assert.equal(patches[0].data.reason, 'unknown_after_crash'); assert.equal(attempt.outcome.state, 'unknown_after_crash');
+  assert.deepEqual(await worker.recover(), [{ ticketId: 't-recover', attemptId: 'attempt-1', state: 'unknown_after_crash' }]); assert.equal(patches[0].action, 'block'); assert.equal(patches[0].data.reason, 'unknown_after_crash'); assert.equal(attempt.outcome.state, 'unknown_after_crash'); assert.equal(workerOutboxPending(root), 0);
 });
+
+function workerOutboxPending(root) {
+  return createOperationOutbox(root).pending().length;
+}

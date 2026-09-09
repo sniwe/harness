@@ -18,7 +18,9 @@ export function createTicketWorker({ client, pool, identity, log, lockRoot, jour
         if (['claimed', 'in_progress'].includes(current.status)) {
           const operationId = `recover-block:${ticketId}:${record.input.attemptId}`;
           const patch = { operationId, expectedRevision: current.revision, previousHash: current.headHash, actor: identity, action: 'block', data: { reason: 'unknown_after_crash', attemptId: record.input.attemptId } };
-          operationOutbox?.intent(operationId, { ticketId, action: 'block', expectedRevision: current.revision }); await client.mutate(ticketId, patch);
+          operationOutbox?.intent(operationId, { ticketId, action: 'block', expectedRevision: current.revision });
+          const result = await client.mutate(ticketId, patch);
+          operationOutbox?.result(operationId, { revision: result.ticket?.revision, status: result.ticket?.status, recovered: true });
         }
         attemptStore.finish(record.input.attemptId, { state: 'unknown_after_crash', error: 'unknown_after_crash' }); log({ event: 'execution_recovered_unknown', ticketId, attemptId: record.input.attemptId }); recovered.push({ ticketId, attemptId: record.input.attemptId, state: 'unknown_after_crash' });
       } catch (error) { log({ event: 'execution_recovery_failed', ticketId, attemptId: record.input.attemptId, error: error.message }); recovered.push({ ticketId, attemptId: record.input.attemptId, state: 'recovery_failed', error: error.message }); }
