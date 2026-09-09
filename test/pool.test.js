@@ -10,7 +10,7 @@ test("active and standby workers become ready and answer JSONL", async () => {
   await pool.start();
   assert.deepEqual(pool.slots.map((slot) => slot.state), ["ready", "ready"]);
   assert.deepEqual(await pool.request({ task: "ping" }), { ok: true, task: "ping", machineBase: true });
-  assert.deepEqual(await pool.request({ task: "remote-prompt", requestId: "id", prompt: "anything" }), { ok: true, task: "remote-prompt", requestId: "id", result: "READY" });
+  const result = await pool.request({ task: "remote-prompt", requestId: "id", prompt: "anything" }); assert.equal(result.ok, true); assert.equal(result.status, "succeeded"); assert.equal(result.result, "READY"); assert.equal(result.execution.cwd, process.env.MACHINE_BASE_RUNTIME_CWD || path.resolve("mgmt/machine-base-worker"));
   pool.stop();
 });
 

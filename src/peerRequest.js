@@ -68,7 +68,7 @@ async function fetchPeer(fetchImpl, url, init, signal) {
   }
 }
 
-export function createPeerRequestHandler({ pool, targetKey, enabled = true, maxInFlight = 1, maxPromptChars = MAX_PROMPT_CHARS, now = () => new Date().toISOString(), stateRoot } = {}) {
+export function createPeerRequestHandler({ pool, targetKey, enabled = true, maxInFlight = 1, maxPromptChars = MAX_PROMPT_CHARS, now = () => new Date().toISOString(), stateRoot, projectRoot, projectKey } = {}) {
   const jobs = new Map();
   if (stateRoot) fs.mkdirSync(stateRoot, { recursive: true });
   const fileFor = (requestId) => stateRoot ? path.join(stateRoot, `${requestId}.json`) : null;
@@ -82,7 +82,7 @@ export function createPeerRequestHandler({ pool, targetKey, enabled = true, maxI
     job.body.startedAt = now();
     persist(job);
     try {
-      const result = requireWorkerSuccess(await pool.request({ task: "remote-prompt", requestId: request.requestId, prompt: request.prompt }));
+      const result = requireWorkerSuccess(await pool.request({ task: "remote-prompt", requestId: request.requestId, prompt: request.prompt }), { expectedCwd: projectRoot, expectedProjectKey: projectKey });
       const output = result?.result ?? result?.output ?? result;
       if (Buffer.byteLength(JSON.stringify(output), "utf8") > MAX_RESULT_BYTES) throw new Error("worker_result_too_large");
       job.body = { ...job.body, ok: true, state: "completed", workerSlot: result?.workerSlot || "unknown", completedAt: now(), result: output };

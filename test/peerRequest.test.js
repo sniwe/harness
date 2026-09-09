@@ -82,6 +82,13 @@ test("peer handler does not publish a failed worker envelope as completed", asyn
   const status = handler.status({ requestId: id2, targetKey: "peer" }).body; assert.equal(status.state, "worker_failed"); assert.equal(status.ok, false); assert.equal(status.error, "turn_failed");
 });
 
+test("peer handler blocks a successful worker from the wrong project", async () => {
+  const handler = createPeerRequestHandler({ pool: { request: async () => ({ ok: true, execution: { cwd: "C:\\other", projectKey: "qwen", runtimeGeneration: "g", threadId: "t", turnId: "u" } }) }, targetKey: "peer", projectRoot: "C:\\app", projectKey: "main-app" });
+  await handler.handle({ headers: { "x-machine-base-caller-key": "local" }, payload: { requestId: id2, targetTunnelKey: "peer", prompt: "READY" } });
+  await new Promise((resolve) => setImmediate(resolve));
+  const status = handler.status({ requestId: id2, targetKey: "peer" }).body; assert.equal(status.state, "worker_failed"); assert.equal(status.error, "worker_execution_cwd_mismatch");
+});
+
 test("peer handler enforces in-flight capacity and never exposes prompt in state", async () => {
   let release;
   const pool = { request: () => new Promise((resolve) => { release = resolve; }) };

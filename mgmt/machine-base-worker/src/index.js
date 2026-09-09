@@ -68,10 +68,10 @@ async function handle(payload) {
   await ensureCodex();
   if (payload.task === "remote-prompt") {
     if (typeof payload.prompt !== "string" || !payload.prompt.trim()) throw new Error("prompt_invalid");
-    if (fake) return { ok: true, task: "remote-prompt", requestId: payload.requestId, result: "READY" };
+    if (fake) return { ok: true, task: "remote-prompt", requestId: payload.requestId, status: "succeeded", execution: executionIdentity(), result: "READY" };
     const result = await turn(payload.prompt); const nested = result?.turn || result; const error = result?.error || nested?.error; const status = result?.status || nested?.status;
     if (error || ["failed", "cancelled", "error"].includes(status)) return { ok: false, task: "remote-prompt", requestId: payload.requestId, status: status || "failed", error: error || "worker_turn_failed", execution: { cwd: process.env.MACHINE_BASE_RUNTIME_CWD || process.cwd(), threadId, turnId } };
-    return { ok: true, task: "remote-prompt", requestId: payload.requestId, status: "succeeded", execution: { cwd: process.env.MACHINE_BASE_RUNTIME_CWD || process.cwd(), threadId, turnId }, result };
+    return { ok: true, task: "remote-prompt", requestId: payload.requestId, status: "succeeded", execution: executionIdentity(), result };
   }
   if (payload.task === "check-project-commit") {
     if (!fake) await turn("Inspect the current project checkout with git and confirm its exact full commit hash, branch, and whether the worktree is clean. Return only the requested commit confirmation.");
@@ -82,6 +82,10 @@ async function handle(payload) {
     return { task: "check-project-commit", commit, branch, confirmed: /^[0-9a-f]{40}$/.test(commit) && Boolean(branch) };
   }
   return fake ? { ok: true, task: payload.task || "ping", machineBase: true } : turn(JSON.stringify(payload));
+}
+
+function executionIdentity() {
+  return { cwd: process.env.MACHINE_BASE_RUNTIME_CWD || process.cwd(), projectKey: process.env.MACHINE_BASE_PROJECT_KEY || "", runtimeGeneration: process.env.MACHINE_BASE_RUNTIME_GENERATION || "unknown", threadId: threadId || "fake-thread", turnId: turnId || "fake-turn" };
 }
 
 async function main() {
