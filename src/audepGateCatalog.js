@@ -3,3 +3,10 @@ export const AUDEP_GATES = Object.freeze({
 });
 
 export function gateFor(stepId) { const gate = AUDEP_GATES[stepId]; if (!gate) throw new Error(`audep_gate_unknown:${stepId}`); return gate; }
+
+export function validateGateEvidence({ step, evidence } = {}) {
+  const gateId = gateFor(step?.stepId);
+  if (evidence?.gateId && evidence.gateId !== gateId) return { ok: false, reason: 'evidence_gate_mismatch' };
+  if (evidence?.verifier?.profile !== step.verifierProfile) return { ok: false, reason: 'evidence_verifier_profile_mismatch', gateId };
+  return { ok: true, gateId };
+}

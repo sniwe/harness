@@ -7,6 +7,7 @@ import { evaluateFinalAcceptance, recordFinalAcceptance, REQUIRED_RESTARTS } fro
 import { validateHandoff } from '../src/handoffSchemas.js';
 import { createBenchmarkCoordinator } from '../src/benchmarkCoordinator.js';
 import { createRunStore } from '../src/runStore.js';
+import { evaluateEvidence } from '../src/gateEvaluator.js';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -18,6 +19,13 @@ test('AudEp filename aliases are exact and canonicalized', () => {
   assert.equal(isExactArtifactMatch('main-app-speed-a5-adaptive-boundary-v2-acceptance.md', 'main-app-speed-a6-adaptive-boundary-v2-acceptance.md'), true);
   assert.equal(isExactArtifactMatch('bad-a5-adaptive-boundary-v2-acceptance.md', 'main-app-speed-a6-adaptive-boundary-v2-acceptance.md'), false);
   assert.equal(adaptAudepSteps([{ stepId: 'A6' }])[0].gateId, 'a6-adaptive-v2-acceptance');
+});
+
+test('recognized audEp gates reject evidence from the wrong verifier profile', () => {
+  const manifest = { protocolBaseline: '12.5s-primary-plus-5s-boundary-v1', runId: 'r', planDigest: 'a'.repeat(64) };
+  const step = { stepId: 'A1', verifierProfile: 'a1-byte-hash', requiredOutputTypes: ['acceptance'] };
+  const evidence = { runId: 'r', stepId: 'A1', planDigest: manifest.planDigest, verdict: 'pass', outputTypes: ['acceptance'], artifactId: 'a'.repeat(64), verifier: { profile: 'generic-pass' } };
+  assert.deepEqual(evaluateEvidence({ manifest, step, evidence }), { ok: false, reason: 'evidence_verifier_profile_mismatch', gateId: 'a1-byte-hash-equivalence' });
 });
 
 test('handoff filenames cannot escape the receiving directory', () => {
