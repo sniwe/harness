@@ -12,7 +12,7 @@ test('service controller persists owned process identity and marks missing child
 });
 
 test('service controller restarts only after its owned child exits', async () => {
-  const root = mkdtempSync(path.join(tmpdir(), 'service-restart-')); let alive = true; let nextPid = 41; const controller = createServiceController({ file: path.join(root, 'service.json'), spawnImpl: () => ({ pid: ++nextPid, unref() {} }), probe: () => alive });
+  const root = mkdtempSync(path.join(tmpdir(), 'service-restart-')); let alive = true; let nextPid = 41; const owned = new Set(); const controller = createServiceController({ file: path.join(root, 'service.json'), spawnImpl: () => ({ pid: ++nextPid, unref() {} }), probe: () => alive, supervisor: { own: (pid) => owned.add(pid), list: () => [...owned].map((pid) => ({ pid })), terminate: (pid) => owned.delete(pid) || (() => { throw new Error('process_not_owned'); })() } });
   controller.start({ serviceId: 'bench', command: 'node', cwd: root }); const restarting = controller.restart({ pollMs: 1 }); await new Promise((resolve) => setTimeout(resolve, 5)); assert.equal(controller.inspect().state, 'stopping'); alive = false; const started = await restarting; assert.equal(started.state, 'running'); assert.equal(started.pid, 43);
 });
 
@@ -26,4 +26,13 @@ test('service controller fences a reused PID by process start', () => {
 test('service controller terminates only its supervised child tree', () => {
   const root = mkdtempSync(path.join(tmpdir(), 'service-supervisor-')); const terminated = []; const owned = new Map(); const supervisor = { own: (pid, metadata) => { owned.set(pid, { pid, ...metadata }); }, list: () => [...owned.values()], terminate: (pid) => { if (!owned.has(pid)) throw new Error('process_not_owned'); terminated.push(pid); owned.delete(pid); } }; let alive = true;
   const controller = createServiceController({ file: path.join(root, 'service.json'), supervisor, spawnImpl: () => ({ pid: 51, unref() {} }), probe: () => alive }); controller.start({ serviceId: 'bench', command: 'node', cwd: root }); controller.stop(); assert.deepEqual(terminated, [51]); alive = false; assert.equal(controller.inspect().state, 'stopped');
+});
+
+test('service controller records ownership loss instead of claiming a stop', () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'service-ownership-loss-')); let alive = true;
+  const controller = createServiceController({ file: path.join(root, 'service.json'), spawnImpl: () => ({ pid: 61, unref() {} }), probe: () => alive, supervisor: { own() {}, list: () => [], terminate: () => { throw new Error('process_not_owned'); } } });
+  controller.start({ serviceId: 'bench', command: 'node', cwd: root });
+  const stopped = controller.stop();
+  assert.equal(stopped.state, 'unknown');
+  assert.equal(stopped.reason, 'process_ownership_lost');
 });
