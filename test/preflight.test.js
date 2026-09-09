@@ -20,7 +20,7 @@ test('preflight reports repository instruction provenance without requiring inve
 
 test('preflight reports complete checkout identity and dirty inventory', () => {
   const result = inspectProjectCheckout('C:\\project', { execFileSync: (_command, args) => { const key = args.slice(2).join(' '); if (key === 'rev-parse HEAD') return '0123456789abcdef0123456789abcdef01234567\n'; if (key === 'branch --show-current') return 'main\n'; if (key === 'remote get-url origin') return 'origin\n'; if (key === 'status --porcelain') return ' M source.js\n?? generated.log\n'; throw new Error(key); } });
-  assert.equal(result.state, 'observed'); assert.deepEqual(result.checkout.dirtyInventory, ['M source.js', '?? generated.log']); assert.equal(result.checkout.worktreeClean, false);
+  assert.equal(result.state, 'observed'); assert.deepEqual(result.checkout.dirtyInventory, [' M source.js', '?? generated.log']); assert.equal(result.checkout.worktreeClean, false);
 });
 
 test('preflight rejects checkout origin or branch drift', () => {

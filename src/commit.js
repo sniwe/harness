@@ -14,7 +14,7 @@ export function inspectCheckout({ repoRoot, execFileSync = defaultExecFileSync }
   const commit = git(["rev-parse", "HEAD"]).toLowerCase();
   const branch = git(["branch", "--show-current"]);
   const origin = git(["remote", "get-url", "origin"]);
-  const dirty = git(["status", "--porcelain"]);
+  const dirty = execFileSync("git", ["-C", repoRoot, "status", "--porcelain"], { encoding: "utf8" }).replace(/\r?\n$/, "");
   return { repoRoot, commit, branch, origin, worktreeClean: !dirty, dirtyInventory: dirty ? dirty.split(/\r?\n/).filter(Boolean) : [], identityValid: HASH.test(commit) && BRANCH.test(branch) && !branch.includes("..") && Boolean(origin) };
 }
 

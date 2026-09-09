@@ -24,7 +24,7 @@ test("checkout snapshot is deterministic and target validation is strict", () =>
 
 test("raw checkout inspection preserves detached identity evidence", () => {
   const checkout = inspectCheckout({ repoRoot: "C:\\retry", execFileSync: (_command, args) => { const key = args.slice(2).join(" "); if (key === "rev-parse HEAD") return `${A}\n`; if (key === "branch --show-current") return "\n"; if (key === "remote get-url origin") return "https://github.com/example/app.git\n"; if (key === "status --porcelain") return " M source.js\n"; throw new Error(key); } });
-  assert.equal(checkout.identityValid, false); assert.equal(checkout.commit, A); assert.equal(checkout.branch, ""); assert.deepEqual(checkout.dirtyInventory, ["M source.js"]);
+  assert.equal(checkout.identityValid, false); assert.equal(checkout.commit, A); assert.equal(checkout.branch, ""); assert.deepEqual(checkout.dirtyInventory, [" M source.js"]);
 });
 
 function fakeGit({ localCommit, remoteCommit, advertisedCommit = remoteCommit, branch = "main", dirty = "", origin = "https://github.com/sniwe/harness.git" }) {
