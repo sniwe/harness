@@ -20,7 +20,7 @@ export function evaluateFinalAcceptance({ app, qwen, restarts = [], warmCohort, 
   const cohorts = warmCohort || {};
   const invalidCohort = ['app', 'qwen'].find((name) => !isValidWarmCohort(cohorts[name], minimumRealtime));
   if (invalidCohort) return { ok: false, verdict: 'blocked', reason: 'warm_cohort_missing_or_failed', project: invalidCohort, joined };
-  return { ok: true, verdict: 'pass', joined, restartCount: REQUIRED_RESTARTS.length, minimumRealtime };
+  return { ok: true, verdict: 'pass', joined, warmCohort, restartCount: REQUIRED_RESTARTS.length, minimumRealtime };
 }
 
 function isValidWarmCohort(cohort, minimumRealtime) {

@@ -42,3 +42,8 @@ test('rehearsal wires durable restart-coordinator evidence into its result', asy
   const result = await runRehearsal({ manifest, store: createRunStore({ root: mkdtempSync(path.join(tmpdir(), 'rehearsal-restarts-')), runId: manifest.runId }), restartCoordinator: { run: async () => restarts } });
   assert.deepEqual(result.restarts, restarts); assert.match(renderRunReport({ manifest, result }), /app-during-upload: pass/);
 });
+
+test('run report renders accepted warm-cohort summaries', () => {
+  const manifest = { planDigest: 'a'.repeat(64), projects: {}, runtimes: {} }; const result = { runId: 'r', ok: true, state: { status: 'accepted', steps: {}, evidence: {} }, finalAcceptance: { ok: true, warmCohort: { app: { observedRuns: 3, medianRealtime: 0.7, range: { minimum: 0.6, maximum: 0.8 } } } }, trace: [] };
+  assert.match(renderRunReport({ manifest, result }), /app warm cohort: 3 runs; median `0.7x`; range `0.6–0.8x`/);
+});
